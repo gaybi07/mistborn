@@ -1,0 +1,17 @@
+﻿# Godot: caché e importaciones (cada compu la regenera al abrir el proyecto)
+.godot/
+*.tmp
+# Exportaciones del juego
+/build/
+/export/
+*.exe
+*.pck
+# Videos de prueba (pesados; compartir por Drive si hace falta)
+/videos/
+# Blender guarda copias de respaldo
+*.blend1
+*.blend2
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
