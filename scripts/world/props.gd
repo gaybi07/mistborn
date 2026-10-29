@@ -377,6 +377,9 @@ static func coin() -> Coin:
 	body.continuous_cd = true
 	body.collision_layer = LAYER_PROPS
 	body.collision_mask = LAYER_WORLD | LAYER_PROPS | LAYER_PLAYER
+	# Una moneda real no rueda para siempre: el amortiguado la frena (sobre todo el giro) y se detiene.
+	body.linear_damp = 0.4
+	body.angular_damp = 10.0
 	var pm := PhysicsMaterial.new()
 	pm.friction = 1.0
 	pm.bounce = 0.1

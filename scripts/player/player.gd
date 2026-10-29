@@ -106,13 +106,12 @@ var net_peer_id := 0
 ## Replicado por el servidor para animar el cuerpo en los clientes (que no simulan).
 var net_on_floor := false
 ## Metales de red (ver NET_METALS) replicados por el servidor: estado (0 apagado / 1 quemando / 2 avivando)
-## y reserva de cada uno, y el arrastre de peltre. net_grips: a qué ancla empuja y tira (NO_GRIP si a ninguna).
+## y reserva de cada uno, y el arrastre de peltre. net_grips: id del objetivo al que empuja y de cuál tira (0 si a ninguno; ver NetArena.target_id).
 const NET_METALS: Array[StringName] = [&"steel", &"iron", &"pewter"]
-const NO_GRIP := SteelIron.NO_TARGET
 var net_metal_states := PackedInt32Array([0, 0, 0])
 var net_metal_reserves := PackedFloat32Array([100.0, 100.0, 100.0])
 var net_pewter_drag := 0.0
-var net_grips := PackedVector3Array([NO_GRIP, NO_GRIP])
+var net_grips := PackedInt32Array([0, 0])
 ## Teclas que el servidor sabe de un jugador remoto: movimiento, acciones sostenidas y pulsaciones nuevas.
 const NET_ACTIONS: Array[StringName] = [&"jump", &"move_forward", &"move_back", &"roll"]
 ## Sin recibir entrada durante este tiempo (ms) el servidor suelta las teclas del jugador remoto.
@@ -138,6 +137,19 @@ var net_hits := 0:
 ## Solo servidor: quién dio el último golpe (para contar la baja) y cuándo puede volver a pegar.
 var net_last_attacker := 0
 var _net_attack_ready_ms := 0
+## Solo servidor: separación mínima entre dos monedas de un mismo jugador, para que no inunde la arena.
+const COIN_COOLDOWN_MS := 150
+var _net_coin_ready_ms := 0
+## Lanzar monedas: mantener la tecla carga la fuerza hasta el tope (COIN_CHARGE_MS); con menos de
+## COIN_DROP_POWER la moneda solo cae a tus pies. A mano llega a COIN_HAND_SPEED; el acero suma COIN_STEEL_SPEED.
+const COIN_CHARGE_MS := 900
+const COIN_DROP_POWER := 0.12
+const COIN_HAND_SPEED := 13.0
+const COIN_STEEL_SPEED := 14.0
+## Fuerza acumulada (0 a 1) mientras se mantiene la tecla, para el medidor del HUD.
+var coin_charge := 0.0
+var _coin_charge_start_ms := 0  # 0 = no se está cargando
+var _net_charge_ms := 0  # servidor: cuándo empezó a cargar este jugador
 ## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
 var _seen_health := 100.0
 var _seen_dead := false
@@ -351,7 +363,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"stop_burning"):
 		allomancy.stop_all()
 	elif event.is_action_pressed(&"throw_coin"):
-		throw_coin()
+		_begin_coin_charge()
+	elif event.is_action_released(&"throw_coin"):
+		var power := _end_coin_charge()
+		if power >= 0.0:
+			throw_coin(Vector3.INF, power)
 	elif event.is_action_pressed(&"drop_coin"):
 		_start_coin_push()
 	elif event.is_action_released(&"drop_coin"):
@@ -440,6 +456,24 @@ func _networked_input(event: InputEvent) -> void:
 		_net_click(event)
 	elif event.is_action_pressed(&"anchor"):
 		steel_iron.net_anchor_request()
+	elif event.is_action_pressed(&"throw_coin"):
+		_begin_coin_charge()  # el medidor es local; la fuerza real la mide el servidor
+		if multiplayer.is_server():
+			_net_charge_ms = Time.get_ticks_msec()
+		else:
+			_net_coin_charge.rpc_id(1)
+	elif event.is_action_released(&"throw_coin"):
+		if _end_coin_charge() >= 0.0:
+			if multiplayer.is_server():
+				_net_throw_coin(aim_point())
+			else:
+				_net_throw.rpc_id(1, aim_point())
+	elif event.is_action_pressed(&"drop_coin") or event.is_action_released(&"drop_coin"):
+		var held := event.is_action_pressed(&"drop_coin")
+		if multiplayer.is_server():
+			_net_coin_push_key(held)
+		else:
+			_net_coin_push.rpc_id(1, held)
 	elif event.is_action_pressed(&"attack"):
 		if multiplayer.is_server():
 			server_attack()
@@ -457,10 +491,10 @@ func _net_click(event: InputEvent) -> void:
 		var mine := event.is_action(&"push" if is_push else &"pull")
 		if not allomancy.is_burning(metal) or not (mine or not allomancy.is_burning(other)):
 			continue
-		var pos := SteelIron.NO_TARGET
+		var id := 0
 		if pressed and steel_iron.target != null:
-			pos = steel_iron.center_of(steel_iron.target)
-		steel_iron.net_request(is_push, pressed, pos)
+			id = get_parent().target_id(steel_iron.target)
+		steel_iron.net_request(is_push, pressed, id)
 
 
 func _is_net_client() -> bool:
@@ -620,6 +654,48 @@ func _refill_net_metals() -> void:
 	steel_iron.net_release_all()
 	_pewter_drag = 0.0
 	_was_flaring_pewter = false
+
+
+## Servidor: lanza una moneda hacia el punto que mandó el cliente (como mucho una cada COIN_COOLDOWN_MS).
+func _net_throw_coin(aim: Vector3) -> void:
+	var now := Time.get_ticks_msec()
+	if dead or now < _net_coin_ready_ms or not aim.is_finite() or aim.length() > 5000.0:
+		return
+	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
+	# La fuerza es el tiempo que el servidor vio la tecla mantenida (sin carga conocida: un toque).
+	var power := 0.0 if _net_charge_ms == 0 else _coin_power_since(_net_charge_ms)
+	_net_charge_ms = 0
+	throw_coin(aim, power)
+
+
+## Servidor: G mantenida (suelta una moneda a los pies y la empuja sola) o soltada.
+func _net_coin_push_key(held: bool) -> void:
+	if not held:
+		_end_coin_push()
+		return
+	var now := Time.get_ticks_msec()
+	if dead or now < _net_coin_ready_ms or steel_iron.auto_push != null:
+		return
+	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
+	_start_coin_push()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_coin_charge() -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id and not dead:
+		_net_charge_ms = Time.get_ticks_msec()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_throw(aim: Vector3) -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		_net_throw_coin(aim)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_coin_push(held: bool) -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		_net_coin_push_key(held)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -983,7 +1059,7 @@ func _physics_process(delta: float) -> void:
 	var exclude: Array[RID] = [get_rid()]
 	if guide_on:
 		exclude.append((steel_iron.auto_push as CollisionObject3D).get_rid())
-	_guide.show_path(guide_on, global_position + Vector3(0, 0.1, 0), velocity, exclude)
+	_guide.show_path(guide_on and is_local_player(), global_position + Vector3(0, 0.1, 0), velocity, exclude)
 	_update_rig(hv, rd)
 
 	var target_fov := base_fov + 5.0 * pewter + 12.0 * atium.intensity
@@ -1124,6 +1200,7 @@ func _update_rig(hv: Vector2, rd: float) -> void:
 
 func _process(delta: float) -> void:
 	var rd := real_delta(delta)
+	coin_charge = _coin_power_since(_coin_charge_start_ms) if _coin_charge_start_ms != 0 and not dead else 0.0
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():
@@ -1355,6 +1432,9 @@ func _die() -> void:
 	health = 0.0
 	dead = true
 	allomancy.stop_all()
+	_coin_charge_start_ms = 0
+	_net_charge_ms = 0
+	coin_charge = 0.0
 	died.emit()
 	get_tree().create_timer(2.5, true, false, true).timeout.connect(func() -> void:
 		respawn()
@@ -1528,15 +1608,20 @@ func aim_point(max_dist := 150.0) -> Vector3:
 	return hit["position"] if hit else to
 
 
-## Lanza una moneda hacia la mira. Corriendo con acero o hierro encendido sale recta hacia donde
-## vas (sin apuntar); con acero, además, va empujada y más rápida.
-func throw_coin() -> void:
+## Lanza una moneda hacia la mira con `power` (0 a 1: lo que cargaste la tecla). Un toque (poca fuerza) la
+## suelta a tus pies; a plena fuerza llega lejos. Corriendo con acero o hierro encendido sale recta hacia
+## donde vas (sin apuntar); con acero, además, va empujada y más rápida (como una bala).
+func throw_coin(aim_target := Vector3.INF, power := 1.0) -> void:
 	if not _check_coins():
 		return
+	if power < COIN_DROP_POWER:
+		var dropped := drop_coin()
+		if dropped != null:
+			dropped.linear_velocity = Vector3(velocity.x, 0.0, velocity.z) * 0.5
+		return
 	var start := chest_position() + visual.global_basis.x * 0.3
-	var dir := (aim_point() - start).normalized()
-	# Con acero sale empujada: 32 m/s quemando, 46 avivando.
-	var speed := 18.0 + 14.0 * allomancy.strength(&"steel")
+	var dir := ((aim_target if aim_target.is_finite() else aim_point()) - start).normalized()
+	var speed := power * (COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel"))
 	var run := Vector3(velocity.x, 0, velocity.z)
 	if run.length() > 1.5 and (allomancy.is_burning(&"steel") or allomancy.is_burning(&"iron")):
 		dir = (run.normalized() + Vector3.UP * 0.05).normalized()
@@ -1544,6 +1629,26 @@ func throw_coin() -> void:
 	coin.linear_velocity = velocity + dir * speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_throw()
+
+
+## Empieza a cargar el lanzamiento (tecla de moneda pulsada).
+func _begin_coin_charge() -> void:
+	if not dead:
+		_coin_charge_start_ms = Time.get_ticks_msec()
+
+
+## Termina la carga (tecla soltada). Devuelve la fuerza (0 a 1), o -1 si no estabas cargando.
+func _end_coin_charge() -> float:
+	if _coin_charge_start_ms == 0:
+		return -1.0
+	var power := _coin_power_since(_coin_charge_start_ms)
+	_coin_charge_start_ms = 0
+	coin_charge = 0.0
+	return power
+
+
+func _coin_power_since(start_ms: int) -> float:
+	return clampf(float(Time.get_ticks_msec() - start_ms) / COIN_CHARGE_MS, 0.0, 1.0)
 
 
 ## Suelta una moneda a los pies (null si no llevas la bolsa).
@@ -1563,6 +1668,12 @@ func _check_coins() -> bool:
 
 
 func _spawn_coin(pos: Vector3) -> RigidBody3D:
+	if net_peer_id != 0:
+		# En red solo el servidor crea monedas (NetArena las numera, limita y manda a los clientes).
+		var net_coin: Coin = get_parent().server_spawn_coin(pos)
+		net_coin.shooter = self
+		net_coin.add_collision_exception_with(self)
+		return net_coin
 	var coins := get_tree().get_nodes_in_group(&"coin")
 	if coins.size() >= max_coins_in_world:
 		coins[0].queue_free()

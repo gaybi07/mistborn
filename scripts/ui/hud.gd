@@ -66,6 +66,10 @@ func _ready() -> void:
 	cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(cross)
 
+	var charge := CoinCharge.new()
+	charge.player = player
+	add_child(charge)
+
 	# Zona de selección de acero/hierro alrededor de la mira
 	var ring_style := StyleBoxFlat.new()
 	ring_style.draw_center = false

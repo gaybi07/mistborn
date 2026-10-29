@@ -90,10 +90,14 @@ func _build_arena() -> void:
 		add_child(Props.static_box(Vector3(5, p.y * 2, 5), Vector3(p.x, p.y, p.z), m["stone"]))
 	for i in 6:
 		var s := randf_range(0.6, 1.1)
-		add_child(Props.metal_crate(Vector3.ONE * s, Vector3(randf_range(-15, 15), s, randf_range(-15, 15)), 60.0 * s * s * s, m["rusty"], m["iron"]))
+		# Se marcan: el duelo en red los quita (cada proceso los coloca al azar; ver NetArena).
+		var crate := Props.metal_crate(Vector3.ONE * s, Vector3(randf_range(-15, 15), s, randf_range(-15, 15)), 60.0 * s * s * s, m["rusty"], m["iron"])
+		crate.set_meta(&"ground", true)
+		add_child(crate)
 	for i in 40:
 		var coin := Props.coin()
 		coin.position = Vector3(randf_range(-19, 19), 0.2, randf_range(-19, 19))
+		coin.set_meta(&"ground", true)
 		add_child(coin)
 	for p in [Vector3(-19, 0, -19), Vector3(19, 0, -19), Vector3(-19, 0, 19), Vector3(19, 0, 19)]:
 		var b := Brazier.new()

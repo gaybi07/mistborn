@@ -36,13 +36,11 @@ class Grip:
 @export var bolt_amplitude := 0.05  ## cuánto serpentean los rayos (fracción de su longitud)
 
 ## Red (ver Player._setup_network): el servidor decide y aplica la fuerza; cada cliente solo pide
-## agarrar o soltar el ancla que tiene en la mira y dibuja las líneas. Solo valen anclas fijas
-## (StaticBody3D del grupo "metal"): monedas, cajas y jugadores llegan en etapas posteriores.
+## agarrar o soltar el objetivo (ancla fija o moneda) que tiene en la mira y dibuja las líneas.
+## Cada objetivo tiene un id (ver NetArena.target_id); cajas y otros jugadores llegan en etapas posteriores.
 var net := false
-## "Ningún objetivo" al mandar o replicar una posición.
-const NO_TARGET := Vector3(1e9, 1e9, 1e9)
-## Cuánto puede distar el punto que manda el cliente del centro del ancla que elige.
-const NET_MATCH_DIST := 0.8
+## La moneda del servidor se está empujando sola (tecla G), no por un clic.
+var _net_auto_grip := false
 
 var player: Player
 ## Metal bajo la mira (el que se agarrará al pulsar).
@@ -190,32 +188,9 @@ func _process(_delta: float) -> void:
 
 # ---------------------------------------------------------------- Red
 
-## Anclas fijas del escenario (iguales en todos los procesos).
-func _net_anchors() -> Array[Node3D]:
-	var out: Array[Node3D] = []
-	for n in get_tree().get_nodes_in_group(&"metal"):
-		if n is StaticBody3D:
-			out.append(n)
-	return out
-
-
-## El ancla cuyo centro está más cerca de `pos` (a menos de NET_MATCH_DIST), o null.
-func _net_anchor_near(pos: Vector3) -> Node3D:
-	var best: Node3D = null
-	var best_d := NET_MATCH_DIST
-	for a in _net_anchors():
-		var d := center_of(a).distance_to(pos)
-		if d <= best_d:
-			best_d = d
-			best = a
-	return best
-
-
-## Hay línea de vista (ningún muro ni objeto en medio) entre `origin` y el ancla.
-func _net_line_of_sight(origin: Vector3, anchor: Node3D) -> bool:
-	var query := PhysicsRayQueryParameters3D.create(origin, center_of(anchor), Props.LAYER_WORLD | Props.LAYER_PROPS, [player.get_rid()])
-	var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
-	return hit.is_empty() or hit["collider"] == anchor
+## NetArena (el padre del jugador en el duelo): numera los objetivos y guarda las monedas.
+func _arena() -> Node:
+	return player.get_parent()
 
 
 func _net_reach() -> float:
@@ -223,7 +198,15 @@ func _net_reach() -> float:
 	return sense_range * (1.0 + 0.5 * (maxf(maxf(a.strength(&"steel"), a.strength(&"iron")), 1.0) - 1.0))
 
 
-## Servidor: aplica la fuerza de los agarres confirmados. Se suelta si el metal se apaga o el ancla sale de alcance.
+## Hay línea de vista (ningún muro ni objeto en medio) entre `origin` y el objetivo.
+func _net_line_of_sight(origin: Vector3, t: Node3D) -> bool:
+	var query := PhysicsRayQueryParameters3D.create(origin, center_of(t), Props.LAYER_WORLD | Props.LAYER_PROPS, [player.get_rid()])
+	var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
+	return hit.is_empty() or hit["collider"] == t
+
+
+## Servidor: aplica la fuerza de los agarres confirmados. Se suelta si el metal se apaga o el objetivo
+## sale de alcance. La moneda de la tecla G (auto_push) se empuja sola con el acero.
 func _net_physics(delta: float) -> void:
 	applying_force = false
 	holding = false
@@ -233,6 +216,16 @@ func _net_physics(delta: float) -> void:
 		return
 	_reach = _net_reach()
 	var origin := player.chest_position()
+	if is_instance_valid(auto_push) and a.strength(&"steel") > 0.0 and center_of(auto_push).distance_to(origin) <= _reach:
+		if push_grip.target != auto_push:
+			push_grip.target = auto_push
+			push_grip.active = true
+			push_grip.latched = false
+			Fx.sparks(get_tree().current_scene, center_of(auto_push), push_grip.color)
+		_net_auto_grip = true
+	elif _net_auto_grip:
+		_net_auto_grip = false
+		_release(push_grip)
 	for g in grips():
 		if not g.active:
 			continue
@@ -247,12 +240,12 @@ func _net_physics(delta: float) -> void:
 	_net_publish()
 
 
-## Pide agarrar (`pressed` con el punto del ancla elegido) o soltar un agarre: el servidor lo valida.
-func net_request(is_push: bool, pressed: bool, pos: Vector3) -> void:
+## Pide agarrar (`pressed`, con el id del objetivo elegido) o soltar un agarre: el servidor lo valida.
+func net_request(is_push: bool, pressed: bool, id: int) -> void:
 	if multiplayer.is_server():
-		net_grip_request(is_push, pressed, pos)
+		net_grip_request(is_push, pressed, id)
 	else:
-		_net_grip.rpc_id(1, is_push, pressed, pos)
+		_net_grip.rpc_id(1, is_push, pressed, id)
 
 
 func net_anchor_request() -> void:
@@ -263,9 +256,9 @@ func net_anchor_request() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _net_grip(is_push: bool, pressed: bool, pos: Vector3) -> void:
+func _net_grip(is_push: bool, pressed: bool, id: int) -> void:
 	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == player.net_peer_id:
-		net_grip_request(is_push, pressed, pos)
+		net_grip_request(is_push, pressed, id)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -274,15 +267,13 @@ func _net_anchor() -> void:
 		net_anchor()
 
 
-## Servidor: valida un agarre pedido. Rechaza si no quemas ese metal, si no hay un ancla en ese punto,
-## si está fuera de alcance o si algo tapa la línea.
-func net_grip_request(is_push: bool, pressed: bool, pos: Vector3) -> void:
+## Servidor: valida un agarre pedido. Rechaza si no quemas ese metal, si el objetivo no existe, si está
+## fuera de alcance o si algo tapa la línea.
+func net_grip_request(is_push: bool, pressed: bool, id: int) -> void:
 	var g: Grip = push_grip if is_push else pull_grip
-	if not (is_finite(pos.x) and is_finite(pos.y) and is_finite(pos.z)):
-		return
 	if not pressed:
 		g.consume = false
-		if not g.latched:
+		if not g.latched and not (g == push_grip and _net_auto_grip):
 			_release(g)
 			_net_publish()
 		return
@@ -293,18 +284,20 @@ func net_grip_request(is_push: bool, pressed: bool, pos: Vector3) -> void:
 		g.consume = true
 		_net_publish()
 		return
-	if g.active or g.consume or pos == NO_TARGET or player.allomancy.strength(g.metal) <= 0.0:
+	if g.active or g.consume or id == 0 or player.allomancy.strength(g.metal) <= 0.0:
 		return
-	var anchor := _net_anchor_near(pos)
-	if anchor == null:
+	var t: Node3D = _arena().target_node(id)
+	if t == null:
 		return
 	var origin := player.chest_position()
 	_reach = _net_reach()
-	if center_of(anchor).distance_to(origin) > effective_reach(anchor) or not _net_line_of_sight(origin, anchor):
+	if center_of(t).distance_to(origin) > effective_reach(t) or not _net_line_of_sight(origin, t):
 		return
-	g.target = anchor
+	g.target = t
 	g.active = true
-	Fx.sparks(get_tree().current_scene, center_of(anchor), g.color)
+	if g == push_grip:
+		_net_auto_grip = false
+	Fx.sparks(get_tree().current_scene, center_of(t), g.color)
 	_net_publish()
 
 
@@ -319,28 +312,29 @@ func net_release_all() -> void:
 	for g in grips():
 		_release(g)
 		g.consume = false
+	_net_auto_grip = false
 	_net_publish()
 
 
-## Servidor: deja en el jugador, para replicar, a qué ancla empuja y de cuál tira.
+## Servidor: deja en el jugador, para replicar, el id del objetivo al que empuja y de cuál tira.
 func _net_publish() -> void:
 	for i in 2:
 		var g: Grip = grips()[i]
-		var pos: Vector3 = center_of(g.target) if g.active and is_instance_valid(g.target) else NO_TARGET
-		if player.net_grips[i] != pos:
-			player.net_grips[i] = pos
+		var id: int = _arena().target_id(g.target) if g.active else 0
+		if player.net_grips[i] != id:
+			player.net_grips[i] = id
 
 
 ## Presentación local: los clientes reciben los agarres del servidor; el jugador de este proceso además
-## busca el ancla bajo su mira (para pedirla) y ve las líneas a todas las que alcanza.
+## busca el objetivo bajo su mira (para pedirlo) y ve las líneas a todos los que alcanza.
 func _net_presentation() -> void:
 	var a := player.allomancy
 	var power := maxf(a.strength(&"steel"), a.strength(&"iron"))
+	var arena := _arena()
 	if not player.is_simulated():
 		for i in 2:
 			var g: Grip = grips()[i]
-			var pos: Vector3 = player.net_grips[i]
-			g.target = _net_anchor_near(pos) if pos != NO_TARGET else null
+			g.target = arena.target_node(player.net_grips[i]) if player.net_grips[i] != 0 else null
 			g.active = g.target != null
 	_metals.clear()
 	target = null
@@ -349,7 +343,7 @@ func _net_presentation() -> void:
 	_reach = _net_reach()
 	if player.is_local_player():
 		var origin := player.chest_position()
-		for m in _net_anchors():
+		for m in arena.targets():
 			if center_of(m).distance_to(origin) <= _reach:
 				_metals.append(m)
 		target = _pick_target(origin)
