@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## Conexión de red (autoload NetworkManager): un proceso aloja y hasta dos más se conectan por ENet.
-## Todavía no crea jugadores de red: solo conecta y muestra el estado. F9 abre o cierra el panel.
+## Todavía no crea jugadores de red: solo conecta y muestra el estado. P abre o cierra el panel (F9 y las demás F las usa el depurador de Godot).
 ## Sin interfaz (pruebas y dos instancias): argumentos de usuario tras `--`:
 ##   --host                 aloja en PORT
 ##   --join[=IP]            se conecta a IP (127.0.0.1 por defecto)
@@ -81,9 +81,10 @@ func _ready() -> void:
 	_apply_cmdline()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F9:
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P and event.get_modifiers_mask() == 0:
 		_toggle_panel()
+		get_viewport().set_input_as_handled()  # que la P no se escriba en el cuadro de la IP
 
 
 func _apply_cmdline() -> void:
@@ -148,7 +149,7 @@ func _build_ui() -> void:
 	box.add_theme_constant_override("separation", 6)
 	_root.add_child(box)
 	var title := Label.new()
-	title.text = "Red (F9 cierra) · puerto %d" % port
+	title.text = "Red (P cierra) · puerto %d" % port
 	box.add_child(title)
 	_address = LineEdit.new()
 	_address.text = "127.0.0.1"

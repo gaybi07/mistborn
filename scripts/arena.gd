@@ -41,6 +41,8 @@ var spectator: SpectatorCam = null
 
 var _menu: CanvasLayer
 var _banner: Label
+## Duelo en red (ver NetArena); ruta fija para que coincida entre procesos.
+var _net: NetArena
 var _fighters: Array[Node3D] = []
 var _match := -1
 var _over := false
@@ -50,6 +52,12 @@ func _ready() -> void:
 	WorldKit.add_environment(self, 0.45, Vector3(SIZE, 30, SIZE))
 	_build_arena()
 	add_child(WorldFx.new())
+	_net = NetArena.new()
+	_net.name = "NetPlayers"
+	add_child(_net)
+	_net.local_player_spawned.connect(_on_duel_started)
+	_net.notice.connect(_show_notice)
+	_net.left_duel.connect(func() -> void: _show_menu(true))
 	_build_menu()
 	if pending >= 0:
 		_start(pending)
@@ -169,6 +177,8 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	if _net.is_active():
+		return  # en el duelo en red mandan el menú de pausa y los controles del jugador
 	# Peleando, Esc es el menú de pausa del jugador y R ancla los agarres: aquí solo M
 	# (y R cuando ya terminó el combate).
 	match event.keycode:
@@ -221,6 +231,12 @@ func _build_menu() -> void:
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.pressed.connect(_restart.bind(i))
 		box.add_child(b)
+	box.add_child(_section("Red (2 jugadores)"))
+	var duel := Button.new()
+	duel.text = "Entrar al duelo en red (conectate antes con P)"
+	duel.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	duel.pressed.connect(_net.join)
+	box.add_child(duel)
 	var help := Label.new()
 	help.text = "Espectador: WASD mover · Q/E bajar/subir · clic derecho mirar · Tab seguir luchador · rueda acercar\nR repetir · M menú · F1 volver a la ciudad · F3 día/noche · F4 clima · F5 niebla"
 	help.modulate.a = 0.7
@@ -238,6 +254,24 @@ func _build_menu() -> void:
 	banner_layer.layer = 15
 	banner_layer.add_child(_banner)
 	add_child(banner_layer)
+
+
+## Entraste al duelo en red: sin espectador ni menú, mandas tu personaje.
+func _on_duel_started(_player: Player) -> void:
+	if spectator != null:
+		spectator.queue_free()
+		spectator = null
+	_show_menu(false)
+	_banner.text = "Duelo en red"
+	get_tree().create_timer(3.0).timeout.connect(func() -> void: _banner.text = "")
+
+
+func _show_notice(text: String) -> void:
+	_banner.text = text
+	_banner.modulate.a = 1.0
+	get_tree().create_timer(4.0).timeout.connect(func() -> void:
+		if not _over and not _net.is_active():
+			_banner.text = "")
 
 
 func _section(text: String) -> Label:

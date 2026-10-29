@@ -82,6 +82,20 @@ var visual: Node3D
 var rig: HumanoidRig
 var spawn_point := Vector3.ZERO
 
+## Red: id del par que controla a este jugador (0 = partida individual, sin cambios).
+## En red el servidor simula a todos: cada cliente le manda sus teclas y copia el resultado.
+var net_peer_id := 0
+## Replicado por el servidor para animar el cuerpo en los clientes (que no simulan).
+var net_on_floor := false
+## Teclas que el servidor sabe de un jugador remoto: movimiento, acciones sostenidas y pulsaciones nuevas.
+const NET_ACTIONS: Array[StringName] = [&"jump", &"move_forward", &"move_back", &"roll"]
+## Sin recibir entrada durante este tiempo (ms) el servidor suelta las teclas del jugador remoto.
+const NET_INPUT_TIMEOUT_MS := 500
+var _net_move := Vector2.ZERO
+var _net_held := {}
+var _net_just := {}
+var _net_last_ms := 0
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 ## Aceleración alomántica recibida en el último paso (para no frenar en seco al empujar desde el suelo).
 var _allomantic_accel := 0.0
@@ -196,7 +210,9 @@ func _ready() -> void:
 	health = max_health
 	spawn_point = global_position
 	_apply_equipment()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if is_local_player():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_setup_network()
 
 
 func _exit_tree() -> void:
@@ -253,24 +269,25 @@ func _build_camera() -> void:
 	camera.fov = base_fov
 	camera.far = 2500.0  # para ver los montes de ceniza en el horizonte
 	spring_arm.add_child(camera)
-	camera.make_current()
+	if is_local_player():
+		camera.make_current()
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_local_player():
+		return  # el ratón y el teclado de este proceso son de otro jugador
 	if dead and not event is InputEventMouseMotion:
 		return
 	if ui_open and (event is InputEventMouseMotion or event is InputEventMouseButton):
 		return  # con el inventario abierto el ratón es para la ventana
+	if net_peer_id != 0:
+		_networked_input(event)
+		return
 	if event.is_action_pressed(&"drink"):
 		drink_vial()
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var motion := event as InputEventMouseMotion
-		yaw_pivot.rotate_y(-motion.relative.x * mouse_sensitivity)
-		pitch_pivot.rotation.x = clampf(pitch_pivot.rotation.x - motion.relative.y * mouse_sensitivity,
-				deg_to_rad(-85.0), deg_to_rad(60.0))
-	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if _look(event):
+		pass
 	elif event is InputEventKey and not event.echo:
 		var key := event as InputEventKey
 		var group := Allomancy.metals_for_key(key.physical_keycode)
@@ -306,6 +323,124 @@ func _unhandled_input(event: InputEvent) -> void:
 		roll()
 	elif event.is_action_pressed(&"hood") and rig.cloak:
 		rig.cloak.set_hood(not rig.cloak.hood_up)
+
+
+## Mover la cámara con el ratón o recapturarlo con un clic. Devuelve true si el evento era de ratón.
+func _look(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		var motion := event as InputEventMouseMotion
+		yaw_pivot.rotate_y(-motion.relative.x * mouse_sensitivity)
+		pitch_pivot.rotation.x = clampf(pitch_pivot.rotation.x - motion.relative.y * mouse_sensitivity,
+				deg_to_rad(-85.0), deg_to_rad(60.0))
+		return true
+	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		return true
+	return false
+
+
+# ---------------------------------------------------------------- Red
+
+## Este proceso es quien maneja a este jugador (siempre en partida individual).
+func is_local_player() -> bool:
+	return net_peer_id == 0 or (multiplayer.has_multiplayer_peer() and net_peer_id == multiplayer.get_unique_id())
+
+
+## Este proceso simula la física de este jugador (siempre en partida individual).
+func is_simulated() -> bool:
+	return net_peer_id == 0 or (multiplayer.has_multiplayer_peer() and multiplayer.is_server())
+
+
+## Entrada del jugador que maneja este proceso, o la que mandó su cliente si el servidor lo simula.
+func _held(action: StringName) -> bool:
+	return Input.is_action_pressed(action) if is_local_player() else _net_held.get(action, false)
+
+
+func _just(action: StringName) -> bool:
+	if is_local_player():
+		return Input.is_action_just_pressed(action)
+	var pressed: bool = _net_just.get(action, false)
+	_net_just[action] = false
+	return pressed
+
+
+func _move_vector() -> Vector2:
+	if is_local_player():
+		return Input.get_vector(&"move_left", &"move_right", &"move_forward", &"move_back")
+	return _net_move
+
+
+## En red todavía solo se mira y se rueda; ataques y metales llegan en etapas posteriores.
+func _networked_input(event: InputEvent) -> void:
+	if _look(event):
+		return
+	if event.is_action_pressed(&"roll"):
+		if multiplayer.is_server():
+			roll()
+		else:
+			_net_roll.rpc_id(1)
+
+
+func _setup_network() -> void:
+	if net_peer_id == 0:
+		return
+	# Los metales leen el teclado de este proceso: solo para el jugador que simulamos y manejamos.
+	if not (is_local_player() and is_simulated()):
+		steel_iron.set_physics_process(false)
+		steel_iron.set_process(false)
+	var sync := MultiplayerSynchronizer.new()
+	sync.name = "NetSync"
+	var config := SceneReplicationConfig.new()
+	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation"]:
+		config.add_property(path)
+		config.property_set_replication_mode(path, SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
+	sync.replication_config = config
+	# El servidor se lo muestra a cada par (ver NetArena) cuando ya creó este jugador; los clientes
+	# lo ven siempre, si no no pueden enviarle RPCs al servidor.
+	sync.public_visibility = not multiplayer.is_server()
+	add_child(sync)
+
+
+## Cliente: manda al servidor sus teclas, hacia dónde mira y el giro de la cámara.
+func _send_net_input() -> void:
+	if not is_local_player():
+		return
+	var mask := 0
+	for i in NET_ACTIONS.size():
+		if Input.is_action_pressed(NET_ACTIONS[i]):
+			mask |= 1 << i
+	_net_input.rpc_id(1, Input.get_vector(&"move_left", &"move_right", &"move_forward", &"move_back"),
+			yaw_pivot.rotation.y, mask)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _net_input(move: Vector2, yaw: float, mask: int) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != net_peer_id:
+		return
+	if not (is_finite(move.x) and is_finite(move.y) and is_finite(yaw)):
+		return
+	_net_move = move.limit_length(1.0)
+	yaw_pivot.rotation.y = yaw
+	for i in NET_ACTIONS.size():
+		var held := mask & (1 << i) != 0
+		if held and not _net_held.get(NET_ACTIONS[i], false):
+			_net_just[NET_ACTIONS[i]] = true
+		_net_held[NET_ACTIONS[i]] = held
+	_net_last_ms = Time.get_ticks_msec()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_roll() -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		roll()
+
+
+## Cliente: no simula, solo anima el cuerpo con lo que replica el servidor.
+func _update_remote_rig() -> void:
+	rig.move_speed = Vector2(velocity.x, velocity.z).length()
+	rig.vertical_speed = velocity.y
+	rig.on_floor = net_on_floor
+	rig.body_velocity = velocity
 
 
 ## Tocar la tecla de un metal lo enciende o lo apaga.
@@ -482,6 +617,16 @@ func in_combat() -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	if net_peer_id != 0:
+		if not multiplayer.has_multiplayer_peer():
+			return  # se cortó la conexión: NetArena ya está retirando a los jugadores
+		if not multiplayer.is_server():
+			_send_net_input()
+			return
+		net_on_floor = is_on_floor()
+		if not is_local_player() and Time.get_ticks_msec() - _net_last_ms > NET_INPUT_TIMEOUT_MS:
+			_net_move = Vector2.ZERO
+			_net_held.clear()
 	var rd := real_delta(delta)
 	_update_pewter_drag(rd)
 	allomancy.flare_blocked = is_soothed()
@@ -501,11 +646,11 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		# Durante el dash planeas un poco (cae más despacio).
 		velocity.y -= _gravity * rd * (0.35 if _dash_time > 0.0 else 1.0)
-	if Input.is_action_just_pressed(&"jump") and is_on_floor() and not dead and not ui_open:
+	if _just(&"jump") and is_on_floor() and not dead and not ui_open:
 		velocity.y = jump_velocity * jump_mult
 		rig.play_jump()
 
-	var input := Vector2.ZERO if dead else Input.get_vector(&"move_left", &"move_right", &"move_forward", &"move_back")
+	var input := Vector2.ZERO if dead else _move_vector()
 	var dir := yaw_pivot.global_basis * Vector3(input.x, 0, input.y)
 	dir.y = 0.0
 	dir = dir.normalized()
@@ -647,13 +792,13 @@ func _update_ledge(rd: float) -> void:
 	if _hanging:
 		if dead or ui_open:
 			pass
-		elif Input.is_action_just_pressed(&"jump") or Input.is_action_pressed(&"move_forward"):
+		elif _just(&"jump") or _held(&"move_forward"):
 			_hanging = false
 			_climb_t = 0.0
 			_climb_from = global_position
 			rig.hanging = false
 			rig.play_climb(CLIMB_TIME)
-		elif Input.is_action_just_pressed(&"move_back") or Input.is_action_just_pressed(&"roll") or dead:
+		elif _just(&"move_back") or _just(&"roll") or dead:
 			_release_ledge(nh * 2.0)
 	else:
 		# Subida: primero arriba pegado a la pared, después hacia dentro sobre el borde.
@@ -743,6 +888,8 @@ func _process(delta: float) -> void:
 	_shake = move_toward(_shake, 0.0, rd * 1.2)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.25
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.25
+	if net_peer_id != 0 and multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		_update_remote_rig()
 
 
 ## Daño que haría un impacto a esa velocidad. El peltre sube el umbral y reduce el daño
@@ -1055,7 +1202,7 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 func roll() -> void:
 	if dead or _roll_cd > 0.0 or _hanging or _climb_t >= 0.0:
 		return
-	var input := Input.get_vector(&"move_left", &"move_right", &"move_forward", &"move_back")
+	var input := _move_vector()
 	var dir := yaw_pivot.global_basis * Vector3(input.x, 0, input.y)
 	if input == Vector2.ZERO:
 		dir = -visual.global_basis.z
