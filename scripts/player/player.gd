@@ -105,6 +105,10 @@ var spawn_point := Vector3.ZERO
 var net_peer_id := 0
 ## Replicado por el servidor para animar el cuerpo en los clientes (que no simulan).
 var net_on_floor := false
+## Peltre replicado por el servidor (estado 0 apagado / 1 quemando / 2 avivando, reserva y arrastre).
+var net_pewter_state := 0
+var net_pewter_reserve := 100.0
+var net_pewter_drag := 0.0
 ## Teclas que el servidor sabe de un jugador remoto: movimiento, acciones sostenidas y pulsaciones nuevas.
 const NET_ACTIONS: Array[StringName] = [&"jump", &"move_forward", &"move_back", &"roll"]
 ## Sin recibir entrada durante este tiempo (ms) el servidor suelta las teclas del jugador remoto.
@@ -422,6 +426,12 @@ func _networked_input(event: InputEvent) -> void:
 			roll()
 		else:
 			_net_roll.rpc_id(1)
+	elif event is InputEventKey and not event.echo and _is_pewter_key(event):
+		var down: bool = event.pressed
+		if multiplayer.is_server():
+			_pewter_key(down)
+		else:
+			_net_pewter.rpc_id(1, down)
 	elif event.is_action_pressed(&"attack"):
 		if multiplayer.is_server():
 			server_attack()
@@ -457,12 +467,19 @@ func server_attack() -> void:
 		to.y = 0.0
 		if to.length() > NET_ATTACK["reach"] or forward.angle_to(to) > NET_ATTACK["arc"]:
 			continue
-		target._receive_net_hit(to.normalized() * NET_ATTACK["knockback"], NET_ATTACK["damage"], net_peer_id)
+		var pewter := allomancy.strength(&"pewter")
+		var damage: float = NET_ATTACK["damage"] * (1.0 + 0.75 * pewter) * (0.6 if _pewter_drag > 0.0 else 1.0)
+		var knockback: float = NET_ATTACK["knockback"] * (1.0 + pewter)
+		target._receive_net_hit(to.normalized() * knockback, damage, net_peer_id)
 
 
 ## Servidor: aplica un golpe confirmado.
 func _receive_net_hit(impulse: Vector3, damage: float, attacker_id: int) -> void:
 	net_last_attacker = attacker_id
+	# El peltre endurece el cuerpo: menos empujón y menos daño (igual que en take_hit).
+	var pewter := allomancy.strength(&"pewter")
+	impulse /= 1.0 + 0.5 * pewter
+	damage /= 1.0 + 0.6 * pewter
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
 	_shoved = 0.35
 	net_hits += 1
@@ -494,11 +511,14 @@ func _setup_network() -> void:
 	if not (is_local_player() and is_simulated()):
 		steel_iron.set_physics_process(false)
 		steel_iron.set_process(false)
+	if not is_simulated():
+		allomancy.set_process(false)  # en el cliente la reserva la manda el servidor
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "NetSync"
 	var config := SceneReplicationConfig.new()
 	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation",
-			^".:health", ^".:stamina", ^".:_exhausted", ^".:dead", ^".:net_attacks", ^".:net_hits", ^".:net_protected"]:
+			^".:health", ^".:stamina", ^".:_exhausted", ^".:dead", ^".:net_attacks", ^".:net_hits", ^".:net_protected",
+			^".:net_pewter_state", ^".:net_pewter_reserve", ^".:net_pewter_drag"]:
 		config.add_property(path)
 		config.property_set_replication_mode(path, SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
 	sync.replication_config = config
@@ -544,6 +564,38 @@ func _net_roll() -> void:
 		roll()
 
 
+## La tecla del peltre (3) es la única tecla de metal que funciona en red por ahora.
+func _is_pewter_key(event: InputEventKey) -> bool:
+	var group := Allomancy.metals_for_key(event.physical_keycode)
+	return group.size() == 1 and group[0] == &"pewter"
+
+
+## Servidor: pulsar o soltar la tecla del peltre (encender/apagar, doble toque y mantener: avivar).
+func _pewter_key(pressed: bool) -> void:
+	if dead:
+		return
+	var key := Allomancy.METALS[&"pewter"]["key"] as Key
+	var group: Array[StringName] = [&"pewter"]
+	if pressed:
+		_metal_key_down(key, group)
+	else:
+		_metal_key_up(key)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_pewter(pressed: bool) -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		_pewter_key(pressed)
+
+
+## Servidor: al reaparecer o empezar una ronda el peltre vuelve a estar lleno y sin arrastre.
+func _refill_pewter() -> void:
+	allomancy.reserve[&"pewter"] = Allomancy.METALS[&"pewter"]["max"]
+	allomancy.state[&"pewter"] = Allomancy.State.OFF
+	_pewter_drag = 0.0
+	_was_flaring_pewter = false
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _net_attack() -> void:
 	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
@@ -556,6 +608,10 @@ func _update_remote_rig() -> void:
 	rig.vertical_speed = velocity.y
 	rig.on_floor = net_on_floor
 	rig.body_velocity = velocity
+	# Peltre: el estado y la reserva los manda el servidor; el HUD y el aura los leen de allomancy.
+	allomancy.state[&"pewter"] = net_pewter_state
+	allomancy.reserve[&"pewter"] = net_pewter_reserve
+	_pewter_drag = net_pewter_drag
 	# La vida y la muerte las decide el servidor; aquí solo se muestran (parpadeo, pantalla de muerte).
 	if health < _seen_health - 0.01 and not dead:
 		damaged.emit(_seen_health - health, 0.0)
@@ -788,6 +844,9 @@ func _physics_process(delta: float) -> void:
 			_send_net_input()
 			return
 		net_on_floor = is_on_floor()
+		net_pewter_state = allomancy.state[&"pewter"]
+		net_pewter_reserve = allomancy.reserve[&"pewter"]
+		net_pewter_drag = _pewter_drag
 		if net_protected and Time.get_ticks_msec() >= _protected_until_ms:
 			net_protected = false
 		if not is_local_player() and Time.get_ticks_msec() - _net_last_ms > NET_INPUT_TIMEOUT_MS:
@@ -1490,6 +1549,7 @@ func _spawn_coin(pos: Vector3) -> RigidBody3D:
 func respawn() -> void:
 	if net_peer_id != 0 and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
 		_start_protection()
+		_refill_pewter()
 	if _hanging or _climb_t >= 0.0:
 		_release_ledge(Vector3.ZERO)
 	global_position = spawn_point
