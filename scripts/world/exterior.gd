@@ -10,19 +10,19 @@ extends Node3D
 ## - bruma densa en todo el exterior (volúmenes de niebla; su densidad la fija Weather).
 ## Los árboles son MultiMesh (miles de instancias, pocas llamadas de dibujo) y tienen colisión.
 
-const MOUNTAIN_LINE := -360.0  ## al norte de esta z empiezan las faldas de los montes
-const WORLD := 1200.0  ## medio lado del suelo exterior
-const FOREST_CENTER := Vector2(-300, 360)
+const MOUNTAIN_LINE := -620.0  ## al norte de esta z empiezan las faldas de los montes
+const WORLD := 1700.0  ## medio lado del suelo exterior
+const FOREST_CENTER := Vector2(-620, 620)
 const FOREST_RADIUS := 190.0
 ## Montes de ceniza: [posición XZ, radio, altura, ¿activo?]
 const MOUNTAINS := [
-	[Vector2(-60, -640), 270.0, 340.0, true],
-	[Vector2(240, -580), 210.0, 250.0, true],
-	[Vector2(-340, -540), 190.0, 210.0, false],
-	[Vector2(470, -720), 270.0, 300.0, false],
-	[Vector2(-580, -700), 250.0, 270.0, true],
-	[Vector2(120, -930), 320.0, 400.0, false],
-	[Vector2(-300, -960), 300.0, 360.0, false],
+	[Vector2(-60, -900), 270.0, 340.0, true],
+	[Vector2(240, -840), 210.0, 250.0, true],
+	[Vector2(-340, -800), 190.0, 210.0, false],
+	[Vector2(470, -980), 270.0, 300.0, false],
+	[Vector2(-580, -960), 250.0, 270.0, true],
+	[Vector2(120, -1190), 320.0, 400.0, false],
+	[Vector2(-300, -1220), 300.0, 360.0, false],
 ]
 
 var _rng := RandomNumberGenerator.new()
@@ -68,7 +68,7 @@ func _roads() -> Array:
 				break
 			road.append(cur)
 		out.append(road)
-		if g[0] == "Puerta del Sur":
+		if g[0] == "Puerta Sur":
 			var start: Vector2 = road[1]
 			out.append([start, start.lerp(FOREST_CENTER, 0.5) + Vector2(20, -10), FOREST_CENTER + Vector2(-120, 60)])
 	return out
@@ -333,7 +333,7 @@ func _build_hills(mat: Material) -> void:
 	while placed < 32 and tries < 400:
 		tries += 1
 		var a := _rng.randf() * TAU
-		var p := Vector2(cos(a), sin(a)) * _rng.randf_range(200.0, 800.0)
+		var p := Vector2(cos(a), sin(a)) * _rng.randf_range(450.0, 1100.0)
 		var radius := _rng.randf_range(40.0, 110.0)
 		if p.y < MOUNTAIN_LINE + 40.0 or _dist_to_roads(p) < radius * 0.8 + 6.0:
 			continue
@@ -349,7 +349,7 @@ func _build_hills(mat: Material) -> void:
 func _build_mountains(mountain_mat: Material, terrain_mat: Material) -> void:
 	# Faldas: colinas altas entre la llanura y los volcanes.
 	for i in 12:
-		var p := Vector2(_rng.randf_range(-700, 700), _rng.randf_range(-480, -390))
+		var p := Vector2(_rng.randf_range(-700, 700), _rng.randf_range(-740, -650))
 		var mesh := TerrainGen.mound(_rng.randf_range(70.0, 130.0), _rng.randf_range(25.0, 60.0), _rng.randi(), 0.0, 1.3, 18, 36)
 		add_child(TerrainGen.body(mesh, Vector3(p.x, 0, p.y), terrain_mat))
 	for spec in MOUNTAINS:
@@ -406,10 +406,10 @@ func _volcano_smoke(top: Vector3) -> void:
 ## Volúmenes de niebla densa fuera de la muralla (más espesa a ras de suelo), alrededor del
 ## rectángulo que ocupa la ciudad.
 func _build_mist(mat: FogMaterial) -> void:
-	var outer := 900.0
-	var x_half := 190.0
-	var z_north := 140.0
-	var z_south := 145.0
+	var outer := 1400.0
+	var x_half := 380.0
+	var z_north := 480.0
+	var z_south := 440.0
 	_fog_box(Vector3(0, 12, -(z_north + (outer - z_north) / 2.0)), Vector3(outer * 2.0, 44, outer - z_north), mat)
 	_fog_box(Vector3(0, 12, z_south + (outer - z_south) / 2.0), Vector3(outer * 2.0, 44, outer - z_south), mat)
 	for x_sign in [-1.0, 1.0]:

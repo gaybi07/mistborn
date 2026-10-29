@@ -428,3 +428,27 @@ static func _box_mesh(size: Vector3) -> BoxMesh:
 	var m := BoxMesh.new()
 	m.size = size
 	return m
+
+
+## Estatua de bronce (metal de verdad): construye un humanoide con ese aspecto, copia sus mallas
+## en bronce y descarta el rig. look: el de HumanoidRig (altura 2,1 ≈ 3,8 m de estatua).
+static func bronze_statue(parent: Node, pos: Vector3, look: Dictionary, bronze: Material, yaw := 0.0) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = LAYER_WORLD
+	body.position = pos
+	body.rotation.y = yaw
+	body.add_to_group(&"metal")
+	body.set_meta(&"center_offset", Vector3(0, 2.0, 0))
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(1.2, 3.8, 1.2)
+	col.shape = shape
+	col.position.y = 1.9
+	body.add_child(col)
+	parent.add_child(body)
+	var rig := HumanoidRig.new()
+	rig.look = look
+	body.add_child(rig)
+	Afterimage.copy_meshes(rig, body, bronze)
+	rig.queue_free()
+	return body

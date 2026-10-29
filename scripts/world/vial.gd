@@ -69,6 +69,7 @@ func _on_body_entered(body: Node3D) -> void:
 	var p := body as Player
 	if p == null:
 		return
+	p.rig.play_pickup()
 	if kind == &"atium":
 		p.allomancy.refill(&"atium", 15.0)
 	else:

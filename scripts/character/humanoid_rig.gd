@@ -25,6 +25,9 @@ var stagger := 0.0
 var brace := 0.0
 ## Colgado de un borde (las manos van a aim_target y aim_target_left).
 var hanging := false
+## Nadando en el río / resbalando por una pendiente de más de 45° (solo los ModelRig los animan).
+var swimming := false
+var sliding := false
 
 var hips: Node3D
 var spine: Node3D
@@ -73,6 +76,11 @@ func play_throw() -> void:
 	_throw = 0.3
 
 
+## Recoger algo del suelo (bolsa, objeto, frasco). El cuerpo procedural no lo anima.
+func play_pickup() -> void:
+	pass
+
+
 ## Tajo con el brazo derecho (side = 1) o izquierdo (side = 0). step: golpe del combo (0, 1, 2).
 func play_attack(side: int, duration: float, _step := 0) -> void:
 	_attack_side = side
@@ -104,8 +112,9 @@ func play_air_attack(duration: float) -> void:
 
 
 ## Subir a un borde desde colgado (ver `hanging`).
-func play_climb(_duration := 0.65) -> void:
-	pass
+## Devuelve cuánto dura la subida (la animación puede pedir más tiempo que `duration`).
+func play_climb(duration := 0.65) -> float:
+	return duration
 
 
 func is_rolling() -> bool:

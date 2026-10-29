@@ -21,37 +21,73 @@ var _trail: GPUParticles3D
 var _hood_down: MeshInstance3D
 var _hood_up: MeshInstance3D
 
+## Textura de tela compartida por todas las capas: grano de cuero curtido y su relieve.
+static var _grain: NoiseTexture2D
+static var _grain_normal: NoiseTexture2D
+
+
+## Tela oscura con grano y relieve, teñida con `color` (a juego con el cuero del traje).
+static func _cloth(color: Color) -> StandardMaterial3D:
+	if _grain == null:
+		var noise := FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+		noise.frequency = 0.04
+		noise.fractal_octaves = 3
+		_grain = NoiseTexture2D.new()
+		_grain.noise = noise
+		_grain.seamless = true
+		_grain.color_ramp = Gradient.new()
+		_grain.color_ramp.set_color(0, Color(0.7, 0.7, 0.7))
+		_grain.color_ramp.set_color(1, Color(1, 1, 1))
+		_grain_normal = NoiseTexture2D.new()
+		_grain_normal.noise = noise
+		_grain_normal.seamless = true
+		_grain_normal.as_normal_map = true
+		_grain_normal.bump_strength = 6.0
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.albedo_texture = _grain
+	m.normal_enabled = true
+	m.normal_texture = _grain_normal
+	m.normal_scale = 0.8
+	m.roughness = 0.75
+	m.uv1_scale = Vector3(3, 3, 3)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
 
 ## neck: nodo del cuello del rig (para la capucha subida).
-func build(color: Color, width := 1.0, neck: Node3D = null) -> void:
-	var mantle := MeshInstance3D.new()
-	mantle.mesh = HumanoidRig._cylinder(0.17, 0.28, 0.22)
-	mantle.material_override = HumanoidRig._mat(color, 0.0, 0.95)
-	mantle.position = Vector3(0, 0.36, 0.01)
-	mantle.scale = Vector3(width * 1.05, 1, 0.85)
-	add_child(mantle)
+## strips_only: solo las tiras, para modelos que ya traen chaqueta y capucha.
+func build(color: Color, width := 1.0, neck: Node3D = null, strips_only := false) -> void:
+	if not strips_only:
+		var mantle := MeshInstance3D.new()
+		mantle.mesh = HumanoidRig._cylinder(0.17, 0.28, 0.22)
+		mantle.material_override = _cloth(color)
+		mantle.position = Vector3(0, 0.36, 0.01)
+		mantle.scale = Vector3(width * 1.05, 1, 0.85)
+		add_child(mantle)
 
-	# Capucha bajada (bulto detrás del cuello) y subida (cubre la cabeza).
-	_hood_down = MeshInstance3D.new()
-	_hood_down.mesh = HumanoidRig._sphere(0.13)
-	_hood_down.material_override = mantle.material_override
-	_hood_down.position = Vector3(0, 0.44, 0.12)
-	_hood_down.scale = Vector3(1.2, 0.7, 0.8)
-	add_child(_hood_down)
-	if neck:
-		_hood_up = MeshInstance3D.new()
-		_hood_up.mesh = HumanoidRig._sphere(0.14)
-		_hood_up.material_override = mantle.material_override
-		_hood_up.position = Vector3(0, 0.17, 0.045)
-		_hood_up.scale = Vector3(1.05, 1.08, 1.02)
-		_hood_up.visible = false
-		neck.add_child(_hood_up)
+		# Capucha bajada (bulto detrás del cuello) y subida (cubre la cabeza).
+		_hood_down = MeshInstance3D.new()
+		_hood_down.mesh = HumanoidRig._sphere(0.13)
+		_hood_down.material_override = mantle.material_override
+		_hood_down.position = Vector3(0, 0.44, 0.12)
+		_hood_down.scale = Vector3(1.2, 0.7, 0.8)
+		add_child(_hood_down)
+		if neck:
+			_hood_up = MeshInstance3D.new()
+			_hood_up.mesh = HumanoidRig._sphere(0.14)
+			_hood_up.material_override = mantle.material_override
+			_hood_up.position = Vector3(0, 0.17, 0.045)
+			_hood_up.scale = Vector3(1.05, 1.08, 1.02)
+			_hood_up.visible = false
+			neck.add_child(_hood_up)
 
 	# Cada segmento un poco más claro: la capa "se deshace" en bruma hacia las puntas.
 	var mats := []
 	for s in SEGMENTS:
 		var c := color.lerp(Color(0.42, 0.45, 0.52), s * 0.22)
-		mats.append([HumanoidRig._mat(c, 0.0, 0.95), HumanoidRig._mat(c.darkened(0.15), 0.0, 0.95)])
+		mats.append([_cloth(c), _cloth(c.darkened(0.15))])
 	for s in SEGMENTS:
 		_segs.append([])
 		_ang.append([])
@@ -101,7 +137,8 @@ func build(color: Color, width := 1.0, neck: Node3D = null) -> void:
 
 func set_hood(up: bool) -> void:
 	hood_up = up
-	_hood_down.visible = not up
+	if _hood_down:
+		_hood_down.visible = not up
 	if _hood_up:
 		_hood_up.visible = up
 

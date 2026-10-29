@@ -3,11 +3,12 @@ class_name CityGround
 ## Las celdas dentro de la muralla llevan empedrado y las de fuera, tierra. Además, la superficie
 ## del agua del río. Cubre un cuadrado de ±HALF; más allá está el suelo del exterior (Exterior).
 
-const HALF := 330.0
+const HALF := 540.0
 const CELL := 3.0
 
 
-static func build(parent: Node, mats: Dictionary) -> void:
+## holes: rectángulos (XZ) sin suelo, para sótanos (quien los pide pone su propio suelo).
+static func build(parent: Node, mats: Dictionary, holes: Array[Rect2] = []) -> void:
 	var n := int(HALF * 2.0 / CELL)
 	var heights := PackedFloat32Array()
 	heights.resize((n + 1) * (n + 1))
@@ -22,6 +23,8 @@ static func build(parent: Node, mats: Dictionary) -> void:
 	for iz in n:
 		for ix in n:
 			var c := Vector2(-HALF + (ix + 0.5) * CELL, -HALF + (iz + 0.5) * CELL)
+			if holes.any(func(r: Rect2) -> bool: return r.has_point(c)):
+				continue
 			var st := city if CityPlan.inside(c) else land
 			var v := [_v(heights, n, ix, iz), _v(heights, n, ix + 1, iz), _v(heights, n, ix, iz + 1), _v(heights, n, ix + 1, iz + 1)]
 			st.add_vertex(v[0])
@@ -81,6 +84,7 @@ static func _water(mat: Material) -> MeshInstance3D:
 	mi.mesh = st.commit()
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.add_to_group(&"water")  # el Player solo nada si el escenario tiene río
 	return mi
 
 

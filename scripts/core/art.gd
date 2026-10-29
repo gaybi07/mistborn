@@ -6,6 +6,8 @@ class_name Art
 ## Todos los rigs tienen la misma interfaz, así que el juego funciona igual con cualquiera.
 
 static var style := "quaternius"
+## Personaje propio del jugador (de PLAYER_MODELS) o "" para usar el del estilo.
+static var player_model := "mistborn"
 ## "noche" (bruma) o "dia" (sol rojo de Luthadel). Se cambia en el juego con F3.
 static var lighting := "noche"
 ## "despejado", "lluvia" o "ceniza". F4.
@@ -81,12 +83,28 @@ const SETS := {
 	},
 }
 
+## Personajes propios del jugador: [modelo, mapeo de huesos desde KayKit]. Usan sus propias
+## animaciones y las que les faltan las toman de KayKit con retarget.
+const PLAYER_MODELS := {
+	# Mixamo, armado con tools/blender/mixamo_to_glb.py.
+	"ninja": ["res://assets/mixamo/Ninja.glb", BoneTools.KAYKIT_TO_MIXAMO],
+	# Hunyuan3D + ActionForge, armado con tools/blender/actionforge_to_glb.py.
+	"mistborn": ["res://assets/mixamo/Mistborn.glb", BoneTools.KAYKIT_TO_UE],
+}
+
 ## Tonos para que los colores de los packs encajen con la ciudad apagada (y varíe la gente).
 const CROWD_TINTS := [Color(0.82, 0.8, 0.78), Color(0.75, 0.75, 0.8), Color(0.85, 0.8, 0.74),
 		Color(0.72, 0.74, 0.72), Color(0.8, 0.76, 0.8)]
 
 
 static func player_rig(look: Dictionary) -> HumanoidRig:
+	if PLAYER_MODELS.has(player_model):
+		var rig := ModelRig.new()
+		rig.model_path = PLAYER_MODELS[player_model][0]
+		rig.flip = true
+		rig.retarget_from = KAYKIT % "Rogue"
+		rig.retarget_map = PLAYER_MODELS[player_model][1]
+		return rig
 	if not SETS.has(style):
 		return _procedural(look)
 	return _model(SETS[style]["player"], Color(1, 1, 1), [])

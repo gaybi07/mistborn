@@ -102,6 +102,48 @@ class Retargeter:
 						BoneTools.aim(dst, d, dir)
 
 
+## Mapeo KayKit (fuente) -> Mixamo (destino, sin el prefijo "mixamorig:"; ver
+## tools/blender/mixamo_to_glb.py). Spine1 y los hombros se quedan en reposo.
+const KAYKIT_TO_MIXAMO := [
+	["Hips", "hips", "", "root"],
+	["Spine", "spine", "chest", "aim"],
+	["Spine2", "chest", "head", "aim"],
+	["Head", "head", "", "rot"],
+	["LeftArm", "upperarm.l", "lowerarm.l", "aim"],
+	["LeftForeArm", "lowerarm.l", "wrist.l", "aim"],
+	["LeftHand", "hand.l", "", "rot"],
+	["RightArm", "upperarm.r", "lowerarm.r", "aim"],
+	["RightForeArm", "lowerarm.r", "wrist.r", "aim"],
+	["RightHand", "hand.r", "", "rot"],
+	["LeftUpLeg", "upperleg.l", "lowerleg.l", "aim"],
+	["LeftLeg", "lowerleg.l", "foot.l", "aim"],
+	["LeftFoot", "foot.l", "toes.l", "aim"],
+	["RightUpLeg", "upperleg.r", "lowerleg.r", "aim"],
+	["RightLeg", "lowerleg.r", "foot.r", "aim"],
+	["RightFoot", "foot.r", "toes.r", "aim"],
+]
+
+## Mapeo KayKit (fuente) -> rig de ActionForge / Quaternius universal (destino, nombres tipo
+## Unreal; ver tools/blender/actionforge_to_glb.py).
+const KAYKIT_TO_UE := [
+	["pelvis", "hips", "", "root"],
+	["spine_01", "spine", "chest", "aim"],
+	["spine_03", "chest", "head", "aim"],
+	["Head", "head", "", "rot"],
+	["upperarm_l", "upperarm.l", "lowerarm.l", "aim"],
+	["lowerarm_l", "lowerarm.l", "wrist.l", "aim"],
+	["hand_l", "hand.l", "", "rot"],
+	["upperarm_r", "upperarm.r", "lowerarm.r", "aim"],
+	["lowerarm_r", "lowerarm.r", "wrist.r", "aim"],
+	["hand_r", "hand.r", "", "rot"],
+	["thigh_l", "upperleg.l", "lowerleg.l", "aim"],
+	["calf_l", "lowerleg.l", "foot.l", "aim"],
+	["foot_l", "foot.l", "toes.l", "aim"],
+	["thigh_r", "upperleg.r", "lowerleg.r", "aim"],
+	["calf_r", "lowerleg.r", "foot.r", "aim"],
+	["foot_r", "foot.r", "toes.r", "aim"],
+]
+
 ## Mapeo KayKit (fuente) -> Quaternius (destino).
 const KAYKIT_TO_QUATERNIUS := [
 	["Body", "hips", "", "root"],

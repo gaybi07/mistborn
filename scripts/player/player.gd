@@ -42,7 +42,7 @@ const WEAPONS := [
 	{"name": "Dagas de obsidiana", "damage": 14.0, "knockback": 3.0, "reach": 1.8,
 		"combo": [[0.42, 1.0, 1.0], [0.46, 1.05, 1.0], [0.5, 1.15, 1.2], [0.78, 2.1, 3.2]]},
 	{"name": "Espada", "damage": 30.0, "knockback": 7.0, "reach": 2.4,
-		"combo": [[0.6, 1.0, 1.0]]},  # un solo golpe (el combo de espada está pendiente)
+		"combo": [[0.55, 1.0, 1.0], [0.6, 1.1, 1.2], [0.85, 1.8, 3.0]]},
 ]
 ## Tiempo extra tras un golpe para encadenar el siguiente del combo.
 const COMBO_WINDOW := 0.45
@@ -50,6 +50,8 @@ const COMBO_WINDOW := 0.45
 const COMBAT_TIMEOUT := 6.0
 
 var health := 100.0
+## Lo que se puede usar con E aquí al lado (puerta, armario...); lo pone Interactable.
+var interactable: Interactable
 var dead := false
 var weapon := HumanoidRig.Weapon.NONE
 ## Bando: 0 = el jugador y sus aliados. Los alománticos de otro bando pueden atacarte.
@@ -139,9 +141,18 @@ const LEDGE_REACH := Vector2(1.0, 2.6)
 ## Los pies quedan esto por debajo del borde al colgar.
 const HANG_DROP := 2.0
 const CLIMB_TIME := 0.65
+## Nado: profundidad mínima del agua para flotar, cuánto queda el origen del personaje bajo la
+## superficie (en las animaciones de nado el cuello va a esa altura) y velocidad respecto a la
+## de correr.
+const SWIM_DEPTH := 1.3
+const SWIM_FLOAT := 0.1
+const SWIM_SPEED := 0.4
 var _hanging := false
 var _climb_t := -1.0  # >= 0 mientras subes
+var _climb_len := CLIMB_TIME  # lo que dura la animación de subir
 var _climb_from := Vector3.ZERO
+var _swimming := false
+var _slide_t := 0.0  # > 0 mientras resbalas por una pendiente demasiado empinada para pisar
 var _ledge := {}  # {"top", "normal", "wall"}
 var _ledge_cd := 0.0
 
@@ -301,7 +312,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		rig.set_weapon(weapon)
 		notice.emit(weapon_stats(weapon)["name"])
 	elif event.is_action_pressed(&"attack"):
-		attack()
+		if interactable and interactable.prompt != "":
+			interactable.use()
+		else:
+			attack()
 	elif event.is_action_pressed(&"roll"):
 		roll()
 	elif event.is_action_pressed(&"hood") and rig.cloak:
@@ -449,12 +463,23 @@ func toggle_bag() -> void:
 		notice.emit("Tu bolsa está a %d m (traéla con hierro o andá a buscarla)" % int(d))
 
 
-func _pick_up_bag() -> void:
+func _pick_up_bag(animate := true) -> void:
+	if animate:
+		rig.play_pickup()
 	if is_instance_valid(_bag):
 		_bag.queue_free()
 	_bag = null
 	_update_metal_group()
 	notice.emit("Recogiste la bolsa de monedas")
+
+
+## En el río, donde el agua cubre más de SWIM_DEPTH (solo en escenarios con río).
+func _in_deep_water() -> bool:
+	if get_tree().get_node_count_in_group(&"water") == 0:
+		return false
+	var bed := CityPlan.river_bed(Vector2(global_position.x, global_position.z))
+	var y := global_position.y
+	return CityPlan.WATER_LEVEL - bed > SWIM_DEPTH and y < CityPlan.WATER_LEVEL - 0.05 and y > bed - 0.5
 
 
 func has_bag() -> bool:
@@ -465,7 +490,7 @@ func _update_bag() -> void:
 	if _bag == null:
 		return
 	if not is_instance_valid(_bag) or _bag.global_position.y < -40.0:
-		_pick_up_bag()  # se perdió: aparece de nuevo contigo
+		_pick_up_bag(false)  # se perdió: aparece de nuevo contigo
 		return
 	# Pasar por encima la recoge (no justo al soltarla).
 	if Time.get_ticks_msec() - _bag_dropped_ms > 1200 \
@@ -494,14 +519,23 @@ func _physics_process(delta: float) -> void:
 
 	_update_bag()
 	_ledge_cd -= rd
+	var was_swimming := _swimming
+	_swimming = _in_deep_water()
+	if _swimming and not was_swimming:
+		velocity.y *= 0.2  # el agua frena la caída
+		Fx.burst(get_tree().current_scene, global_position + Vector3(0, 0.3, 0), Color(0.6, 0.7, 0.8, 0.5), 16, 3.0, 0.8, 0.6, -6.0, false)
 	if _hanging or _climb_t >= 0.0:
 		_update_ledge(rd)
 		return
 	var guided := _assist_coin_push()
-	if not is_on_floor():
+	if _swimming and velocity.y <= 2.0:
+		# Flota con la cabeza fuera: un resorte hacia la superficie (saltando, sale del agua).
+		var float_y := CityPlan.WATER_LEVEL - SWIM_FLOAT
+		velocity.y = move_toward(velocity.y, (float_y - global_position.y) * 3.0, 15.0 * rd)
+	elif not is_on_floor():
 		# Durante el dash planeas un poco (cae más despacio).
 		velocity.y -= _gravity * rd * (0.35 if _dash_time > 0.0 else 1.0)
-	if Input.is_action_just_pressed(&"jump") and is_on_floor() and not dead and not ui_open:
+	if Input.is_action_just_pressed(&"jump") and (is_on_floor() or _swimming) and not dead and not ui_open:
 		velocity.y = jump_velocity * jump_mult
 		rig.play_jump()
 
@@ -534,8 +568,8 @@ func _physics_process(delta: float) -> void:
 		_roll_time -= rd
 		if is_on_floor():
 			hv = Vector2(_roll_dir.x, _roll_dir.z) * roll_speed * (1.0 + 0.3 * pewter)
-	elif is_on_floor() and not being_pushed:
-		hv = hv.move_toward(target, ground_accel * rd)
+	elif (is_on_floor() or _swimming) and not being_pushed:
+		hv = hv.move_toward(target * (SWIM_SPEED if _swimming else 1.0), ground_accel * rd)
 	elif input != Vector2.ZERO:
 		# En el aire solo añadimos control, sin frenar el impulso de un empujón.
 		# Empujando la moneda de la G, el triple: así diriges el salto.
@@ -555,6 +589,12 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	velocity *= ts
 
+	# Pendiente de más de floor_max_angle (45°): Godot la cuenta como pared y resbalas.
+	_slide_t -= rd
+	if not is_on_floor() and not _swimming and velocity.y < 0.0:
+		for i in get_slide_collision_count():
+			if get_slide_collision(i).get_normal().y > 0.2:
+				_slide_t = 0.2  # margen: el contacto parpadea de un frame a otro
 	if is_on_floor() and not was_on_floor:
 		if fall_speed < -4.0 and _roll_time <= 0.0:
 			rig.play_land(clampf(-fall_speed / 15.0, 0.3, 1.0))
@@ -652,12 +692,12 @@ func _update_ledge(rd: float) -> void:
 			_climb_t = 0.0
 			_climb_from = global_position
 			rig.hanging = false
-			rig.play_climb(CLIMB_TIME)
+			_climb_len = rig.play_climb(CLIMB_TIME)
 		elif Input.is_action_just_pressed(&"move_back") or Input.is_action_just_pressed(&"roll") or dead:
 			_release_ledge(nh * 2.0)
 	else:
 		# Subida: primero arriba pegado a la pared, después hacia dentro sobre el borde.
-		_climb_t += rd / CLIMB_TIME
+		_climb_t += rd / _climb_len
 		var k := clampf(_climb_t, 0.0, 1.0)
 		var high := Vector3(_climb_from.x, top.y + 0.05, _climb_from.z)
 		var over := Vector3(top.x, top.y + 0.05, top.z) - nh * 0.6
@@ -685,7 +725,9 @@ func is_hanging() -> bool:
 func _update_rig(hv: Vector2, rd: float) -> void:
 	rig.move_speed = Vector2(velocity.x, velocity.z).length()
 	rig.vertical_speed = velocity.y
-	rig.on_floor = is_on_floor()
+	rig.on_floor = is_on_floor() or _swimming
+	rig.swimming = _swimming
+	rig.sliding = _slide_t > 0.0
 	rig.body_velocity = velocity
 	# Brazo derecho al objetivo de empuje, izquierdo al de tirón.
 	var face := hv
@@ -1053,7 +1095,7 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 
 ## Voltereta en el suelo; en el aire, un dash hacia delante (uno por salto).
 func roll() -> void:
-	if dead or _roll_cd > 0.0 or _hanging or _climb_t >= 0.0:
+	if dead or _roll_cd > 0.0 or _hanging or _climb_t >= 0.0 or _swimming:
 		return
 	var input := Input.get_vector(&"move_left", &"move_right", &"move_forward", &"move_back")
 	var dir := yaw_pivot.global_basis * Vector3(input.x, 0, input.y)

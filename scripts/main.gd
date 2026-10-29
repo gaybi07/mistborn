@@ -1,8 +1,8 @@
 extends Node3D
-## Luthadel de noche, según el plano de referencia (ver CityPlan):
-## muralla irregular con cuatro puertas, Kredik Shaw sobre su colina al noreste, el río Kredres
-## con su puerto al sur, la Plaza del Centro, la del Mercado y la de la Asamblea, el Ministerio
-## del Acero, mansiones nobles entre los barrios y cientos de casas skaa orientadas a sus calles.
+## Luthadel de noche, a escala real según el mapa de referencia (ver CityPlan):
+## muralla con tres puertas, Kredik Shaw sobre su colina al norte, el Distrito Noble y el
+## Mercantil, la Plaza Central, la Asamblea, el Ministerio del Acero, tres cuarteles, la forja y
+## los corrales de carbón, el río con la dársena al este y miles de casas skaa orientadas a sus calles.
 ## Edificios, murallas y torres: modelos de Quaternius (Medieval Village y Modular Medieval),
 ## dibujados en lote con ModelBatcher.
 ## Metal de verdad (anclas para acero/hierro): farolas, veletas y faroles de puerta de las casas,
@@ -34,7 +34,7 @@ func _ready() -> void:
 	_iron_rng.seed = 7
 	_m = WorldKit.materials()
 	WorldKit.add_environment(self)
-	CityGround.build(self, _m)
+	CityGround.build(self, _m, [Workshop.GROUND_HOLE])
 	_batch = ModelBatcher.new()
 	add_child(_batch)
 	_build_wall()
@@ -253,13 +253,15 @@ func _kredik_door(central: String, top: float, dir: Vector2) -> void:
 
 ## Mansión con patio: muralla baja, torreones en las esquinas, puerta hacia la calle,
 ## casa señorial al fondo, una torre del homenaje y estandartes de la casa.
+## Los cuarteles son igual pero de piedra gris, con barracones en filas y estandartes rojos.
 func _build_estates() -> void:
-	for e in CityPlan.ESTATES:
+	for e in CityPlan.ESTATES + CityPlan.BARRACKS:
 		var c: Vector2 = e[0]
 		var w: float = e[1]
 		var d: float = e[2]
 		var yaw: float = e[3]
-		var house: int = e[4]
+		var barracks: bool = e.size() < 5
+		var tint := STONE_TINT if barracks else NOBLE_TINT
 		# La puerta da a la calle más cercana.
 		var to_street := CityPlan.nearest_street_point(c) - c
 		var local_to := to_street.rotated(-yaw)
@@ -273,19 +275,35 @@ func _build_estates() -> void:
 				var x := -w / 2.0 + (k + 0.5) * w / count
 				var is_gate: bool = side_z == front_sign and absf(x) < piece * 0.6
 				var model := _q("castle/WallEntrance") if is_gate else wall
-				_batch.add(model, _at(c, yaw, Vector3(x, 0, side_z * d / 2.0)), yaw, wall_scale, NOBLE_TINT)
+				_batch.add(model, _at(c, yaw, Vector3(x, 0, side_z * d / 2.0)), yaw, wall_scale, tint)
 		for side_x in [-1.0, 1.0]:
 			var count := ceili(d / piece)
 			for k in count:
 				var z := -d / 2.0 + (k + 0.5) * d / count
-				_batch.add(wall, _at(c, yaw, Vector3(side_x * w / 2.0, 0, z)), yaw + PI / 2, wall_scale, NOBLE_TINT)
+				_batch.add(wall, _at(c, yaw, Vector3(side_x * w / 2.0, 0, z)), yaw + PI / 2, wall_scale, tint)
 		for sx in [-1.0, 1.0]:
 			for sz in [-1.0, 1.0]:
-				_batch.add(_q("castle/SmallSquareTower"), _at(c, yaw, Vector3(sx * w / 2.0, 0, sz * d / 2.0)), yaw, 5.0, NOBLE_TINT)
-		_batch.add(_q("buildings/Inn"), _at(c, yaw, Vector3(0, 0, -front_sign * d * 0.18)), yaw + (0.0 if front_sign > 0 else PI), 3.4, NOBLE_TINT)
-		_batch.add(_q("castle/LargeTower"), _at(c, yaw, Vector3(w * 0.3, 0, -front_sign * d * 0.32)), yaw, 5.0, NOBLE_TINT)
-		_batch.add(_q("props/Gazebo"), _at(c, yaw, Vector3(-w * 0.25, 0, front_sign * d * 0.22)), yaw, 3.0, NOBLE_TINT)
-		var cloth := Props.material(HOUSES[house], 0.0, 1.0)
+				_batch.add(_q("castle/SmallSquareTower"), _at(c, yaw, Vector3(sx * w / 2.0, 0, sz * d / 2.0)), yaw, 5.0, tint)
+		var facing := yaw + (0.0 if front_sign > 0 else PI)
+		if barracks:
+			# Barracones en filas en la mitad del fondo, torre de vigía y pertrechos en el patio de armas.
+			var stable := _q("buildings/Stable")
+			var sw := ModelKit.aabb(stable).size.x * 3.0 + 2.0
+			var sd := ModelKit.aabb(stable).size.z * 3.0 + 5.0
+			var cols := int((w - 16.0) / sw)
+			for row in maxi(int((d * 0.5 - 6.0) / sd), 1):
+				for k in cols:
+					var x := -(cols - 1) * sw / 2.0 + k * sw
+					_batch.add(stable, _at(c, yaw, Vector3(x, 0, -front_sign * (d / 2.0 - 6.0 - sd * (row + 0.5)))), facing, 3.0, STONE_TINT)
+			_batch.add(_q("castle/LargeTower"), _at(c, yaw, Vector3(w * 0.38, 0, front_sign * d * 0.1)), yaw, 6.0, STONE_TINT)
+			for k in 6:
+				_add_prop(["props/Crate", "props/Barrel"][k % 2], _at(c, yaw, Vector3(-w * 0.35 + k * 1.6, 0, front_sign * d * 0.3)), _rng.randf() * TAU, 4.0)
+		else:
+			var grand := clampf(w / 34.0, 1.0, 1.5)
+			_batch.add(_q("buildings/Inn"), _at(c, yaw, Vector3(0, 0, -front_sign * d * 0.18)), facing, 3.4 * grand, NOBLE_TINT)
+			_batch.add(_q("castle/LargeTower"), _at(c, yaw, Vector3(w * 0.3, 0, -front_sign * d * 0.32)), yaw, 5.0, NOBLE_TINT)
+			_batch.add(_q("props/Gazebo"), _at(c, yaw, Vector3(-w * 0.25, 0, front_sign * d * 0.22)), yaw, 3.0, NOBLE_TINT)
+		var cloth := Props.material(Color(0.42, 0.06, 0.05) if barracks else HOUSES[e[4]], 0.0, 1.0)
 		for sx in [-1.0, 1.0]:
 			var banner := Props.static_box(Vector3(1.6, 4.5, 0.08), _at(c, yaw, Vector3(sx * piece * 0.75, 6.0, front_sign * (d / 2.0 + 1.6))), cloth)
 			banner.rotation.y = yaw
@@ -326,11 +344,69 @@ func _build_landmarks() -> void:
 		var item: String = ["props/Barrel", "props/Crate", "props/Hay", "props/Bags", "props/Package_1"][i % 5]
 		_add_prop(item, Vector3(p.x, 0, p.y), _rng.randf() * TAU, 4.0)
 
-	# Molino junto al río (oeste) y aserradero cerca del puerto.
-	_batch.add(_q("buildings/Mill"), Vector3(-120, 0, 76), 0.6, 4.0, SKAA_TINT)
-	_occupied.append([Vector2(-120, 76), 10.0])
-	_batch.add(_q("buildings/Sawmill"), Vector3(66, 0, 86), PI, 3.4, SKAA_TINT)
-	_occupied.append([Vector2(66, 86), 10.0])
+	# Molino junto al río y aserradero entre los talleres.
+	_batch.add(_q("buildings/Mill"), Vector3(130, 0, 40), 0.6, 4.0, SKAA_TINT)
+	_occupied.append([Vector2(130, 40), 10.0])
+	_batch.add(_q("buildings/Sawmill"), Vector3(200, 0, 280), PI, 3.4, SKAA_TINT)
+	_occupied.append([Vector2(200, 280), 10.0])
+	_build_coal_and_forges()
+
+	# Taller de carpintería de Clubs, al sur de la plaza (con sótano: ver Workshop).
+	add_child(Workshop.new())
+	_occupied.append([Workshop.POS, 10.5])
+	# Casa Venture en el Distrito Noble (su terreno lo reserva CityPlan.VENTURE); por dentro es otra escena.
+	add_child(VentureManor.new())
+
+
+## Corrales de carbón (montañas negras entre los cobertizos) y humo de las chimeneas del
+## Distrito de Forja.
+func _build_coal_and_forges() -> void:
+	var coal := Props.material(Color(0.05, 0.05, 0.055), 0.0, 0.95)
+	var placed := 0
+	var tries := 0
+	while placed < 14 and tries < 200:
+		tries += 1
+		var p := Vector2(-280, 250) + Vector2.from_angle(_rng.randf() * TAU) * sqrt(_rng.randf()) * 70.0
+		var r := _rng.randf_range(5.0, 9.0)
+		if not CityPlan.inside(p, r + 12.0):
+			continue
+		if _occupied.any(func(o: Array) -> bool: return p.distance_to(o[0]) < o[1] + r):
+			continue
+		var mesh := TerrainGen.mound(r, _rng.randf_range(2.5, 5.0), _rng.randi(), 0.0, 1.2, 10, 20)
+		add_child(TerrainGen.body(mesh, Vector3(p.x, 0, p.y), coal))
+		_occupied.append([p, r + 1.0])
+		placed += 1
+	for c in [Vector2(-300, 20), Vector2(-250, 70), Vector2(-215, 120), Vector2(-310, 210), Vector2(-240, 300)]:
+		_smoke(Vector3(c.x, 14.0, c.y))
+
+
+## Columna de humo de chimenea: partículas grises que suben y se lleva el viento.
+func _smoke(pos: Vector3) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 24
+	p.lifetime = 14.0
+	p.preprocess = 14.0
+	p.visibility_aabb = AABB(Vector3(-40, -5, -40), Vector3(80, 90, 80))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 1.5
+	pm.direction = Vector3.UP
+	pm.spread = 10.0
+	pm.initial_velocity_min = 2.0
+	pm.initial_velocity_max = 3.5
+	pm.gravity = Vector3(0.6, 0.2, 0.2)
+	pm.scale_min = 1.0
+	pm.scale_max = 2.5
+	pm.angle_min = -180.0
+	pm.angle_max = 180.0
+	pm.color_ramp = Fx.fade_ramp(0.1)
+	p.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(9, 9)
+	quad.material = Fx.particle_material(Color(0.2, 0.19, 0.19, 0.55), false)
+	p.draw_pass_1 = quad
+	p.position = pos
+	add_child(p)
 
 
 ## Objeto pequeño decorativo (sin colisión salvo los grandes).
@@ -343,22 +419,32 @@ func _add_prop(name: String, pos: Vector3, yaw: float, scale: float) -> void:
 
 func _build_port_and_bridges() -> void:
 	var wood: Material = _m["wood"]
-	# Muelles de madera que entran en el río, barcas amarradas y almacenes en la orilla.
+	# Dársena: muelles de madera que entran en el río, barcas amarradas y almacenes en la orilla.
+	var along := (CityPlan.PORT_B - CityPlan.PORT_A).normalized()
+	var to_river := Vector2(-along.y, along.x)
+	var mid := (CityPlan.PORT_A + CityPlan.PORT_B) / 2.0
+	if CityPlan.dist_to_river(mid + to_river * 5.0) > CityPlan.dist_to_river(mid):
+		to_river = -to_river
+	var port_len := CityPlan.PORT_A.distance_to(CityPlan.PORT_B)
+	var pier_yaw := atan2(to_river.x, to_river.y)
 	for i in 4:
-		var x := CityPlan.PORT_MIN.x + 10.0 + i * 20.0
-		var z0 := CityPlan.PORT_MAX.y - 4.0
+		var base := CityPlan.PORT_A + along * port_len * (i + 0.5) / 4.0
 		var length := 16.0
-		add_child(Props.static_box(Vector3(3.5, 0.3, length), Vector3(x, -0.15, z0 + length / 2.0), wood))
+		var c := base + to_river * (length / 2.0 - 2.0)
+		var deck := Props.static_box(Vector3(3.5, 0.3, length), Vector3(c.x, -0.15, c.y), wood)
+		deck.rotation.y = pier_yaw
+		add_child(deck)
 		for k in 4:
-			add_child(Props.static_box(Vector3(0.3, 2.4, 0.3), Vector3(x + (1.5 if k % 2 == 0 else -1.5), -1.5, z0 + 3.0 + k * 3.5), wood))
+			add_child(Props.static_box(Vector3(0.3, 2.4, 0.3), _at(base, pier_yaw, Vector3(1.5 if k % 2 == 0 else -1.5, -1.5, 1.0 + k * 3.5)), wood))
 		if i < 3:
-			_boat(Vector3(x + 9.0, CityPlan.WATER_LEVEL, z0 + 9.0 + _rng.randf_range(-2, 2)), _rng.randf_range(-0.2, 0.2))
+			var bp := base + to_river * 8.0 + along * 4.5
+			_boat(Vector3(bp.x, CityPlan.WATER_LEVEL, bp.y), pier_yaw + _rng.randf_range(-0.2, 0.2))
 	for i in 3:
-		var x := CityPlan.PORT_MIN.x + 12.0 + i * 26.0
-		_batch.add(_q("buildings/Stable"), Vector3(x, 0, CityPlan.PORT_MIN.y + 4.0), 0.0, 3.2, SKAA_TINT)
+		var p := CityPlan.PORT_A + along * port_len * (i + 0.5) / 3.0 - to_river * 10.0
+		_batch.add(_q("buildings/Stable"), Vector3(p.x, 0, p.y), pier_yaw, 3.2, SKAA_TINT)
 	for i in 16:
-		var p := Vector3(_rng.randf_range(CityPlan.PORT_MIN.x, CityPlan.PORT_MAX.x), 0, _rng.randf_range(CityPlan.PORT_MAX.y - 8.0, CityPlan.PORT_MAX.y - 2.0))
-		_add_prop(["props/Crate", "props/Barrel", "props/Bags", "props/Package_2"][i % 4], p, _rng.randf() * TAU, 4.0)
+		var p := CityPlan.PORT_A + along * _rng.randf() * port_len + to_river * _rng.randf_range(-3.0, 0.0)
+		_add_prop(["props/Crate", "props/Barrel", "props/Bags", "props/Package_2"][i % 4], Vector3(p.x, 0, p.y), _rng.randf() * TAU, 4.0)
 
 	# Puentes donde las avenidas cruzan el río.
 	for br in CityPlan.bridges():
@@ -398,32 +484,24 @@ func _build_houses() -> void:
 	_occ_init()
 	for s in CityPlan.street_segments():
 		_stamp_line(s[0], s[1], s[2])
-	for ring in CityPlan.street_rings():
-		_stamp_ring(ring[0], ring[1])
 	for o in _occupied:
 		_stamp_disc(o[0], o[1])
-	for e in CityPlan.ESTATES:
+	for e in CityPlan.ESTATES + CityPlan.BARRACKS + [CityPlan.VENTURE]:
 		_stamp_rect(e[0], e[3], Rect2(-e[1] / 2.0 - 2.0, -e[2] / 2.0 - 2.0, e[1] + 4.0, e[2] + 4.0))
 
 	var count := 0
 	# Casas en hilera a lo largo de las calles.
 	for s in CityPlan.street_segments():
 		count += _row(s[0], s[1], s[2], s[2] == CityPlan.STREET_HALF)
-	for ring in CityPlan.street_rings():
-		var r: float = ring[0]
-		var n := int(TAU * r / 30.0)
-		for i in n:
-			var a := Vector2.from_angle(TAU * i / n) * r
-			var b := Vector2.from_angle(TAU * (i + 1) / n) * r
-			count += _row(a, b, ring[1], ring[1] == CityPlan.STREET_HALF)
 	# Relleno de las manzanas: dos pasadas (la segunda desplazada medio paso). En cada hueco se
 	# prueba la casa elegida, luego la más pequeña del barrio, mirando a la calle o girada 90°.
 	for pass_offset: float in [0.0, 1.5]:
 		var candidates: Array[Vector2] = []
-		var x := -190.0 + pass_offset
-		while x <= 190.0:
-			var z := -145.0 + pass_offset
-			while z <= 145.0:
+		var bounds := CityPlan.BOUNDS
+		var x := bounds.position.x + pass_offset
+		while x <= bounds.end.x:
+			var z := bounds.position.y + pass_offset
+			while z <= bounds.end.y:
 				candidates.append(Vector2(x, z) + Vector2(_rng.randf_range(-1.0, 1.0), _rng.randf_range(-1.0, 1.0)))
 				z += 3.0
 			x += 3.0
@@ -433,7 +511,7 @@ func _build_houses() -> void:
 			if i < 0 or _occ[i] != 0 or not CityPlan.inside(p, 10.0):
 				continue
 			var d := CityPlan.district(p)
-			var keep: float = {"dense": 1.0, "medium": 0.8, "sparse": 0.35}[d["density"]]
+			var keep: float = {"dense": 1.0, "medium": 0.9, "sparse": 0.4}[d["density"]]
 			if _rng.randf() > keep:
 				continue
 			var to := CityPlan.nearest_street_point(p) - p
@@ -488,7 +566,8 @@ func _pick(d: Dictionary) -> Array:
 	for h in houses:
 		roll -= h[3]
 		if roll < 0:
-			return [_q(h[0]), _rng.randf_range(h[1], h[2])]
+			# Escalas de a 0,05: cada escala distinta es otra forma de colisión que construir.
+			return [_q(h[0]), snappedf(_rng.randf_range(h[1], h[2]), 0.05)]
 	return [_q(houses[0][0]), houses[0][1]]
 
 
@@ -546,7 +625,7 @@ func _try_house(p: Vector2, yaw: float, d: Dictionary, spec: Array = []) -> bool
 
 # ---------------------------------------------------------------- Mapa de ocupación (1 m)
 
-const OCC_HALF := 200
+const OCC_HALF := 500
 var _occ := PackedByteArray()
 
 
@@ -584,12 +663,6 @@ func _stamp_line(a: Vector2, b: Vector2, half: float) -> void:
 		t += maxf(half, 0.8)
 
 
-func _stamp_ring(r: float, half: float) -> void:
-	var n := int(TAU * r / maxf(half, 0.8))
-	for i in n:
-		_stamp_disc(Vector2.from_angle(TAU * i / n) * r, half)
-
-
 ## Recorre la huella (rectángulo en coordenadas del modelo, girado yaw) cada 0,7 m.
 func _rect_points(p: Vector2, yaw: float, rect: Rect2) -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -604,11 +677,20 @@ func _rect_points(p: Vector2, yaw: float, rect: Rect2) -> Array[Vector2]:
 	return out
 
 
+## Igual que recorrer _rect_points, pero sin crear el array y cortando en el primer punto ocupado
+## (es lo que más se llama al generar miles de casas).
 func _rect_free(p: Vector2, yaw: float, rect: Rect2) -> bool:
-	for q in _rect_points(p, yaw, rect):
-		var i := _occ_index(q)
-		if i < 0 or _occ[i] != 0:
-			return false
+	var ax := Vector2(cos(yaw), -sin(yaw))  # Basis(UP, yaw) * X
+	var az := Vector2(sin(yaw), cos(yaw))  # Basis(UP, yaw) * Z
+	var u := rect.position.x
+	while u <= rect.end.x:
+		var v := rect.position.y
+		while v <= rect.end.y:
+			var i := _occ_index(p + ax * u + az * v)
+			if i < 0 or _occ[i] != 0:
+				return false
+			v += 0.7
+		u += 0.7
 	return true
 
 
@@ -734,7 +816,7 @@ func _build_plaza() -> void:
 	# Estatua de bronce del Lord Legislador: ancla de metal en el centro.
 	add_child(Props.static_box(Vector3(5, 1.0, 5), Vector3(0, 0.5, -2), _m["trim"]))
 	add_child(Props.static_box(Vector3(2.4, 1.6, 2.4), Vector3(0, 1.8, -2), _m["stone"]))
-	_statue(Vector3(0, 2.6, -2))
+	Props.bronze_statue(self, Vector3(0, 2.6, -2), {"height": 2.1, "build": 1.15, "coat": Color.WHITE, "cloak": true, "hair_style": "short"}, _m["bronze"])
 
 	# Farolas de la plaza: hierro de verdad.
 	for i in 12:
@@ -814,27 +896,6 @@ func _vial(pos: Vector3, kind: StringName) -> void:
 	v.kind = kind
 	v.position = pos
 	add_child(v)
-
-
-## Construye un humanoide, copia sus mallas en bronce y descarta el rig.
-func _statue(pos: Vector3) -> void:
-	var body := StaticBody3D.new()
-	body.collision_layer = Props.LAYER_WORLD
-	body.position = pos
-	body.add_to_group(&"metal")
-	body.set_meta(&"center_offset", Vector3(0, 2.0, 0))
-	var col := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(1.2, 3.8, 1.2)
-	col.shape = shape
-	col.position.y = 1.9
-	body.add_child(col)
-	add_child(body)
-	var rig := HumanoidRig.new()
-	rig.look = {"height": 2.1, "build": 1.15, "coat": Color.WHITE, "cloak": true, "hair_style": "short"}
-	body.add_child(rig)
-	Afterimage.copy_meshes(rig, body, _m["bronze"])
-	rig.queue_free()
 
 
 func _spawn_people() -> void:
