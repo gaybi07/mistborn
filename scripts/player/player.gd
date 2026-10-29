@@ -105,10 +105,14 @@ var spawn_point := Vector3.ZERO
 var net_peer_id := 0
 ## Replicado por el servidor para animar el cuerpo en los clientes (que no simulan).
 var net_on_floor := false
-## Peltre replicado por el servidor (estado 0 apagado / 1 quemando / 2 avivando, reserva y arrastre).
-var net_pewter_state := 0
-var net_pewter_reserve := 100.0
+## Metales de red (ver NET_METALS) replicados por el servidor: estado (0 apagado / 1 quemando / 2 avivando)
+## y reserva de cada uno, y el arrastre de peltre. net_grips: a qué ancla empuja y tira (NO_GRIP si a ninguna).
+const NET_METALS: Array[StringName] = [&"steel", &"iron", &"pewter"]
+const NO_GRIP := SteelIron.NO_TARGET
+var net_metal_states := PackedInt32Array([0, 0, 0])
+var net_metal_reserves := PackedFloat32Array([100.0, 100.0, 100.0])
 var net_pewter_drag := 0.0
+var net_grips := PackedVector3Array([NO_GRIP, NO_GRIP])
 ## Teclas que el servidor sabe de un jugador remoto: movimiento, acciones sostenidas y pulsaciones nuevas.
 const NET_ACTIONS: Array[StringName] = [&"jump", &"move_forward", &"move_back", &"roll"]
 ## Sin recibir entrada durante este tiempo (ms) el servidor suelta las teclas del jugador remoto.
@@ -426,17 +430,37 @@ func _networked_input(event: InputEvent) -> void:
 			roll()
 		else:
 			_net_roll.rpc_id(1)
-	elif event is InputEventKey and not event.echo and _is_pewter_key(event):
+	elif event is InputEventKey and not event.echo and _is_net_metal_key(event):
 		var down: bool = event.pressed
 		if multiplayer.is_server():
-			_pewter_key(down)
+			_net_metal_key(event.physical_keycode, down)
 		else:
-			_net_pewter.rpc_id(1, down)
+			_net_metal.rpc_id(1, event.physical_keycode, down)
+	elif event.is_action(&"pull") or event.is_action(&"push"):
+		_net_click(event)
+	elif event.is_action_pressed(&"anchor"):
+		steel_iron.net_anchor_request()
 	elif event.is_action_pressed(&"attack"):
 		if multiplayer.is_server():
 			server_attack()
 		else:
 			_net_attack.rpc_id(1)
+
+
+## Clic de tirar/empujar: pide al servidor agarrar (con el ancla que tienes en la mira) o soltar.
+## Igual que en el juego individual: con un solo metal encendido sirven los dos clics.
+func _net_click(event: InputEvent) -> void:
+	var pressed := event.is_pressed()
+	for is_push in [true, false]:
+		var metal: StringName = &"steel" if is_push else &"iron"
+		var other: StringName = &"iron" if is_push else &"steel"
+		var mine := event.is_action(&"push" if is_push else &"pull")
+		if not allomancy.is_burning(metal) or not (mine or not allomancy.is_burning(other)):
+			continue
+		var pos := SteelIron.NO_TARGET
+		if pressed and steel_iron.target != null:
+			pos = steel_iron.center_of(steel_iron.target)
+		steel_iron.net_request(is_push, pressed, pos)
 
 
 func _is_net_client() -> bool:
@@ -507,10 +531,9 @@ func _setup_network() -> void:
 	if net_peer_id == 0:
 		return
 	collision_mask |= Props.LAYER_PLAYER  # en red los jugadores se chocan entre sí
-	# Los metales leen el teclado de este proceso: solo para el jugador que simulamos y manejamos.
-	if not (is_local_player() and is_simulated()):
-		steel_iron.set_physics_process(false)
-		steel_iron.set_process(false)
+	# Acero y hierro: el servidor aplica la fuerza (solo donde se simula); todos dibujan las líneas.
+	steel_iron.net = true
+	steel_iron.set_physics_process(is_simulated())
 	if not is_simulated():
 		allomancy.set_process(false)  # en el cliente la reserva la manda el servidor
 	var sync := MultiplayerSynchronizer.new()
@@ -518,9 +541,11 @@ func _setup_network() -> void:
 	var config := SceneReplicationConfig.new()
 	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation",
 			^".:health", ^".:stamina", ^".:_exhausted", ^".:dead", ^".:net_attacks", ^".:net_hits", ^".:net_protected",
-			^".:net_pewter_state", ^".:net_pewter_reserve", ^".:net_pewter_drag"]:
+			^".:net_metal_states", ^".:net_metal_reserves", ^".:net_pewter_drag", ^".:net_grips"]:
 		config.add_property(path)
 		config.property_set_replication_mode(path, SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
+	# Los agarres solo cambian al agarrar o soltar: se mandan cuando cambian, no cada fotograma.
+	config.property_set_replication_mode(^".:net_grips", SceneReplicationConfig.REPLICATION_MODE_ON_CHANGE)
 	sync.replication_config = config
 	# El servidor se lo muestra a cada par (ver NetArena) cuando ya creó este jugador; los clientes
 	# lo ven siempre, si no no pueden enviarle RPCs al servidor.
@@ -564,34 +589,35 @@ func _net_roll() -> void:
 		roll()
 
 
-## La tecla del peltre (3) es la única tecla de metal que funciona en red por ahora.
-func _is_pewter_key(event: InputEventKey) -> bool:
+## Metales que funcionan en red por ahora: acero (1), hierro (2) y peltre (3).
+func _is_net_metal_key(event: InputEventKey) -> bool:
 	var group := Allomancy.metals_for_key(event.physical_keycode)
-	return group.size() == 1 and group[0] == &"pewter"
+	return group.size() == 1 and NET_METALS.has(group[0])
 
 
-## Servidor: pulsar o soltar la tecla del peltre (encender/apagar, doble toque y mantener: avivar).
-func _pewter_key(pressed: bool) -> void:
-	if dead:
+## Servidor: pulsar o soltar una tecla de metal (encender/apagar; doble toque y mantener: avivar).
+func _net_metal_key(code: Key, pressed: bool) -> void:
+	var group := Allomancy.metals_for_key(code)
+	if dead or group.size() != 1 or not NET_METALS.has(group[0]):
 		return
-	var key := Allomancy.METALS[&"pewter"]["key"] as Key
-	var group: Array[StringName] = [&"pewter"]
 	if pressed:
-		_metal_key_down(key, group)
+		_metal_key_down(code, group)
 	else:
-		_metal_key_up(key)
+		_metal_key_up(code)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _net_pewter(pressed: bool) -> void:
+func _net_metal(code: int, pressed: bool) -> void:
 	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
-		_pewter_key(pressed)
+		_net_metal_key(code as Key, pressed)
 
 
-## Servidor: al reaparecer o empezar una ronda el peltre vuelve a estar lleno y sin arrastre.
-func _refill_pewter() -> void:
-	allomancy.reserve[&"pewter"] = Allomancy.METALS[&"pewter"]["max"]
-	allomancy.state[&"pewter"] = Allomancy.State.OFF
+## Servidor: al reaparecer o empezar una ronda los metales vuelven a estar llenos, apagados y sin agarres.
+func _refill_net_metals() -> void:
+	for m in NET_METALS:
+		allomancy.reserve[m] = Allomancy.METALS[m]["max"]
+		allomancy.state[m] = Allomancy.State.OFF
+	steel_iron.net_release_all()
 	_pewter_drag = 0.0
 	_was_flaring_pewter = false
 
@@ -608,9 +634,10 @@ func _update_remote_rig() -> void:
 	rig.vertical_speed = velocity.y
 	rig.on_floor = net_on_floor
 	rig.body_velocity = velocity
-	# Peltre: el estado y la reserva los manda el servidor; el HUD y el aura los leen de allomancy.
-	allomancy.state[&"pewter"] = net_pewter_state
-	allomancy.reserve[&"pewter"] = net_pewter_reserve
+	# Metales: el estado y la reserva los manda el servidor; el HUD y el aura los leen de allomancy.
+	for i in NET_METALS.size():
+		allomancy.state[NET_METALS[i]] = net_metal_states[i]
+		allomancy.reserve[NET_METALS[i]] = net_metal_reserves[i]
 	_pewter_drag = net_pewter_drag
 	# La vida y la muerte las decide el servidor; aquí solo se muestran (parpadeo, pantalla de muerte).
 	if health < _seen_health - 0.01 and not dead:
@@ -844,8 +871,9 @@ func _physics_process(delta: float) -> void:
 			_send_net_input()
 			return
 		net_on_floor = is_on_floor()
-		net_pewter_state = allomancy.state[&"pewter"]
-		net_pewter_reserve = allomancy.reserve[&"pewter"]
+		for i in NET_METALS.size():
+			net_metal_states[i] = allomancy.state[NET_METALS[i]]
+			net_metal_reserves[i] = allomancy.reserve[NET_METALS[i]]
 		net_pewter_drag = _pewter_drag
 		if net_protected and Time.get_ticks_msec() >= _protected_until_ms:
 			net_protected = false
@@ -1549,7 +1577,7 @@ func _spawn_coin(pos: Vector3) -> RigidBody3D:
 func respawn() -> void:
 	if net_peer_id != 0 and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
 		_start_protection()
-		_refill_pewter()
+		_refill_net_metals()
 	if _hanging or _climb_t >= 0.0:
 		_release_ledge(Vector3.ZERO)
 	global_position = spawn_point
