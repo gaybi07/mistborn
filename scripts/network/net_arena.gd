@@ -9,6 +9,10 @@ extends Node
 ## plataformas (±14, 0) y (0, -15) y frascos (±6, ±14) de la arena.
 const SPAWNS: Array[Vector3] = [Vector3(-6, 1, 6), Vector3(6, 1, -6)]
 
+## Bajas para ganar la ronda y segundos antes de empezar otra.
+const KILLS_TO_WIN := 3
+const NEW_ROUND_DELAY := 6.0
+
 ## Se creó el jugador que maneja este proceso.
 signal local_player_spawned(player: Player)
 ## Se retiró al jugador local (se cortó la conexión o el anfitrión salió).
@@ -21,10 +25,21 @@ var players := {}
 ## Solo servidor: id del par -> punto de aparición que ocupa.
 var _slots := {}
 var _huds := {}
+## Marcador (id -> bajas), igual en todos los procesos: el servidor lo manda cuando cambia.
+var scores := {}
+var round_over := false
+var _tags := {}
+var _winner := 0
+var _score_label: Label
 
 
 func is_active() -> bool:
 	return multiplayer.has_multiplayer_peer() and players.has(multiplayer.get_unique_id())
+
+
+## Se puede pegar (no hay ronda terminada esperando a la siguiente).
+func can_fight() -> bool:
+	return not round_over
 
 
 ## Este proceso pide entrar al duelo.
@@ -42,6 +57,36 @@ func _ready() -> void:
 		if multiplayer.is_server():
 			_server_remove(id))
 	multiplayer.server_disconnected.connect(_clear)
+	var layer := CanvasLayer.new()
+	layer.layer = 12
+	add_child(layer)
+	_score_label = Label.new()
+	_score_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_score_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_score_label.offset_top = 70
+	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_score_label.add_theme_font_size_override("font_size", 22)
+	_score_label.add_theme_constant_override("outline_size", 6)
+	_score_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	layer.add_child(_score_label)
+
+
+## Texto de vida sobre los demás jugadores y marcador arriba (solo presentación local).
+func _process(_delta: float) -> void:
+	for id: int in _tags:
+		var p: Player = players.get(id)
+		if p != null:
+			(_tags[id] as Label3D).text = "Jugador %d\n%s" % [id, "caído" if p.dead else str(ceili(p.health))]
+	if not is_active():
+		_score_label.text = ""
+		return
+	if _winner != 0:
+		_score_label.text = "¡Gana el jugador %d!\nNueva ronda en unos segundos" % _winner
+		return
+	var parts := PackedStringArray()
+	for id: int in players:
+		parts.append("%d%s: %d" % [id, " (tú)" if id == multiplayer.get_unique_id() else "", scores.get(id, 0)])
+	_score_label.text = "Primero a %d · %s" % [KILLS_TO_WIN, "   ".join(parts)]
 
 
 func _exit_tree() -> void:
@@ -87,6 +132,7 @@ func _server_add(id: int) -> void:
 	_spawn_local(id, SPAWNS[slot])
 	print("[red] jugador entra al duelo: ", id, " (punto ", slot, ")")
 	if id != 1:
+		_scores_changed.rpc_id(id, scores, _winner)
 		# El nuevo crea a todos los que ya están (y a sí mismo); los demás lo crean a él.
 		for other: int in _slots:
 			_spawn.rpc_id(id, other, SPAWNS[_slots[other]])
@@ -169,12 +215,17 @@ func _spawn_local(id: int, pos: Vector3) -> void:
 		tag.pixel_size = 0.004
 		tag.position = Vector3(0, 2.3, 0)
 		player.add_child(tag)
+		_tags[id] = tag
+	if multiplayer.is_server():
+		player.died.connect(_on_player_died.bind(id))
 
 
 func _despawn_local(id: int) -> void:
 	if players.has(id):
 		(players[id] as Player).queue_free()
 		players.erase(id)
+	_tags.erase(id)
+	scores.erase(id)
 	if _huds.has(id):
 		(_huds[id] as Node).queue_free()
 		_huds.erase(id)
@@ -186,3 +237,49 @@ func _clear() -> void:
 	for id: int in players.keys():
 		_despawn_local(id)
 	_slots.clear()
+	scores.clear()
+	round_over = false
+	_winner = 0
+
+
+# ---------------------------------------------------------------- Marcador (servidor decide)
+
+func _on_player_died(victim_id: int) -> void:
+	if round_over or not players.has(victim_id):
+		return
+	var killer: int = (players[victim_id] as Player).net_last_attacker
+	if killer == 0 or killer == victim_id or not players.has(killer):
+		return
+	scores[killer] = scores.get(killer, 0) + 1
+	print("[red] baja: ", killer, " derriba a ", victim_id, " ", scores)
+	if scores[killer] >= KILLS_TO_WIN:
+		round_over = true
+		print("[red] gana la ronda: ", killer)
+		get_tree().create_timer(NEW_ROUND_DELAY).timeout.connect(_new_round)
+	_broadcast_scores(killer if round_over else 0)
+
+
+func _new_round() -> void:
+	scores.clear()
+	round_over = false
+	for p: Player in players.values():
+		p.net_reset()
+	_broadcast_scores(0)
+
+
+func _broadcast_scores(winner: int) -> void:
+	_apply_scores(scores, winner)
+	for id: int in _slots:
+		if id != 1:
+			_scores_changed.rpc_id(id, scores, winner)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _scores_changed(new_scores: Dictionary, winner: int) -> void:
+	_apply_scores(new_scores, winner)
+
+
+func _apply_scores(new_scores: Dictionary, winner: int) -> void:
+	scores = new_scores.duplicate()
+	_winner = winner
+	round_over = winner != 0

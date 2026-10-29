@@ -96,6 +96,26 @@ var _net_held := {}
 var _net_just := {}
 var _net_last_ms := 0
 
+## Combate en red: un único golpe cuerpo a cuerpo que decide el servidor (sin armas ni combos todavía).
+const NET_ATTACK := {"damage": 20.0, "knockback": 5.0, "reach": 2.0, "arc": 1.0, "cooldown_ms": 600}
+## Contadores replicados: al cambiar, los clientes dibujan el golpe y el impacto localmente.
+var net_attacks := 0:
+	set(value):
+		if value != net_attacks and is_node_ready() and _is_net_client():
+			_show_net_attack()
+		net_attacks = value
+var net_hits := 0:
+	set(value):
+		if value != net_hits and is_node_ready() and _is_net_client():
+			_show_net_hit()
+		net_hits = value
+## Solo servidor: quién dio el último golpe (para contar la baja) y cuándo puede volver a pegar.
+var net_last_attacker := 0
+var _net_attack_ready_ms := 0
+## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
+var _seen_health := 100.0
+var _seen_dead := false
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 ## Aceleración alomántica recibida en el último paso (para no frenar en seco al empujar desde el suelo).
 var _allomantic_accel := 0.0
@@ -370,7 +390,7 @@ func _move_vector() -> Vector2:
 	return _net_move
 
 
-## En red todavía solo se mira y se rueda; ataques y metales llegan en etapas posteriores.
+## En red se mira, rueda y golpea; metales y armas llegan en etapas posteriores.
 func _networked_input(event: InputEvent) -> void:
 	if _look(event):
 		return
@@ -379,6 +399,65 @@ func _networked_input(event: InputEvent) -> void:
 			roll()
 		else:
 			_net_roll.rpc_id(1)
+	elif event.is_action_pressed(&"attack"):
+		if multiplayer.is_server():
+			server_attack()
+		else:
+			_net_attack.rpc_id(1)
+
+
+func _is_net_client() -> bool:
+	return net_peer_id != 0 and multiplayer.has_multiplayer_peer() and not multiplayer.is_server()
+
+
+## Servidor: valida y resuelve un golpe. Nadie más aplica daño: el cliente solo lo pide.
+func server_attack() -> void:
+	var now := Time.get_ticks_msec()
+	var arena := get_parent()  # NetArena (sin tipar, para no depender de esa clase desde aquí)
+	if dead or now < _net_attack_ready_ms or _hanging or _climb_t >= 0.0 or (arena.has_method(&"can_fight") and not arena.can_fight()):
+		return
+	_net_attack_ready_ms = now + int(NET_ATTACK["cooldown_ms"])
+	var forward := -yaw_pivot.global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	visual.rotation.y = atan2(-forward.x, -forward.z)
+	rig.play_attack(1, 0.4, 0)
+	net_attacks += 1
+	for other: Node in get_tree().get_nodes_in_group(&"player"):
+		var target := other as Player
+		if target == null or target == self or target.net_peer_id == 0 or target.dead:
+			continue
+		var to := target.global_position - global_position
+		to.y = 0.0
+		if to.length() > NET_ATTACK["reach"] or forward.angle_to(to) > NET_ATTACK["arc"]:
+			continue
+		target._receive_net_hit(to.normalized() * NET_ATTACK["knockback"], NET_ATTACK["damage"], net_peer_id)
+
+
+## Servidor: aplica un golpe confirmado.
+func _receive_net_hit(impulse: Vector3, damage: float, attacker_id: int) -> void:
+	net_last_attacker = attacker_id
+	velocity += impulse + Vector3.UP * impulse.length() * 0.2
+	_shoved = 0.35
+	net_hits += 1
+	Fx.sparks(get_tree().current_scene, chest_position(), Color(0.6, 0.1, 0.1))
+	take_damage(damage)
+
+
+## Servidor: vuelve a empezar (nueva ronda) con vida completa en su punto de aparición.
+func net_reset() -> void:
+	respawn()
+	health = max_health
+	dead = false
+
+
+func _show_net_attack() -> void:
+	rig.play_attack(1, 0.4, 0)
+
+
+func _show_net_hit() -> void:
+	rig.stagger = 1.0
+	Fx.sparks(get_tree().current_scene, chest_position(), Color(0.6, 0.1, 0.1))
 
 
 func _setup_network() -> void:
@@ -391,7 +470,8 @@ func _setup_network() -> void:
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "NetSync"
 	var config := SceneReplicationConfig.new()
-	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation"]:
+	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation",
+			^".:health", ^".:dead", ^".:net_attacks", ^".:net_hits"]:
 		config.add_property(path)
 		config.property_set_replication_mode(path, SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
 	sync.replication_config = config
@@ -435,12 +515,25 @@ func _net_roll() -> void:
 		roll()
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func _net_attack() -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		server_attack()
+
+
 ## Cliente: no simula, solo anima el cuerpo con lo que replica el servidor.
 func _update_remote_rig() -> void:
 	rig.move_speed = Vector2(velocity.x, velocity.z).length()
 	rig.vertical_speed = velocity.y
 	rig.on_floor = net_on_floor
 	rig.body_velocity = velocity
+	# La vida y la muerte las decide el servidor; aquí solo se muestran (parpadeo, pantalla de muerte).
+	if health < _seen_health - 0.01 and not dead:
+		damaged.emit(_seen_health - health, 0.0)
+	if dead and not _seen_dead:
+		died.emit()
+	_seen_health = health
+	_seen_dead = dead
 
 
 ## Tocar la tecla de un metal lo enciende o lo apaga.
@@ -870,7 +963,7 @@ func _process(delta: float) -> void:
 	var rd := real_delta(delta)
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
-	if not dead and _since_damage > regen_delay:
+	if not dead and _since_damage > regen_delay and is_simulated():
 		health = minf(health + regen_rate * (1.0 + 2.0 * allomancy.strength(&"pewter")) * rd, max_health)
 	# El estaño (el dolor te despeja) te recupera antes de un golpe: avivado, el triple de rápido.
 	var recover := rd * 3.0 * (1.0 + allomancy.strength(&"tin"))
