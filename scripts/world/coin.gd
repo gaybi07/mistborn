@@ -13,6 +13,13 @@ var net_id := 0
 var puppet := false
 
 var _last_velocity := Vector3.ZERO
+## Recogida: solo si está casi quieta; y quien la soltó o lanzó no la recoge hasta que se aleje de él
+## (o pasen unos segundos): la moneda que dejas bajo los pies para impulsarte no te la guardas de nuevo.
+const PICKUP_MAX_SPEED := 2.0
+const SHOOTER_CLEAR_DIST := 1.5
+const SHOOTER_GRACE_MS := 4000
+var _born_ms := Time.get_ticks_msec()
+var _left_shooter := false
 
 
 func _ready() -> void:
@@ -30,6 +37,16 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	# La velocidad de antes del choque (después del choque ya está frenada).
 	_last_velocity = linear_velocity
+	if not _left_shooter and shooter != null and is_instance_valid(shooter) \
+			and global_position.distance_to(shooter.global_position + Vector3(0, 1.2, 0)) > SHOOTER_CLEAR_DIST:
+		_left_shooter = true
+
+
+## Si `by` puede recogerla ahora.
+func pickable(by: Node3D) -> bool:
+	if puppet or linear_velocity.length() > PICKUP_MAX_SPEED:
+		return false
+	return shooter != by or _left_shooter or Time.get_ticks_msec() - _born_ms > SHOOTER_GRACE_MS
 
 
 func _on_body_entered(body: Node) -> void:

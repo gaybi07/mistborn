@@ -18,7 +18,7 @@ const FULL_SIZE_HEIGHT := 880.0
 ## Escala del HUD según la ventana (1 = tamaño completo, nunca menos de la mitad).
 static func ui_scale(ci: CanvasItem) -> float:
 	var vp := ci.get_viewport_rect().size
-	return clampf(minf(vp.x / FULL_SIZE_WIDTH, vp.y / FULL_SIZE_HEIGHT), 0.5, 1.0)
+	return clampf(minf(vp.x / FULL_SIZE_WIDTH, vp.y / FULL_SIZE_HEIGHT), 0.5, 1.0) * GameSettings.hud_scale
 
 
 ## Disco con degradado radial (centro -> borde).
@@ -126,3 +126,76 @@ static func coin_stack(ci: CanvasItem, c: Vector2, s: float, has: bool) -> void:
 		ellipse(ci, Vector2(0, y), 16.0, 6.0, coin)
 		ellipse(ci, Vector2(0, y), 11.0, 4.0, coin.lightened(0.2))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# ---------------------------------------------------------------- Tema de los menús
+
+static var _theme: Theme = null
+
+
+## Tema común de los menús (pausa, red, arena): paneles oscuros con borde dorado, botones, pestañas,
+## deslizadores y cuadros de texto del mismo estilo que el HUD. Se asigna a la raíz de cada menú.
+static func menu_theme() -> Theme:
+	if _theme != null:
+		return _theme
+	var t := Theme.new()
+	t.default_font_size = 15
+	var panel := _box(Color(0.05, 0.055, 0.075, 0.97), Color(GOLD, 0.9), 2, 8, 20.0, 18.0)
+	panel.shadow_color = Color(0, 0, 0, 0.5)
+	panel.shadow_size = 12
+	t.set_stylebox("panel", "PanelContainer", panel)
+	t.set_stylebox("panel", "Panel", panel)
+	# Botones
+	t.set_stylebox("normal", "Button", _box(Color(0.1, 0.11, 0.14), Color(GOLD, 0.55), 1, 5, 16.0, 8.0))
+	t.set_stylebox("hover", "Button", _box(Color(0.15, 0.16, 0.2), Color(GOLD_LIGHT, 0.9), 1, 5, 16.0, 8.0))
+	t.set_stylebox("pressed", "Button", _box(Color(0.2, 0.17, 0.11), GOLD_LIGHT, 1, 5, 16.0, 8.0))
+	t.set_stylebox("disabled", "Button", _box(Color(0.07, 0.075, 0.09), Color(GOLD, 0.2), 1, 5, 16.0, 8.0))
+	t.set_stylebox("focus", "Button", _box(Color(0, 0, 0, 0), Color(GOLD_LIGHT, 0.5), 1, 5, 16.0, 8.0))
+	t.set_color("font_color", "Button", Color(0.92, 0.92, 0.96))
+	t.set_color("font_hover_color", "Button", Color.WHITE)
+	t.set_color("font_pressed_color", "Button", GOLD_LIGHT)
+	t.set_color("font_disabled_color", "Button", Color(0.5, 0.5, 0.55))
+	# Texto
+	t.set_color("font_color", "Label", Color(0.92, 0.92, 0.96))
+	t.set_color("default_color", "RichTextLabel", Color(0.9, 0.9, 0.95))
+	t.set_color("font_color", "CheckButton", Color(0.92, 0.92, 0.96))
+	# Pestañas
+	t.set_stylebox("tab_selected", "TabContainer", _box(Color(0.12, 0.11, 0.1), GOLD, 1, 5, 16.0, 8.0))
+	t.set_stylebox("tab_unselected", "TabContainer", _box(Color(0.07, 0.075, 0.095), Color(GOLD, 0.25), 1, 5, 16.0, 8.0))
+	t.set_stylebox("tab_hovered", "TabContainer", _box(Color(0.11, 0.115, 0.14), Color(GOLD, 0.6), 1, 5, 16.0, 8.0))
+	t.set_stylebox("panel", "TabContainer", _box(Color(0.035, 0.04, 0.055, 0.9), Color(GOLD, 0.35), 1, 6, 14.0, 12.0))
+	t.set_color("font_selected_color", "TabContainer", GOLD_LIGHT)
+	t.set_color("font_unselected_color", "TabContainer", Color(0.75, 0.77, 0.83))
+	t.set_color("font_hovered_color", "TabContainer", Color.WHITE)
+	# Cuadros de texto y deslizadores
+	t.set_stylebox("normal", "LineEdit", _box(Color(0.03, 0.035, 0.05), Color(GOLD, 0.45), 1, 4, 10.0, 6.0))
+	t.set_stylebox("focus", "LineEdit", _box(Color(0.03, 0.035, 0.05), GOLD_LIGHT, 1, 4, 10.0, 6.0))
+	t.set_color("font_color", "LineEdit", Color(0.95, 0.95, 1.0))
+	t.set_stylebox("slider", "HSlider", _box(Color(0.03, 0.035, 0.05), Color(GOLD, 0.35), 1, 3, 0.0, 3.0))
+	t.set_stylebox("grabber_area", "HSlider", _box(Color(GOLD, 0.85), Color(GOLD_LIGHT, 0.0), 0, 3, 0.0, 3.0))
+	t.set_stylebox("grabber_area_highlight", "HSlider", _box(Color(GOLD_LIGHT, 0.95), Color(GOLD_LIGHT, 0.0), 0, 3, 0.0, 3.0))
+	_theme = t
+	return t
+
+
+static func _box(bg: Color, border: Color, border_width: int, radius: int, margin_h: float, margin_v: float) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = border
+	s.set_border_width_all(border_width)
+	s.set_corner_radius_all(radius)
+	s.content_margin_left = margin_h
+	s.content_margin_right = margin_h
+	s.content_margin_top = margin_v
+	s.content_margin_bottom = margin_v
+	s.anti_aliasing = true
+	return s
+
+
+## Título de sección (dorado) para los menús.
+static func section_label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_color_override("font_color", GOLD_LIGHT)
+	l.add_theme_font_size_override("font_size", 17)
+	return l

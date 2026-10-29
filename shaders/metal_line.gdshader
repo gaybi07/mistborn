@@ -34,7 +34,10 @@ void fragment() {
 	float soft = exp(-across * across * 4.5 / (width * width));
 	float line_core = exp(-across * across * 70.0) * core;
 	float start_fade = smoothstep(0.3, 1.8, along);
+	// Las cintas lentas (flujo bajo, tipo aurora) respiran suavemente; las rápidas (PNJ) no cambian.
+	float calm = 1.0 - smoothstep(0.2, 0.5, abs(flow));
+	float breathe = 1.0 - 0.2 * calm * (0.5 + 0.5 * sin(TIME * 0.8 + seed * 3.0 + along * 0.15));
 
 	ALBEDO = COLOR.rgb * brightness * (1.0 + line_core * 1.5);
-	ALPHA = clamp(COLOR.a * start_fade * (soft * wisps * 0.8 + line_core), 0.0, 1.0);
+	ALPHA = clamp(COLOR.a * start_fade * breathe * (soft * wisps * 0.8 + line_core), 0.0, 1.0);
 }

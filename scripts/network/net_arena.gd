@@ -383,6 +383,12 @@ func server_spawn_coin(pos: Vector3) -> Coin:
 	return coin
 
 
+## Servidor: un jugador recogió esta moneda del suelo (desaparece para todos).
+func server_take_coin(coin: Coin) -> void:
+	if coins.has(coin.net_id):
+		_server_remove_coin(coin.net_id)
+
+
 func _server_remove_coin(id: int) -> void:
 	_remove_coin_local(id)
 	for peer: int in _slots:

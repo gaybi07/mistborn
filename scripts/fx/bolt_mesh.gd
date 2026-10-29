@@ -27,10 +27,11 @@ func begin() -> void:
 
 
 ## amp: cuánto serpentea (fracción de la longitud); energetic: saltos más rápidos;
-## core: añade el núcleo fino y brillante (líneas en uso).
+## core: añade el núcleo fino y brillante (líneas en uso). calm: ondula despacio y suave, como una aurora.
 func add(a: Vector3, b: Vector3, width_per_meter: float, col: Color, flow: float, seed: float,
-		amp: float, energetic := false, core := false) -> PackedVector3Array:
-	var pts := bolt_path(a, b, seed, amp, Time.get_ticks_msec() / 1000.0, energetic)
+		amp: float, energetic := false, core := false, calm := false) -> PackedVector3Array:
+	var t := Time.get_ticks_msec() / 1000.0
+	var pts := aurora_path(a, b, seed, amp, t) if calm else bolt_path(a, b, seed, amp, t, energetic)
 	_bolts.append([pts, width_per_meter, col, flow, seed, core])
 	return pts
 
@@ -117,3 +118,30 @@ func _vertex(pos: Vector3, uv: Vector2, col: Color, flow: float, seed: float) ->
 	_mesh.surface_set_uv(uv)
 	_mesh.surface_set_uv2(Vector2(flow, seed))
 	_mesh.surface_add_vertex(pos)
+
+
+## Recorrido de aurora: una cortina que ondula despacio y sin saltos (el desvío es cero en los extremos,
+## así que siempre conecta). Se mueve lo justo para tener vida, sin la inquietud del rayo.
+static func aurora_path(a: Vector3, b: Vector3, seed: float, amp: float, t: float) -> PackedVector3Array:
+	var seg := b - a
+	var length := seg.length()
+	if amp <= 0.0 or length < 0.5:
+		return PackedVector3Array([a, b])
+	var dir := seg / length
+	var side := dir.cross(Vector3.UP)
+	if side.length() < 0.1:
+		side = dir.cross(Vector3.RIGHT)
+	side = side.normalized()
+	var up := side.cross(dir)
+	var n := clampi(int(length / 2.0), 4, 14)
+	var size := minf(length * amp, 1.0)
+	var pts := PackedVector3Array([a])
+	for i in range(1, n):
+		var f := float(i) / n
+		var x := f * length
+		var envelope := sin(PI * f)
+		var ws := sin(x * 0.45 + t * 0.45 + seed) * 0.65 + sin(x * 0.9 - t * 0.3 + seed * 1.7) * 0.35
+		var wu := sin(x * 0.5 - t * 0.38 + seed * 0.7) * 0.65 + sin(x * 1.1 + t * 0.27 + seed * 2.1) * 0.35
+		pts.append(a + seg * f + (side * ws + up * wu) * size * envelope)
+	pts.append(b)
+	return pts

@@ -163,7 +163,7 @@ func _process(delta: float) -> void:
 	_select_ring.visible = a.is_burning(&"steel") or a.is_burning(&"iron")
 	if _select_ring.visible:
 		var view := get_viewport().get_visible_rect().size
-		var d := 2.0 * player.steel_iron.select_radius * view.y
+		var d := tan(deg_to_rad(player.steel_iron.select_degrees)) / tan(deg_to_rad(player.camera.fov) * 0.5) * view.y
 		_select_ring.size = Vector2(d, d)
 		_select_ring.position = view * 0.5 - _select_ring.size * 0.5
 

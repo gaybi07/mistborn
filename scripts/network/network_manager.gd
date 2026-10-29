@@ -19,6 +19,13 @@ var _label: Label
 var _address: LineEdit
 var _root: Control
 var _peers: Label
+var _dot: Panel
+var _dot_style: StyleBoxFlat
+var _ips: Label
+var _port_box: SpinBox
+var _host_button: Button
+var _join_button: Button
+var _leave_button: Button
 var _previous_mouse := Input.MOUSE_MODE_VISIBLE
 
 
@@ -115,14 +122,31 @@ func _refresh() -> void:
 	if _label == null:
 		return
 	_label.text = status
-	if not is_online():
-		_peers.text = "Mi ID: -"
+	var online := is_online()
+	var connecting := online and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTING
+	# Semáforo: gris sin conexión, amarillo conectando, verde conectado, rojo si hubo un error.
+	var color := Color(0.5, 0.52, 0.56)
+	if status.begins_with("Error") or status.begins_with("No se pudo") or status.begins_with("Se perdió"):
+		color = Color(0.9, 0.3, 0.25)
+	elif connecting:
+		color = Color(0.95, 0.8, 0.3)
+	elif online:
+		color = Color(0.35, 0.85, 0.45)
+	_dot_style.bg_color = color
+	_dot.queue_redraw()
+	_host_button.disabled = online
+	_join_button.disabled = online
+	_leave_button.disabled = not online
+	_address.editable = not online
+	_port_box.editable = not online
+	if not online:
+		_peers.text = "Nadie conectado todavía."
 		return
-	var ids := PackedStringArray()
+	var lines := PackedStringArray()
+	lines.append("Tú: %d (%s)" % [multiplayer.get_unique_id(), "anfitrión" if multiplayer.is_server() else "cliente"])
 	for id in multiplayer.get_peers():
-		ids.append(str(id))
-	_peers.text = "Mi ID: %d (%s)\nPares: %s" % [multiplayer.get_unique_id(),
-			"servidor" if multiplayer.is_server() else "cliente", ", ".join(ids) if ids.size() > 0 else "ninguno"]
+		lines.append("%s: %d" % ["Cliente" if multiplayer.is_server() else "Anfitrión", id])
+	_peers.text = "\n".join(lines)
 
 
 func _process(_delta: float) -> void:
@@ -135,36 +159,132 @@ func _toggle_panel() -> void:
 	if _root.visible:
 		_previous_mouse = Input.mouse_mode
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_ips.text = _local_addresses()
+		_port_box.value = port
 	else:
 		Input.mouse_mode = _previous_mouse
 	_refresh()
 
 
+## Direcciones de esta computadora en la red local (la que hay que decirle a quien quiera unirse).
+func _local_addresses() -> String:
+	var found := PackedStringArray()
+	for a in IP.get_local_addresses():
+		if not a.contains(".") or a.begins_with("127.") or a.begins_with("169.254."):
+			continue
+		if a.begins_with("192.168.") or a.begins_with("10.") or _is_172_private(a):
+			found.append(a)
+	return ", ".join(found) if found.size() > 0 else "No se encontró (¿hay red?)"
+
+
+func _is_172_private(a: String) -> bool:
+	if not a.begins_with("172."):
+		return false
+	var second := int(a.split(".")[1])
+	return second >= 16 and second <= 31
+
+
 func _build_ui() -> void:
 	_root = PanelContainer.new()
 	_root.visible = false
-	_root.position = Vector2(20, 20)
+	_root.theme = HudKit.menu_theme()
+	_root.position = Vector2(24, 24)
+	_root.custom_minimum_size = Vector2(400, 0)
 	add_child(_root)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
+	box.add_theme_constant_override("separation", 10)
 	_root.add_child(box)
+
+	var head := HBoxContainer.new()
+	box.add_child(head)
 	var title := Label.new()
-	title.text = "Red (P cierra) · puerto %d" % port
-	box.add_child(title)
+	title.text = "Conexión"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", HudKit.GOLD_LIGHT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var close_hint := Label.new()
+	close_hint.text = "P para cerrar"
+	close_hint.modulate.a = 0.6
+	head.add_child(close_hint)
+
+	var state := HBoxContainer.new()
+	state.add_theme_constant_override("separation", 10)
+	box.add_child(state)
+	_dot = Panel.new()
+	_dot.custom_minimum_size = Vector2(14, 14)
+	_dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_dot_style = StyleBoxFlat.new()
+	_dot_style.set_corner_radius_all(7)
+	_dot_style.bg_color = Color(0.5, 0.52, 0.56)
+	_dot.add_theme_stylebox_override("panel", _dot_style)
+	state.add_child(_dot)
+	_label = Label.new()
+	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	state.add_child(_label)
+
+	box.add_child(HudKit.section_label("Tu dirección en esta red"))
+	var mine := HBoxContainer.new()
+	mine.add_theme_constant_override("separation", 8)
+	box.add_child(mine)
+	_ips = Label.new()
+	_ips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ips.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mine.add_child(_ips)
+	var copy := Button.new()
+	copy.text = "Copiar"
+	copy.focus_mode = Control.FOCUS_NONE
+	copy.tooltip_text = "Copia la primera dirección y el puerto para pasárselos a quien se une."
+	copy.pressed.connect(func() -> void:
+		var first := _ips.text.split(",")[0].strip_edges()
+		DisplayServer.clipboard_set("%s:%d" % [first, port])
+		copy.text = "¡Copiado!"
+		get_tree().create_timer(1.5, true, false, true).timeout.connect(func() -> void: copy.text = "Copiar"))
+	mine.add_child(copy)
+
+	box.add_child(HudKit.section_label("Conectarse"))
+	var form := HBoxContainer.new()
+	form.add_theme_constant_override("separation", 8)
+	box.add_child(form)
 	_address = LineEdit.new()
 	_address.text = "127.0.0.1"
-	_address.custom_minimum_size.x = 220
-	box.add_child(_address)
+	_address.placeholder_text = "IP del anfitrión"
+	_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	form.add_child(_address)
+	_port_box = SpinBox.new()
+	_port_box.min_value = 1024
+	_port_box.max_value = 65535
+	_port_box.value = port
+	_port_box.prefix = "Puerto "
+	_port_box.custom_minimum_size.x = 150
+	_port_box.value_changed.connect(func(v: float) -> void: port = int(v))
+	form.add_child(_port_box)
+
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
-	for spec in [["Alojar", func() -> void: host()], ["Unirse", func() -> void: join(_address.text.strip_edges())],
-			["Desconectar", func() -> void: disconnect_network()]]:
-		var b := Button.new()
-		b.text = spec[0]
-		b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(spec[1])
+	_host_button = _make_button("Alojar", func() -> void: host())
+	_join_button = _make_button("Unirse", func() -> void: join(_address.text.strip_edges()))
+	_leave_button = _make_button("Desconectar", func() -> void: disconnect_network())
+	for b in [_host_button, _join_button, _leave_button]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(b)
-	_label = Label.new()
-	box.add_child(_label)
+
+	box.add_child(HudKit.section_label("Jugadores"))
 	_peers = Label.new()
 	box.add_child(_peers)
+
+	var help := Label.new()
+	help.text = "1. Una persona pulsa Alojar.\n2. La otra escribe la IP del anfitrión y pulsa Unirse.\n3. Las dos van a la arena (F2), abren el menú (M) y entran al duelo en red."
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.modulate.a = 0.65
+	box.add_child(help)
+
+
+func _make_button(text: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(action)
+	return b

@@ -208,42 +208,55 @@ func _build_menu() -> void:
 	_menu.layer = 20
 	add_child(_menu)
 	var panel := PanelContainer.new()
+	panel.theme = HudKit.menu_theme()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.08, 0.1, 0.92)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(22)
-	panel.add_theme_stylebox_override("panel", style)
 	_menu.add_child(panel)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
+	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
+	var head := HBoxContainer.new()
+	box.add_child(head)
 	var title := Label.new()
 	title.text = "Arena"
 	title.add_theme_font_size_override("font_size", 32)
-	box.add_child(title)
-	box.add_child(_section("Mirar (espectador)"))
+	title.add_theme_color_override("font_color", HudKit.GOLD_LIGHT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var close_hint := Label.new()
+	close_hint.text = "M: abrir / cerrar el menú"
+	close_hint.modulate.a = 0.6
+	head.add_child(close_hint)
+	# La lista es larga: va en un cuadro con desplazamiento para que entre en ventanas chicas.
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(680, 400)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 6)
+	scroll.add_child(list)
+	list.add_child(_section("Mirar (espectador)"))
 	var fight_section := false
 	for i in MATCHES.size():
 		if MATCHES[i].get("player", false) and not fight_section:
 			fight_section = true
-			box.add_child(_section("Pelear"))
+			list.add_child(_section("Pelear"))
 		var b := Button.new()
 		b.text = MATCHES[i]["name"]
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.pressed.connect(_restart.bind(i))
-		box.add_child(b)
-	box.add_child(_section("Red (2 jugadores)"))
+		list.add_child(b)
+	list.add_child(_section("Red (2 jugadores)"))
 	var duel := Button.new()
 	duel.text = "Entrar al duelo en red (conectate antes con P)"
 	duel.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	duel.pressed.connect(_net.join)
-	box.add_child(duel)
+	list.add_child(duel)
 	var help := Label.new()
 	help.text = "Espectador: WASD mover · Q/E bajar/subir · clic derecho mirar · Tab seguir luchador · rueda acercar\nR repetir · M menú · F1 volver a la ciudad · F3 día/noche · F4 clima · F5 niebla"
-	help.modulate.a = 0.7
+	help.modulate.a = 0.65
 	box.add_child(help)
 
 	_banner = Label.new()
@@ -279,10 +292,7 @@ func _show_notice(text: String) -> void:
 
 
 func _section(text: String) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0))
-	return l
+	return HudKit.section_label(text)
 
 
 func _show_menu(on: bool) -> void:

@@ -86,6 +86,7 @@ func _draw_coins(font: Font) -> void:
 	var rect := Rect2(188, 0, 122, RIGHT_SIZE.y)
 	HudKit.panel(self, rect, 9.0)
 	HudKit.coin_stack(self, rect.position + Vector2(34, 31), 0.85, has)
-	# Con la bolsa no se acaban; sin ella, no tienes ninguna.
-	draw_string(font, rect.position + Vector2(58, 40), "∞" if has else "0", HORIZONTAL_ALIGNMENT_CENTER, 56, 22,
-			Color(1, 1, 1, 0.92) if has else Color(1.0, 0.7, 0.4))
+	# Las monedas que llevas (sin la bolsa, ninguna). En naranja cuando se acaban.
+	var count := player.coins_held if has else 0
+	draw_string(font, rect.position + Vector2(58, 40), str(count), HORIZONTAL_ALIGNMENT_CENTER, 56, 22,
+			Color(1, 1, 1, 0.92) if count > 0 else Color(1.0, 0.7, 0.4))

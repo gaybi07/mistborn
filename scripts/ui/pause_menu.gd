@@ -6,6 +6,8 @@ extends CanvasLayer
 var player: Player
 
 var _root: Control
+var _restart_button: Button
+var _reset_button: Button
 
 
 func _ready() -> void:
@@ -14,9 +16,10 @@ func _ready() -> void:
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
+	_root.theme = HudKit.menu_theme()
 	add_child(_root)
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.55)
+	shade.color = Color(0, 0, 0, 0.6)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(shade)
 
@@ -24,23 +27,26 @@ func _ready() -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	panel.custom_minimum_size = Vector2(900, 600)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.065, 0.085, 0.96)
-	style.border_color = Color(0.4, 0.42, 0.5, 0.6)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(20)
-	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(940, 620)
 	_root.add_child(panel)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
+	var head := HBoxContainer.new()
+	box.add_child(head)
 	var title := Label.new()
 	title.text = "Pausa"
-	title.add_theme_font_size_override("font_size", 28)
-	box.add_child(title)
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", HudKit.GOLD_LIGHT)
+	head.add_child(title)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(spacer)
+	var hint := Label.new()
+	hint.text = "Esc: volver al juego"
+	hint.modulate.a = 0.6
+	head.add_child(hint)
 
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -48,21 +54,149 @@ func _ready() -> void:
 	tabs.add_child(_page("Controles", CONTROLS))
 	tabs.add_child(_metals_page())
 	tabs.add_child(_page("Combate", COMBAT))
+	tabs.add_child(_options_page())
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	box.add_child(buttons)
-	var resume := Button.new()
-	resume.text = "Reanudar (Esc)"
-	resume.pressed.connect(close)
-	buttons.add_child(resume)
-	var respawn := Button.new()
-	respawn.text = "Reaparecer"
-	respawn.pressed.connect(func() -> void:
+	buttons.add_child(_button("Reanudar", close))
+	buttons.add_child(_button("Reaparecer", func() -> void:
 		close()
-		player.respawn()
-	)
-	buttons.add_child(respawn)
+		player.respawn()))
+	var filler := Control.new()
+	filler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buttons.add_child(filler)
+	_restart_button = _confirm_button("Reiniciar el mundo", "¿Seguro? Pulsá de nuevo", _restart_world)
+	_restart_button.tooltip_text = "Vuelve a generar el escenario actual. Conservas tu inventario."
+	buttons.add_child(_restart_button)
+	_reset_button = _confirm_button("Empezar de cero", "¿Seguro? Pulsá de nuevo", _restart_all)
+	_reset_button.tooltip_text = "Reinicia el escenario y además vacía tu inventario y equipo."
+	buttons.add_child(_reset_button)
+	buttons.add_child(_confirm_button("Salir del juego", "¿Seguro? Pulsá de nuevo", func() -> void: get_tree().quit()))
+
+
+## Botón de un solo paso.
+func _button(text: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.pressed.connect(action)
+	return b
+
+
+## Botón que pide una segunda pulsación (en 3 s) antes de hacer algo que no se puede deshacer.
+func _confirm_button(text: String, confirm_text: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.pressed.connect(func() -> void:
+		if b.get_meta(&"armed", false):
+			b.set_meta(&"armed", false)
+			b.text = text
+			action.call()
+			return
+		b.set_meta(&"armed", true)
+		b.text = confirm_text
+		get_tree().create_timer(3.0, true, false, true).timeout.connect(func() -> void:
+			if is_instance_valid(b) and b.get_meta(&"armed", false):
+				b.set_meta(&"armed", false)
+				b.text = text))
+	return b
+
+
+func _restart_world() -> void:
+	if NetworkManager.is_online():
+		return
+	close()
+	Engine.time_scale = 1.0
+	get_tree().reload_current_scene()
+
+
+func _restart_all() -> void:
+	if NetworkManager.is_online():
+		return
+	Player.clear_saved()
+	_restart_world()
+
+
+## Pestaña de opciones: sensibilidad, campo de visión, tamaño del HUD, volumen y pantalla completa
+## (se guardan solas), y atajos para cambiar de escenario.
+func _options_page() -> Control:
+	var page := VBoxContainer.new()
+	page.name = "Opciones"
+	page.add_theme_constant_override("separation", 10)
+	page.add_child(HudKit.section_label("Controles y vista"))
+	page.add_child(_slider_row("Sensibilidad del ratón", 0.3, 3.0, 0.05, GameSettings.sensitivity, "×%.2f",
+			func(v: float) -> void:
+				GameSettings.sensitivity = v
+				GameSettings.apply_to(player)))
+	page.add_child(_slider_row("Campo de visión", 60.0, 100.0, 1.0, GameSettings.fov, "%d°",
+			func(v: float) -> void:
+				GameSettings.fov = v
+				GameSettings.apply_to(player)))
+	page.add_child(_slider_row("Tamaño del HUD", 0.7, 1.3, 0.05, GameSettings.hud_scale, "×%.2f",
+			func(v: float) -> void: GameSettings.hud_scale = v))
+	page.add_child(HudKit.section_label("Sonido y pantalla"))
+	page.add_child(_slider_row("Volumen", 0.0, 1.0, 0.05, GameSettings.volume, "%d %%",
+			func(v: float) -> void:
+				GameSettings.volume = v
+				GameSettings.apply_global(), 100.0))
+	var full := CheckButton.new()
+	full.text = "Pantalla completa"
+	full.button_pressed = GameSettings.fullscreen
+	full.toggled.connect(func(on: bool) -> void:
+		GameSettings.fullscreen = on
+		GameSettings.apply_global()
+		GameSettings.save())
+	page.add_child(full)
+	page.add_child(HudKit.section_label("Ir a"))
+	var go := HBoxContainer.new()
+	go.add_theme_constant_override("separation", 10)
+	page.add_child(go)
+	go.add_child(_button("Ciudad (F1)", _go_to.bind("res://scenes/main.tscn")))
+	go.add_child(_button("Arena (F2)", _go_to.bind("res://scenes/arena.tscn")))
+	var note := Label.new()
+	note.text = "Reiniciar el mundo, empezar de cero y cambiar de escenario no están disponibles mientras estás conectado en red."
+	note.modulate.a = 0.6
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(note)
+	return page
+
+
+func _go_to(scene: String) -> void:
+	if NetworkManager.is_online() or get_tree().current_scene.scene_file_path == scene:
+		return
+	close()
+	Engine.time_scale = 1.0
+	get_tree().change_scene_to_file(scene)
+
+
+## Fila "nombre — deslizador — valor". `display_scale` multiplica el valor mostrado (0-1 -> porcentaje).
+func _slider_row(label: String, lo: float, hi: float, step: float, value: float, fmt: String, on_change: Callable,
+		display_scale := 1.0) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	var name_label := Label.new()
+	name_label.text = label
+	name_label.custom_minimum_size.x = 210
+	row.add_child(name_label)
+	var slider := HSlider.new()
+	slider.min_value = lo
+	slider.max_value = hi
+	slider.step = step
+	slider.value = value
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.custom_minimum_size = Vector2(300, 24)
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(slider)
+	var value_label := Label.new()
+	value_label.custom_minimum_size.x = 70
+	value_label.text = fmt % (value * display_scale)
+	row.add_child(value_label)
+	slider.value_changed.connect(func(v: float) -> void:
+		value_label.text = fmt % (v * display_scale)
+		on_change.call(v))
+	# Se guarda al soltar el deslizador, no en cada movimiento.
+	slider.drag_ended.connect(func(_changed: bool) -> void: GameSettings.save())
+	return row
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -78,6 +212,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func open() -> void:
 	_root.visible = true
+	var online := NetworkManager.is_online()
+	_restart_button.disabled = online
+	_reset_button.disabled = online
 	player.ui_open = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -124,14 +261,14 @@ const CONTROLS := """[table=2]
 [cell][b]Z X C V B[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón[/cell]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
 [cell][b]Tab[/b] (mantener)[/cell][cell]Rueda de metales: apuntá con el ratón y soltá Tab; clic = avivar[/cell]
-[cell][b]Clic izquierdo[/b][/cell][cell]Tirar (hierro). Con un solo metal encendido, cualquier clic lo usa[/cell]
-[cell][b]Clic derecho[/b][/cell][cell]Empujar (acero)[/cell]
-[cell][b]R[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener el clic)[/cell]
-[cell][b]Q[/b][/cell][cell]Lanzar moneda a la mira · corriendo con acero/hierro: recta hacia delante, con acero más rápida (avivado, aún más)[/cell]
+[cell][b]Clic izquierdo[/b][/cell][cell]Tirar (hierro) del metal que miras. Con un solo metal encendido, cualquier clic lo usa. Sin nada a la vista, agarra el metal que más ayuda a moverte hacia donde vas[/cell]
+[cell][b]Clic derecho[/b][/cell][cell]Empujar (acero) el metal que miras. Con un solo metal encendido, cualquier clic lo usa[/cell]
+[cell][b]R[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener el clic). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
+[cell][b]Q[/b][/cell][cell]Lanzar moneda hacia donde apunta el ratón (no donde mira el cuerpo). Un toque la suelta a tus pies; mantenida carga la fuerza (medidor en la mira, con tope). Con acero va más rápida (avivado, aún más)[/cell]
 [cell][b]G[/b] (mantener)[/cell][cell]Moneda a los pies y empuje: salto alto o frenar una caída. Con WASD dirigís el salto; se dibuja dónde caerías[/cell]
 [cell][b]F[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
 [cell][b]E[/b][/cell][cell]Atacar (desenvaina las dagas sola) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
-[cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada)[/cell]
+[cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
 [cell][b]I[/b][/cell][cell]Inventario: capa, ropa, botas, dagas, espada y frascos. Doble clic para equipar o quitar[/cell]
