@@ -115,6 +115,10 @@ var _net_attack_ready_ms := 0
 ## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
 var _seen_health := 100.0
 var _seen_dead := false
+## Protección tras reaparecer (la decide y cuenta el servidor; los clientes solo parpadean).
+const NET_PROTECTION_MS := 3000
+var net_protected := false
+var _protected_until_ms := 0
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 ## Aceleración alomántica recibida en el último paso (para no frenar en seco al empujar desde el suelo).
@@ -422,10 +426,11 @@ func server_attack() -> void:
 	forward = forward.normalized()
 	visual.rotation.y = atan2(-forward.x, -forward.z)
 	rig.play_attack(1, 0.4, 0)
+	net_protected = false  # atacar cancela la protección: no sirve para pegar sin riesgo
 	net_attacks += 1
 	for other: Node in get_tree().get_nodes_in_group(&"player"):
 		var target := other as Player
-		if target == null or target == self or target.net_peer_id == 0 or target.dead:
+		if target == null or target == self or target.net_peer_id == 0 or target.dead or target.net_protected:
 			continue
 		var to := target.global_position - global_position
 		to.y = 0.0
@@ -463,6 +468,7 @@ func _show_net_hit() -> void:
 func _setup_network() -> void:
 	if net_peer_id == 0:
 		return
+	collision_mask |= Props.LAYER_PLAYER  # en red los jugadores se chocan entre sí
 	# Los metales leen el teclado de este proceso: solo para el jugador que simulamos y manejamos.
 	if not (is_local_player() and is_simulated()):
 		steel_iron.set_physics_process(false)
@@ -471,7 +477,7 @@ func _setup_network() -> void:
 	sync.name = "NetSync"
 	var config := SceneReplicationConfig.new()
 	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation",
-			^".:health", ^".:dead", ^".:net_attacks", ^".:net_hits"]:
+			^".:health", ^".:dead", ^".:net_attacks", ^".:net_hits", ^".:net_protected"]:
 		config.add_property(path)
 		config.property_set_replication_mode(path, SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
 	sync.replication_config = config
@@ -479,6 +485,8 @@ func _setup_network() -> void:
 	# lo ven siempre, si no no pueden enviarle RPCs al servidor.
 	sync.public_visibility = not multiplayer.is_server()
 	add_child(sync)
+	if multiplayer.is_server():
+		_start_protection()  # también al entrar al duelo
 
 
 ## Cliente: manda al servidor sus teclas, hacia dónde mira y el giro de la cámara.
@@ -717,6 +725,8 @@ func _physics_process(delta: float) -> void:
 			_send_net_input()
 			return
 		net_on_floor = is_on_floor()
+		if net_protected and Time.get_ticks_msec() >= _protected_until_ms:
+			net_protected = false
 		if not is_local_player() and Time.get_ticks_msec() - _net_last_ms > NET_INPUT_TIMEOUT_MS:
 			_net_move = Vector2.ZERO
 			_net_held.clear()
@@ -981,6 +991,9 @@ func _process(delta: float) -> void:
 	_shake = move_toward(_shake, 0.0, rd * 1.2)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.25
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.25
+	if net_peer_id != 0:
+		# Protegido tras reaparecer: parpadea (el servidor lo marca, ambos clientes lo dibujan).
+		visual.visible = not net_protected or int(Time.get_ticks_msec() / 120.0) % 2 == 0
 	if net_peer_id != 0 and multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
 		_update_remote_rig()
 
@@ -1403,8 +1416,16 @@ func _spawn_coin(pos: Vector3) -> RigidBody3D:
 
 
 func respawn() -> void:
+	if net_peer_id != 0 and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_start_protection()
 	if _hanging or _climb_t >= 0.0:
 		_release_ledge(Vector3.ZERO)
 	global_position = spawn_point
 	velocity = Vector3.ZERO
 	_since_damage = 99.0
+
+
+## Servidor: unos segundos sin poder ser dañado tras reaparecer o al empezar una ronda.
+func _start_protection() -> void:
+	net_protected = true
+	_protected_until_ms = Time.get_ticks_msec() + NET_PROTECTION_MS
