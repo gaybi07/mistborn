@@ -21,6 +21,20 @@ const HORIZONTAL_IMPACT := 0.6
 @export var regen_delay := 4.0
 @export var regen_rate := 3.0
 
+@export_group("Resistencia")
+@export var max_stamina := 100.0
+## Por segundo: se recupera quieto y se gasta caminando (más rápido cuanto más rápido vas).
+const STAMINA_REGEN := 14.0
+const STAMINA_MOVE_DRAIN := 1.5
+## Costes por acción.
+const JUMP_COST := 7.0
+const ROLL_COST := 14.0
+const DASH_COST := 10.0
+const ATTACK_COST := 6.0
+## Sin aliento (resistencia a 0) vas más lento y no saltas, ruedas ni pegas hasta recuperar esto.
+const EXHAUSTED_SPEED := 0.7
+const EXHAUSTED_RECOVER := 25.0
+
 @export_group("Combate y movimiento")
 @export var roll_speed := 9.0
 @export var roll_duration := 0.6
@@ -50,6 +64,10 @@ const COMBO_WINDOW := 0.45
 const COMBAT_TIMEOUT := 6.0
 
 var health := 100.0
+## Resistencia: la gastan correr, saltar, rodar y pegar; el peltre la hace rendir más. Ver _update_stamina.
+var stamina := 100.0
+var _exhausted := false
+var _tired_notice_ms := 0
 var dead := false
 var weapon := HumanoidRig.Weapon.NONE
 ## Bando: 0 = el jugador y sus aliados. Los alománticos de otro bando pueden atacarte.
@@ -232,6 +250,7 @@ func _ready() -> void:
 	add_child(_guide)
 
 	health = max_health
+	stamina = max_stamina
 	spawn_point = global_position
 	_apply_equipment()
 	if is_local_player():
@@ -420,6 +439,8 @@ func server_attack() -> void:
 	var arena := get_parent()  # NetArena (sin tipar, para no depender de esa clase desde aquí)
 	if dead or now < _net_attack_ready_ms or _hanging or _climb_t >= 0.0 or (arena.has_method(&"can_fight") and not arena.can_fight()):
 		return
+	if not _spend_stamina(ATTACK_COST):
+		return
 	_net_attack_ready_ms = now + int(NET_ATTACK["cooldown_ms"])
 	var forward := -yaw_pivot.global_basis.z
 	forward.y = 0.0
@@ -477,7 +498,7 @@ func _setup_network() -> void:
 	sync.name = "NetSync"
 	var config := SceneReplicationConfig.new()
 	for path in [^".:position", ^".:velocity", ^".:net_on_floor", ^"Visual:rotation",
-			^".:health", ^".:dead", ^".:net_attacks", ^".:net_hits", ^".:net_protected"]:
+			^".:health", ^".:stamina", ^".:_exhausted", ^".:dead", ^".:net_attacks", ^".:net_hits", ^".:net_protected"]:
 		config.add_property(path)
 		config.property_set_replication_mode(path, SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
 	sync.replication_config = config
@@ -598,6 +619,48 @@ func is_rioted() -> bool:
 ## Segundos que le quedan al arrastre de peltre (0 si no lo tienes).
 func pewter_drag() -> float:
 	return maxf(_pewter_drag, 0.0)
+
+
+func is_exhausted() -> bool:
+	return _exhausted
+
+
+## Peltre: gastas menos (×0,67 quemando, ×0,5 avivando) y recuperas más rápido; con arrastre, al revés.
+func _stamina_cost_mult() -> float:
+	return (1.0 / (1.0 + 0.5 * allomancy.strength(&"pewter"))) * (1.5 if _pewter_drag > 0.0 else 1.0)
+
+
+## Quieto en el suelo recuperas; caminando gastas un poco; en el aire ni una cosa ni la otra
+## (volar con metales no cansa). Al quedarte en 0 estás sin aliento hasta recuperar EXHAUSTED_RECOVER.
+func _update_stamina(rd: float) -> void:
+	if dead or not is_on_floor():
+		return
+	var pewter := allomancy.strength(&"pewter")
+	if _move_vector().length() < 0.1:
+		var regen := STAMINA_REGEN * (1.0 + 0.5 * pewter) * (0.5 if _pewter_drag > 0.0 else 1.0)
+		stamina += regen * rd
+	else:
+		var ratio := clampf(Vector2(velocity.x, velocity.z).length() / walk_speed, 0.0, 2.5)
+		stamina -= STAMINA_MOVE_DRAIN * ratio * _stamina_cost_mult() * rd
+	stamina = clampf(stamina, 0.0, max_stamina)
+	if stamina <= 0.0:
+		_exhausted = true
+	elif _exhausted and stamina >= EXHAUSTED_RECOVER:
+		_exhausted = false
+
+
+## Gasta `cost` si puedes (con poca resistencia igual haces la acción y quedas en 0).
+func _spend_stamina(cost: float) -> bool:
+	if _exhausted:
+		var now := Time.get_ticks_msec()
+		if now - _tired_notice_ms > 1500:
+			_tired_notice_ms = now
+			notice.emit("Sin aliento")
+		return false
+	stamina = maxf(stamina - cost * _stamina_cost_mult(), 0.0)
+	if stamina <= 0.0:
+		_exhausted = true
+	return true
 
 
 ## Tras quemar todo el peltre avivando: lento y débil un rato, y no puedes volver a quemarlo.
@@ -739,6 +802,9 @@ func _physics_process(delta: float) -> void:
 	if _pewter_drag > 0.0:
 		speed_mult = 0.6
 		jump_mult = 0.7
+	_update_stamina(rd)
+	if _exhausted:
+		speed_mult *= EXHAUSTED_SPEED
 
 	_update_bag()
 	_ledge_cd -= rd
@@ -749,7 +815,7 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		# Durante el dash planeas un poco (cae más despacio).
 		velocity.y -= _gravity * rd * (0.35 if _dash_time > 0.0 else 1.0)
-	if _just(&"jump") and is_on_floor() and not dead and not ui_open:
+	if _just(&"jump") and is_on_floor() and not dead and not ui_open and _spend_stamina(JUMP_COST):
 		velocity.y = jump_velocity * jump_mult
 		rig.play_jump()
 
@@ -1218,6 +1284,8 @@ func attack() -> void:
 	if _attack_cd > 0.0:
 		_attack_buffered = _attack_cd < 0.3
 		return
+	if not _spend_stamina(ATTACK_COST):
+		return
 	if weapon == HumanoidRig.Weapon.NONE and can_use_weapon(HumanoidRig.Weapon.DAGGERS) and not _fists_chosen:
 		weapon = HumanoidRig.Weapon.DAGGERS  # desenvaina sola
 		_auto_drawn = true
@@ -1315,10 +1383,14 @@ func roll() -> void:
 	dir.y = 0.0
 	dir = dir.normalized()
 	if is_on_floor():
+		if not _spend_stamina(ROLL_COST):
+			return
 		_start_roll(dir)
 	else:
 		_roll_buffer = 0.35  # si tocas el suelo enseguida, ruedas al aterrizar
 		if not _air_dash_used:
+			if not _spend_stamina(DASH_COST):
+				return
 			# El impulso se reparte en DASH_TIME y el cuerpo gira suave hacia la dirección
 			# (lo hace _update_rig siguiendo la velocidad).
 			_air_dash_used = true
@@ -1423,6 +1495,8 @@ func respawn() -> void:
 	global_position = spawn_point
 	velocity = Vector3.ZERO
 	_since_damage = 99.0
+	stamina = max_stamina
+	_exhausted = false
 
 
 ## Servidor: unos segundos sin poder ser dañado tras reaparecer o al empezar una ronda.

@@ -40,6 +40,11 @@ func _ready() -> void:
 	var bar := MetalBar.new()
 	bar.player = player
 	add_child(bar)
+	for is_left in [true, false]:
+		var corner := HudCorner.new()
+		corner.player = player
+		corner.left = is_left
+		add_child(corner)
 	var menu := PauseMenu.new()
 	menu.player = player
 	add_child(menu)
