@@ -130,7 +130,7 @@ const CONTROLS := """[table=2]
 [cell][b]Q[/b][/cell][cell]Lanzar moneda a la mira · corriendo con acero/hierro: recta hacia delante, con acero más rápida (avivado, aún más)[/cell]
 [cell][b]G[/b] (mantener)[/cell][cell]Moneda a los pies y empuje: salto alto o frenar una caída. Con WASD dirigís el salto; se dibuja dónde caerías[/cell]
 [cell][b]F[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
-[cell][b]E[/b][/cell][cell]Atacar (desenvaina las dagas sola) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
+[cell][b]E[/b][/cell][cell]Usar lo que tengas al lado (puertas, armarios) o atacar (desenvaina las dagas sola) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
 [cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
@@ -143,7 +143,7 @@ const CONTROLS := """[table=2]
 const COMBAT := """[b]Combos[/b] (E seguido, a tiempo):
   Puños: directo, patada, remate.
   Dagas: cuatro golpes distintos; el cuarto es un tajo doble más fuerte que empuja lejos.
-  Espada: un tajo (sin combo por ahora).
+  Espada: dos tajos y un remate fuerte que empuja lejos.
   El remate va con una estocada hacia delante.
 
 [b]Golpe aéreo[/b]: E en el aire. Un tajo giratorio que pega alrededor tuyo y te da un salto extra (uno por salto).

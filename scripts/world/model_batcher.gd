@@ -1,37 +1,44 @@
 class_name ModelBatcher
 extends Node3D
-## Junta todas las instancias de cada modelo en MultiMesh (una llamada de dibujo por parte de
-## modelo en lugar de una por casa) y crea su colisión en un único cuerpo estático.
+## Junta las instancias de cada modelo en MultiMesh por zonas de DRAW_CHUNK m (una llamada de
+## dibujo por parte de modelo y zona en lugar de una por casa, y las zonas fuera de cámara no se
+## dibujan) y crea su colisión en cuerpos estáticos por zonas de CHUNK m (con Jolt, un cuerpo
+## con miles de formas tarda muchísimo en armarse).
 ## Uso: add(...) para cada pieza y, al final, finalize().
 
-var _items := {}  # ruta -> Array[[Transform3D, Color]]
-var _body: StaticBody3D
-
-
-func _ready() -> void:
-	_body = StaticBody3D.new()
-	_body.collision_layer = Props.LAYER_WORLD
-	_body.collision_mask = 0
-	add_child(_body)
+var _items := {}  # [ruta, zona] -> Array[[Transform3D, Color]]
+var _bodies := {}  # Vector2i -> StaticBody3D, fuera del árbol hasta finalize()
+const CHUNK := 64.0
+const DRAW_CHUNK := 128.0
 
 
 ## yaw: giro sobre el eje vertical (el +Z del modelo mira hacia (sin yaw, cos yaw) en XZ).
 func add(model_path: String, pos: Vector3, yaw: float, scale: float, color := Color.WHITE, collide := true) -> void:
-	if not _items.has(model_path):
-		_items[model_path] = []
+	var zone := [model_path, Vector2i(floori(pos.x / DRAW_CHUNK), floori(pos.z / DRAW_CHUNK))]
+	if not _items.has(zone):
+		_items[zone] = []
 	var rot := Basis(Vector3.UP, yaw)
-	_items[model_path].append([Transform3D(rot.scaled(Vector3.ONE * scale), pos), color])
+	_items[zone].append([Transform3D(rot.scaled(Vector3.ONE * scale), pos), color])
 	if collide:
 		var col := CollisionShape3D.new()
 		col.shape = ModelKit.shape(model_path, scale)
 		col.transform = Transform3D(rot, pos)
-		_body.add_child(col)
+		var key := Vector2i(floori(pos.x / CHUNK), floori(pos.z / CHUNK))
+		if not _bodies.has(key):
+			var body := StaticBody3D.new()
+			body.collision_layer = Props.LAYER_WORLD
+			body.collision_mask = 0
+			_bodies[key] = body
+		_bodies[key].add_child(col)
 
 
 func finalize() -> void:
-	for model_path in _items:
-		var items: Array = _items[model_path]
-		for part in ModelKit.parts(model_path):
+	for key in _bodies:
+		add_child(_bodies[key])
+	_bodies.clear()
+	for zone: Array in _items:
+		var items: Array = _items[zone]
+		for part in ModelKit.parts(zone[0]):
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
 			mm.use_colors = true

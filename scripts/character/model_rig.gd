@@ -13,53 +13,68 @@ extends HumanoidRig
 ## Estado -> nombres posibles de animación, en orden de preferencia (Quaternius antes que KayKit
 ## cuando ambos tienen una equivalente, así cada pack usa las suyas).
 const ANIMS := {
-	"idle": ["Idle", "Unarmed_Idle"],
-	"idle_armed": ["Attacking_Idle", "Idle_Attacking", "2H_Melee_Idle", "Idle_Weapon", "Idle"],
-	"walk": ["Walk", "Walking_A"],
-	"run": ["Run", "Running_A"],
+	"idle": ["idle", "Idle", "Unarmed_Idle"],
+	"idle_armed": ["sword_idle", "idle", "Attacking_Idle", "Idle_Attacking", "2H_Melee_Idle", "Idle_Weapon", "Idle"],
+	"walk": ["walk", "Walk", "Walking_A"],
+	"run": ["sprint", "Run", "Running_A"],
+	"sprint": ["sprint", "Run", "Running_A"],
 	"flee": ["Run", "Running_B", "Running_A"],
-	"air": ["Jump_Idle", "Idle_Attacking", "Idle"],
-	"jump": ["Jump_Start", "Jump_Full_Short"],
-	"land": ["Jump_Land", "Idle"],
-	"roll": ["Roll", "Dodge_Forward"],
-	"dash": ["Dodge_Forward", "Roll"],
+	"air": ["jump", "Jump_Idle", "Idle_Attacking", "Idle"],
+	"jump": ["jump_start", "Jump_Start", "Jump_Full_Short"],
+	"land": ["jump_land", "Jump_Land", "Idle"],
+	"roll": ["roll", "Roll", "Dodge_Forward"],
+	"dash": ["sword_dash", "Dodge_Forward", "Roll"],
 	# Colgado de un borde y subiendo. Si agregás animaciones propias (p. ej. de Mixamo), poné su
 	# nombre primero; mientras tanto se usa la pose de salto con las manos llevadas al borde.
 	"hang": ["Hanging_Idle", "Hang_Idle", "Jump_Idle"],
 	"climb": ["Climbing", "Climb_Up", "Jump_Start"],
+	# Saltar desde un borde hacia abajo (Mixamo "Jumping Down"): todavía no la usa ningún estado.
 	"attack_air": ["2H_Melee_Attack_Spinning", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Punch"],
 	# Combos: golpe 1, 2... y remate (attack_X, attack_X_1, attack_X_2, attack_X_3).
 	"attack_fist": ["Punch", "Unarmed_Melee_Attack_Punch_A"],
 	"attack_fist_1": ["Unarmed_Melee_Attack_Punch_A", "Punch"],
 	"attack_fist_2": ["Unarmed_Melee_Attack_Kick", "Punch"],
 	# Dagas: puñalada, tajo cruzado con las dos, revés y tajo doble descendente (remate).
-	"attack_daggers": ["Dagger_Attack", "Dualwield_Melee_Attack_Slice", "1H_Melee_Attack_Stab", "Dagger_Attack2", "Punch"],
-	"attack_daggers_1": ["Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Dagger_Attack"],
-	"attack_daggers_2": ["Dagger_Attack2", "Dualwield_Melee_Attack_Stab", "Dagger_Attack"],
-	"attack_daggers_3": ["Dualwield_Melee_Attack_Chop", "1H_Melee_Attack_Stab", "Dagger_Attack"],
-	"attack_sword": ["Sword_Attack", "1H_Melee_Attack_Slice_Diagonal", "Dagger_Attack", "Punch"],
-	"attack_sword_1": ["Sword_Attack2", "1H_Melee_Attack_Slice_Horizontal", "Sword_Attack", "Dagger_Attack"],
-	"attack_sword_2": ["1H_Melee_Attack_Chop", "2H_Melee_Attack_Chop", "Sword_Attack", "Dagger_Attack"],
-	"throw": ["Throw", "Punch"],
-	"allomancy": ["Attacking_Idle", "Idle_Attacking", "Spellcasting", "Idle"],
-	"hit": ["RecieveHit", "Hit_A"],
-	"down": ["Death", "Death_A"],
+	"attack_daggers": ["sword_regular_a", "Dagger_Attack", "Dualwield_Melee_Attack_Slice", "1H_Melee_Attack_Stab", "Dagger_Attack2", "Punch"],
+	"attack_daggers_1": ["sword_regular_b", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Dagger_Attack"],
+	"attack_daggers_2": ["sword_attack", "Dagger_Attack2", "Dualwield_Melee_Attack_Stab", "Dagger_Attack"],
+	"attack_daggers_3": ["sword_regular_c", "Dualwield_Melee_Attack_Chop", "1H_Melee_Attack_Stab", "Dagger_Attack"],
+	"attack_sword": ["sword_regular_a", "Sword_Attack", "1H_Melee_Attack_Slice_Diagonal", "Dagger_Attack", "Punch"],
+	"attack_sword_1": ["sword_regular_b", "Sword_Attack2", "1H_Melee_Attack_Slice_Horizontal", "Sword_Attack", "Dagger_Attack"],
+	"attack_sword_2": ["sword_regular_c", "1H_Melee_Attack_Chop", "2H_Melee_Attack_Chop", "Sword_Attack", "Dagger_Attack"],
+	"throw": ["spell_simple_enter", "Throw", "Punch"],
+	"pickup": ["pickup_table", "PickUp", "Interact"],
+	"swim": ["swim_fwd"],
+	"swim_idle": ["swim_idle", "swim_fwd"],
+	"slide": ["slide", "Jump_Idle"],
+	"allomancy": ["spell_simple_idle", "Attacking_Idle", "Idle_Attacking", "Spellcasting", "Idle"],
+	"hit": ["hit_chest", "RecieveHit", "Hit_A"],
+	"down": ["death01", "Death", "Death_A"],
 }
 ## Animaciones que se repiten (el resto se queda en su último fotograma al terminar).
-const LOOPING := ["idle", "idle_armed", "walk", "run", "flee", "air", "allomancy", "hang"]
+const LOOPING := ["idle", "idle_armed", "walk", "run", "sprint", "flee", "air", "allomancy", "hang",
+		"swim", "swim_idle", "slide"]
 ## Velocidad (m/s) a la que cada animación de desplazamiento "pisa" bien.
-const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "flee": 5.0}
+const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swim": 2.0}
+## Lo mismo por nombre de animación, para las que se apartan del valor de su estado (ActionForge).
+const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7}
+## Por encima de esta velocidad (peltre) se esprinta.
+const SPRINT_SPEED := 8.0
 ## Partes de las mallas que son armas o accesorios (se ocultan salvo las que use el personaje).
 const ITEM_WORDS := ["Knife", "Dagger", "Guard", "Sword", "Shield", "Crossbow", "Throwable", "Staff", "Wand",
 		"Spellbook", "Bow", "Arrow", "Axe", "Mug"]
-## Huesos para las poses de alomancia (nombres de Quaternius y de KayKit).
+## Huesos para las poses de alomancia (nombres de Quaternius, KayKit y Mixamo).
 const BONES := {
-	"torso": ["Torso", "chest"],
-	"upper_r": ["UpperArm.R", "upperarm.r"], "lower_r": ["LowerArm.R", "lowerarm.r"],
-	"upper_l": ["UpperArm.L", "upperarm.l"], "lower_l": ["LowerArm.L", "lowerarm.l"],
+	"torso": ["Torso", "chest", "Spine2", "spine_03"],
+	"upper_r": ["UpperArm.R", "upperarm.r", "RightArm", "upperarm_r"],
+	"lower_r": ["LowerArm.R", "lowerarm.r", "RightForeArm", "lowerarm_r"],
+	"upper_l": ["UpperArm.L", "upperarm.l", "LeftArm", "upperarm_l"],
+	"lower_l": ["LowerArm.L", "lowerarm.l", "LeftForeArm", "lowerarm_l"],
 	"head": ["Head", "head"],
-	"neck": ["Neck", "head"],
-	"hips": ["Hips", "hips"],
+	"neck": ["Neck", "neck_01", "head"],
+	"hips": ["Hips", "hips", "pelvis"],
+	"hand_r": ["hand_r", "RightHand", "hand.r", "Hand.R"],
+	"hand_l": ["hand_l", "LeftHand", "hand.l", "Hand.L"],
 }
 ## Tono del traje oscuro de nacido de la bruma (inventario).
 const OUTFIT_TINT := Color(0.5, 0.52, 0.62)
@@ -102,6 +117,7 @@ var _jump := 0.0
 var _land := 0.0
 var _dash := 0.0
 var _climb := 0.0
+var _pickup := 0.0
 ## Capa de bruma y frascos del inventario: siguen a los huesos del cuello y la cadera.
 var _cloak_anchor: Node3D
 var _vial_anchor: Node3D
@@ -118,6 +134,8 @@ func _build() -> void:
 	if _skel:
 		for key in BONES:
 			_bones[key] = BoneTools.find_bone(_skel, BONES[key])
+		if _items.is_empty():
+			_attach_weapons()
 	_resolve_animations()
 	set_weapon(weapon)
 	_play("idle", 0.0)
@@ -203,8 +221,43 @@ func _fit_height(node: Node3D, skip_items: bool) -> void:
 	node.position.y = -box.position.y * s
 
 
+## Modelos sin armas en la malla (p. ej. ActionForge): las dagas de obsidiana y la espada de
+## HumanoidRig, enganchadas a las manos.
+func _attach_weapons() -> void:
+	var r := _grip(_bones["hand_r"])
+	var l := _grip(_bones["hand_l"])
+	if r == null or l == null:
+		return
+	var sword := _sword()
+	r.add_child(sword)
+	var daggers: Array[Node3D] = [_dagger(), _dagger()]
+	r.add_child(daggers[0])
+	l.add_child(daggers[1])
+	_weapon_nodes[Weapon.DAGGERS] = {"held": daggers, "sheathed": []}
+	_weapon_nodes[Weapon.SWORD] = {"held": [sword], "sheathed": []}
+
+
+## Punto de agarre en la palma, con +Y (la hoja) hacia delante del cuerpo en la pose de reposo
+## (pose T: del lado del pulgar).
+func _grip(bone: int) -> Node3D:
+	if bone < 0:
+		return null
+	var attach := BoneAttachment3D.new()
+	_skel.add_child(attach)
+	attach.bone_idx = bone
+	var rest_inv := _skel.get_bone_global_rest(bone).basis.orthonormalized().inverse()
+	var blade := (rest_inv * Vector3.BACK).normalized()  # +Z del modelo = delante
+	var palm := (rest_inv * Vector3.DOWN).normalized()
+	var grip := Node3D.new()
+	attach.add_child(grip)
+	var side := blade.cross(palm).normalized()
+	grip.basis = Basis(side, blade, side.cross(blade))
+	grip.position = Vector3.UP * 0.08 + palm * 0.03  # hacia los dedos y hacia la palma
+	return grip
+
+
 func set_weapon(w: Weapon) -> void:
-	weapon = w
+	super(w)
 	for mi in _items:
 		var word: String = _items[mi]
 		var shown := word in always_items
@@ -222,7 +275,8 @@ func set_equipment(outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: boo
 		add_child(_cloak_anchor)
 		cloak = Mistcloak.new()
 		_cloak_anchor.add_child(cloak)
-		cloak.build(Color(0.2, 0.21, 0.25), 1.15)
+		# Gris azulado del cuero del traje; solo tiras (el modelo ya trae chaqueta y capucha).
+		cloak.build(Color(0.17, 0.19, 0.24), 1.15, null, true)
 	if _cloak_anchor:
 		_cloak_anchor.visible = cloak_on
 	if vials_on and _vial_anchor == null:
@@ -303,6 +357,12 @@ func play_throw() -> void:
 	_throw = _play_once("throw", 0.55)
 
 
+## Solo parado o caminando: a la carrera la animación entera se vería deslizándose.
+func play_pickup() -> void:
+	if move_speed < 3.0 and _attack <= 0.0 and _roll <= 0.0:
+		_pickup = _play_once("pickup", 0.9)
+
+
 func play_jump() -> void:
 	if _attack > 0.0 or _roll > 0.0:
 		return
@@ -323,10 +383,11 @@ func play_dash(duration := 0.45) -> void:
 	_dash = _play_once("dash", duration)
 
 
-func play_climb(duration := 0.65) -> void:
+func play_climb(duration := 0.65) -> float:
 	_jump = 0.0
 	_land = 0.0
 	_climb = _play_once("climb", duration)
+	return _climb
 
 
 func play_air_attack(duration: float) -> void:
@@ -365,7 +426,8 @@ func _process(delta: float) -> void:
 	_land -= dt
 	_dash -= dt
 	_climb -= dt
-	if _ap == null:
+	_pickup -= dt
+	if _ap == null and retarget_from == "":
 		return
 	var state := _choose_state()
 	if state != _state:
@@ -373,13 +435,14 @@ func _process(delta: float) -> void:
 		_play(state, 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else 0.15)
 	var speed := 1.0
 	if STRIDE_SPEED.has(state):
-		speed = clampf(move_speed / STRIDE_SPEED[state], 0.6, 2.2)
-	elif state in ["roll", "throw", "jump", "land", "dash", "climb"] or state.begins_with("attack"):
+		var stride: float = ANIM_STRIDE.get(_resolved[state]["name"], STRIDE_SPEED[state])
+		speed = clampf(move_speed / stride, 0.6, 2.2)
+	elif state in ["roll", "throw", "jump", "land", "dash", "climb", "pickup"] or state.begins_with("attack"):
 		speed = _oneshot_speed
 	if _borrowed and _src_ap:
 		_src_ap.advance(dt * speed)
 		_retargeter.apply()
-	else:
+	elif _ap:
 		_ap.advance(dt * speed)
 	_apply_allomancy_pose(dt)
 	_update_anchors()
@@ -392,6 +455,10 @@ func _choose_state() -> String:
 		return "down"
 	if hanging:
 		return "hang"
+	if swimming:
+		return "swim" if move_speed > 0.6 else "swim_idle"
+	if sliding:
+		return "slide"
 	if _climb > 0.0:
 		return "climb"
 	if _roll > 0.0:
@@ -402,6 +469,8 @@ func _choose_state() -> String:
 		return _state if _state.begins_with("attack") else "attack_fist"
 	if _throw > 0.0:
 		return "throw"
+	if _pickup > 0.0:
+		return "pickup"
 	if stagger > 0.6:
 		return "hit"
 	if _jump > 0.0:
@@ -414,6 +483,8 @@ func _choose_state() -> String:
 		return "allomancy" if move_speed < 3.0 else "run"
 	if panic > 0.5 and move_speed > 0.5:
 		return "flee"
+	if move_speed > SPRINT_SPEED:
+		return "sprint"
 	if move_speed > 3.2:
 		return "run"
 	if move_speed > 0.3:
@@ -429,7 +500,8 @@ func _air_time() -> float:
 
 func _play(state: String, blend: float, restart := false) -> void:
 	_state = state
-	if _ap == null:
+	# Sin animaciones propias (modelo recién rigueado) todo sale del donante.
+	if _ap == null and retarget_from == "":
 		return
 	var info: Dictionary = _resolved.get(state, {"name": "", "borrowed": false})
 	if info["name"] == "":

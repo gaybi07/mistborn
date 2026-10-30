@@ -18,6 +18,8 @@ var sky_mat: ShaderMaterial  ## shaders/sky.gdshader
 var fog_scale := 1.0
 ## Bajo techo (interiores): no cae lluvia ni ceniza.
 var indoor := false
+## Dentro de un edificio de la ciudad (Building): además, casi sin bruma (ver Building._indoor_zone).
+var sheltered := false
 
 var _rain: GPUParticles3D
 var _ash: GPUParticles3D
@@ -119,11 +121,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## Aplica Art.lighting, Art.weather y Art.fog al cielo, la luz, la niebla, el suelo y las partículas.
-func apply() -> void:
+## show_label: avisa en pantalla del cambio (no hace falta al entrar o salir de un edificio).
+func apply(show_label := true) -> void:
 	var day := Art.lighting == "dia"
 	var rain := Art.weather == "lluvia"
 	var ash := Art.weather == "ceniza"
-	var fog_mult := (0.45 if Art.fog == "poca" else 1.5) * fog_scale
+	var fog_mult := (0.45 if Art.fog == "poca" else 1.5) * fog_scale * (0.12 if sheltered else 1.0)
 
 	# --- Hora
 	# Cielo: [arriba, horizonte, suelo, nubes, borde de nubes, cobertura, estrellas, disco, tamaño del disco]
@@ -208,8 +211,8 @@ func apply() -> void:
 	mountain.set_shader_parameter(&"haze_brightness", 0.9 if day else 0.12)  # de noche, siluetas oscuras
 
 	# --- Partículas
-	_rain.emitting = rain and not indoor
-	_ash.emitting = ash and not indoor
+	_rain.emitting = rain and not (indoor or sheltered)
+	_ash.emitting = ash and not (indoor or sheltered)
 	var world_fx := get_tree().get_first_node_in_group(&"world_fx") as WorldFx
 	if world_fx:
 		var mist := 0.07 * (0.5 if Art.fog == "poca" else 1.4)
@@ -220,7 +223,8 @@ func apply() -> void:
 	Art.env_version += 1
 	_label.text = "%s · %s · %s niebla\nVisibilidad: %d m" % ["Día" if day else "Noche", WEATHER_NAMES[Art.weather],
 			"Poca" if Art.fog == "poca" else "Mucha", int(Art.sight_range())]
-	_label_time = 3.0
+	if show_label:
+		_label_time = 3.0
 
 
 func _process(delta: float) -> void:

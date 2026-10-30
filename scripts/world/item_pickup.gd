@@ -85,5 +85,6 @@ func _on_body_entered(body: Node3D) -> void:
 	if p == null or item_id == "":
 		return
 	p.give_item(item_id)
+	p.rig.play_pickup()
 	Fx.sparks(get_tree().current_scene, global_position + Vector3(0, 0.4, 0), Color(0.7, 0.85, 1.0))
 	queue_free()
