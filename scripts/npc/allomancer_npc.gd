@@ -73,6 +73,8 @@ func _make_look() -> Dictionary:
 
 
 func _setup() -> void:
+	loot_coins = Vector2i(3, 6)
+	loot_vial_chance = 0.5
 	add_to_group(&"allomancer")
 	add_to_group(&"allomancer_body")
 	add_to_group(&"metal")  # todos llevan monedas encima

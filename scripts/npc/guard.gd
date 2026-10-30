@@ -34,6 +34,9 @@ func _role() -> String:
 
 
 func _setup() -> void:
+	loot_coins = Vector2i(4, 8)
+	loot_vial_chance = 0.25
+	loot_item_chance = 0.1
 	add_to_group(&"metal")
 	allomantic_mass = 95.0
 	walk_speed = 1.7
