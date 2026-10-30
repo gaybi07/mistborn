@@ -7,16 +7,57 @@ static var _materials := {}
 
 ## Materiales compartidos: stone, wall, ground, trim, roof, metal, rusty, iron, painted, wood,
 ## bronze, lamp_glass y los del exterior: terrain, road, mountain, exterior_fog.
+## La misma lejanía que el sombreador de los montes, añadida al final de otro sombreador (que
+## tenga `wpos`): sin la niebla del motor, oscurece hacia el color de la bruma con la distancia
+## pero nunca del todo (haze_max), y deja pasar parte del brillo de las ventanas.
+static func _hazed(path: String) -> Shader:
+	var code := (load(path) as Shader).code
+	code = code.replace("shader_type spatial;", """shader_type spatial;
+render_mode fog_disabled;
+uniform float haze_density = 0.005;
+uniform float haze_max = 0.85;
+uniform vec3 haze_color : source_color = vec3(0.4, 0.42, 0.5);
+uniform float haze_brightness = 0.12;
+uniform float haze_height = 40.0;""")
+	var end := code.rfind("}")
+	# Más bruma cerca del suelo (la base se pierde y las agujas asoman); sin lejanía en la vista
+	# ortogonal del mapa (PROJECTION_MATRIX[3][3] = 1).
+	code = code.substr(0, end) + """	float hz = clamp(1.0 - exp(-distance(wpos, CAMERA_POSITION_WORLD) * haze_density), 0.0, haze_max);
+	hz = max(hz, haze_max * 0.75 * (1.0 - smoothstep(0.0, haze_height, wpos.y)) * smoothstep(40.0, 160.0, distance(wpos, CAMERA_POSITION_WORLD)));
+	// Jirones que suben y se mueven despacio: la bruma envuelve, no es un velo parejo.
+	float wisp = 0.5 + 0.5 * sin(wpos.y * 0.09 + 2.0 * sin(wpos.x * 0.045 + TIME * 0.12) + wpos.z * 0.035 - TIME * 0.2);
+	hz = max(hz, haze_max * wisp * (1.0 - smoothstep(haze_height * 0.6, haze_height * 1.5, wpos.y)) * smoothstep(30.0, 120.0, distance(wpos, CAMERA_POSITION_WORLD)));
+	hz *= 1.0 - PROJECTION_MATRIX[3][3];
+	ALBEDO = mix(ALBEDO, vec3(0.0), hz);
+	EMISSION = EMISSION * (1.0 - hz * 0.5) + haze_color * hz * haze_brightness;
+""" + code.substr(end)
+	var shader := Shader.new()
+	shader.code = code
+	return shader
+
+
+## Material con texturas de Poly Haven (assets/textures/polyhaven/<nombre>/), proyectadas en
+## coordenadas de mundo (shaders/pbr_world.gdshader). hazed: con la lejanía propia de Kredik Shaw.
+static func pbr(name: String, tint: Color, scale: float, hazed := false) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = _hazed("res://shaders/pbr_world.gdshader") if hazed else load("res://shaders/pbr_world.gdshader")
+	var dir := "res://assets/textures/polyhaven/%s/" % name
+	m.set_shader_parameter(&"albedo_tex", load(dir + "diff.jpg"))
+	m.set_shader_parameter(&"normal_tex", load(dir + "nor.jpg"))
+	m.set_shader_parameter(&"arm_tex", load(dir + "arm.jpg"))
+	m.set_shader_parameter(&"tint", tint)
+	m.set_shader_parameter(&"scale", scale)
+	return m
+
+
 static func materials() -> Dictionary:
 	if not _materials.is_empty():
 		return _materials
 	var stone := ShaderMaterial.new()
 	stone.shader = load("res://shaders/building.gdshader")
-	var wall: ShaderMaterial = stone.duplicate()
-	wall.set_shader_parameter(&"windows", 0.0)
-	wall.set_shader_parameter(&"stone_color", Color(0.3, 0.29, 0.28))
-	var ground := ShaderMaterial.new()
-	ground.shader = load("res://shaders/cobblestone.gdshader")
+	# Muros y suelos con las texturas de Poly Haven (las mismas que Kredik Shaw).
+	var wall := pbr("castle_brick_07", Color(0.8, 0.77, 0.74), 3.0)
+	var ground := pbr("large_floor_tiles_02", Color(0.72, 0.7, 0.68), 3.0)
 	var lamp_glass := Props.material(Color(1.0, 0.75, 0.45), 0.0, 0.2)
 	lamp_glass.emission_enabled = true
 	lamp_glass.emission = Color(1.0, 0.65, 0.35)
@@ -34,7 +75,69 @@ static func materials() -> Dictionary:
 	exterior_fog.edge_fade = 0.4
 	var water := ShaderMaterial.new()
 	water.shader = load("res://shaders/water.gdshader")
+	# Kredik Shaw: roca con los adoquines de la calle (también en los acantilados), sillares negros
+	# con alguna ventana encendida, muralla sin ventanas, pizarra y su bruma propia.
+	# Como los montes, no usan la niebla del motor sino su propia lejanía: así se ven siempre,
+	# difuminados, y las ventanas brillan a través de la bruma.
+	var citadel_rock := pbr("rock_face_03", Color(0.5, 0.47, 0.47), 7.0, true)
+	var citadel_stone := ShaderMaterial.new()
+	citadel_stone.shader = _hazed("res://shaders/building.gdshader")
+	citadel_stone.set_shader_parameter(&"stone_color", Color(0.15, 0.145, 0.16))
+	citadel_stone.set_shader_parameter(&"lit_ratio", 0.07)
+	citadel_stone.set_shader_parameter(&"window_glow", 6.0)
+	var citadel_wall := pbr("castle_brick_07", Color(0.36, 0.34, 0.37), 3.0, true)
+	var citadel_roof: ShaderMaterial = citadel_stone.duplicate()
+	citadel_roof.set_shader_parameter(&"windows", 0.0)
+	citadel_roof.set_shader_parameter(&"stone_color", Color(0.08, 0.08, 0.095))
+	var citadel_trim := pbr("castle_brick_07", Color(0.22, 0.21, 0.23), 3.0, true)
+	citadel_trim.set_shader_parameter(&"normal_strength", 0.4)
+	var citadel_glass := ShaderMaterial.new()
+	citadel_glass.shader = _hazed("res://shaders/glass.gdshader")
+	var citadel_glass_lit: ShaderMaterial = citadel_glass.duplicate()
+	citadel_glass_lit.set_shader_parameter(&"glow_energy", 4.0)
+	var citadel_red := ShaderMaterial.new()
+	citadel_red.shader = citadel_glass.shader
+	citadel_red.set_shader_parameter(&"albedo", Color(0.32, 0.04, 0.03))
+	citadel_red.set_shader_parameter(&"roughness", 0.9)
+	var citadel_fog: FogMaterial = exterior_fog.duplicate()
+	citadel_fog.height_falloff = 0.06
+	citadel_fog.edge_fade = 0.6
+	# Bruma de nubes negras (la Profundidad): la mueve y le da densidad Weather.
+	var noise := FastNoiseLite.new()
+	noise.frequency = 0.05
+	noise.fractal_octaves = 3
+	var noise_tex := NoiseTexture3D.new()
+	noise_tex.width = 64
+	noise_tex.height = 64
+	noise_tex.depth = 64
+	noise_tex.seamless = true
+	noise_tex.noise = noise
+	var dark_mist := ShaderMaterial.new()
+	dark_mist.shader = load("res://shaders/dark_mist.gdshader")
+	dark_mist.set_shader_parameter(&"noise", noise_tex)
+	# Bancos de bruma de Kredik Shaw (KredikCitadel): Weather les pone el color.
+	var citadel_cloud := Fx.particle_material(Color(0.3, 0.32, 0.38, 0.55), false, 5.0)
+	citadel_cloud.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	citadel_cloud.vertex_color_use_as_albedo = false
+	citadel_cloud.disable_fog = true
+	# Las puntas de metal brillan un poco y atraviesan la bruma, como en las referencias (de noche).
+	var citadel_cap := Props.material(Color(0.6, 0.48, 0.28), 1.0, 0.35)
+	citadel_cap.disable_fog = true
+	citadel_cap.emission_enabled = true
+	citadel_cap.emission = Color(0.55, 0.4, 0.2)
 	_materials = {
+		"citadel_cap": citadel_cap,
+		"citadel_trim": citadel_trim,
+		"citadel_glass": citadel_glass,
+		"citadel_glass_lit": citadel_glass_lit,
+		"citadel_red": citadel_red,
+		"citadel_cloud": citadel_cloud,
+		"dark_mist": dark_mist,
+		"citadel_rock": citadel_rock,
+		"citadel_stone": citadel_stone,
+		"citadel_wall": citadel_wall,
+		"citadel_roof": citadel_roof,
+		"citadel_fog": citadel_fog,
 		"water": water,
 		"noble_roof": Props.material(Color(0.36, 0.12, 0.09), 0.0, 0.75),
 		"terrain": terrain,

@@ -9,9 +9,12 @@ extends Area3D
 ## Ancho y alto del umbral.
 @export var door_size := Vector2(3.0, 4.2)
 @export var label := ""
+## Para escenas con varios niveles (Kredik Shaw): qué nivel cargar al llegar.
+@export var target_level := ""
 
 ## Posición de llegada pendiente tras cruzar una puerta (null: ninguna).
 static var _pending: Variant = null
+static var _pending_level := ""
 
 var _used := false
 
@@ -21,6 +24,13 @@ static func take_arrival(fallback: Vector3) -> Vector3:
 	var p: Variant = _pending
 	_pending = null
 	return p if p != null else fallback
+
+
+## El nivel pedido por la puerta que se cruzó (o `fallback`).
+static func take_level(fallback: String) -> String:
+	var l := _pending_level
+	_pending_level = ""
+	return l if l != "" else fallback
 
 
 func _ready() -> void:
@@ -76,6 +86,7 @@ func _on_body_entered(body: Node3D) -> void:
 		return
 	_used = true
 	_pending = arrival
+	_pending_level = target_level
 	var layer := CanvasLayer.new()
 	layer.layer = 40
 	add_child(layer)

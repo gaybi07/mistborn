@@ -78,5 +78,7 @@ func _on_body_entered(body: Node3D) -> void:
 		if p.vial_charges < p.max_vials():
 			p.vial_charges += 1  # te guardas uno en el cinturón
 			p.equipment_changed.emit()
-	Fx.sparks(get_tree().current_scene, global_position, Color(1.0, 0.9, 0.6) if kind == &"atium" else Color(0.4, 0.7, 1.0))
+	var glow := Color(1.0, 0.9, 0.6) if kind == &"atium" else Color(0.4, 0.7, 1.0)
+	Fx.sparks(get_tree().current_scene, global_position, glow)
+	Fx.effect(get_tree().current_scene, "ef_holy01", global_position, 0.2, glow)
 	queue_free()

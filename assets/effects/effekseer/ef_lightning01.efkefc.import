@@ -1,0 +1,17 @@
+[remap]
+
+importer="effekseer.effect"
+type="Resource"
+uid="uid://bjkygylcgir6o"
+path="res://.godot/imported/ef_lightning01.efkefc-31e8a08b7b944445ba338d8eaf73395b.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/ef_lightning01.efkefc"
+dest_files=["res://.godot/imported/ef_lightning01.efkefc-31e8a08b7b944445ba338d8eaf73395b.res"]
+
+[params]
+
+scale=1.0
+data_type=0
+compress=true

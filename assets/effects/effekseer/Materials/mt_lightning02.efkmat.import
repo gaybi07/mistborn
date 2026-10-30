@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://edo1ftjxyukn"
+path="res://.godot/imported/mt_lightning02.efkmat-d19b337d66f1deec2cc542f41a15f8ae.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Materials/mt_lightning02.efkmat"
+dest_files=["res://.godot/imported/mt_lightning02.efkmat-d19b337d66f1deec2cc542f41a15f8ae.res"]
+
+[params]
+
+compress=true

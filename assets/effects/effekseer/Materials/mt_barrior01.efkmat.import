@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://dmqyl7mrqu4kb"
+path="res://.godot/imported/mt_barrior01.efkmat-2f4a1620e738c107467f54c210c0968d.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Materials/mt_barrior01.efkmat"
+dest_files=["res://.godot/imported/mt_barrior01.efkmat-2f4a1620e738c107467f54c210c0968d.res"]
+
+[params]
+
+compress=true

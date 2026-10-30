@@ -32,11 +32,10 @@ const RIVER_WIDTH := 30.0
 const RIVER_DEPTH := 3.0
 const WATER_LEVEL := -1.0
 
-## Colina de Kredik Shaw.
+## Kredik Shaw: centro de la fortaleza y medio tamaño de su meseta (con la rampa al sur).
 const HILL := Vector2(-4, -328)
-const HILL_RADIUS := 90.0
-const HILL_HEIGHT := 30.0
-const HILL_TOP := 20.0  ## altura de la meseta donde se alza el palacio
+const HILL_HALF := Vector2(152, 104)  ## con el cordón de picos que la rodea
+const HILL_SOUTH := 104.0  ## hasta donde llega la rampa
 
 ## Plazas: [centro, radio]. La Central es cuadrada (ver PLAZA_HALF).
 const PLAZA_HALF := 40.0
@@ -44,7 +43,7 @@ const MARKET := Vector2(70, -165)  ## en el corazón del Distrito Mercantil
 const MARKET_RADIUS := 19.0
 const ASSEMBLY := Vector2(-110, -85)
 const ASSEMBLY_RADIUS := 18.0
-const MINISTRY := Vector2(100, -250)
+const MINISTRY := Vector2(166, -208)
 
 ## Mansiones nobles genéricas: [centro, ancho, fondo, ángulo, casa]
 const ESTATES := [
@@ -68,7 +67,7 @@ const STREET_HALF := 4.0
 const ALLEY_HALF := 2.2
 ## Callejones: red de nudos cada ALLEY_STEP m, movidos al azar para que salga un laberinto.
 const ALLEY_STEP := 34.0
-const HILL_RING := 100.0  ## radio de la calle que rodea la colina
+const HILL_RING := 6.0  ## separación entre la meseta y la calle que la rodea
 
 ## Avenidas (con farolas): la principal de oeste a este y las que van de la plaza al norte y al sur.
 const AVENUES := [
@@ -147,12 +146,26 @@ static func district(p: Vector2) -> Dictionary:
 	return out
 
 
-## Calle que rodea la colina de Kredik Shaw, como polilínea cerrada.
+## Calle que rodea la meseta de Kredik Shaw (un rectángulo de esquinas redondeadas), como
+## polilínea cerrada.
 static func hill_ring() -> Array:
 	var out := []
-	for i in 29:
-		out.append(HILL + Vector2.from_angle(TAU * i / 28.0) * HILL_RING)
+	var a := HILL_HALF.x + HILL_RING
+	var b := HILL_HALF.y + HILL_RING
+	for i in 41:
+		var t := TAU * i / 40.0
+		var c := cos(t)
+		var s := sin(t)
+		out.append(HILL + Vector2(a * signf(c) * pow(absf(c), 0.4), b * signf(s) * pow(absf(s), 0.4)))
 	return out
+
+
+## ¿Cae p sobre la meseta de Kredik Shaw (o a menos de `margin` de ella)?
+static func near_hill(p: Vector2, margin := 0.0) -> bool:
+	var l := p - HILL
+	if absf(l.x) < 14.0 + margin and l.y > 0.0 and l.y < HILL_SOUTH + margin:
+		return true  # la rampa
+	return absf(l.x) < HILL_HALF.x + margin and absf(l.y) < HILL_HALF.y + margin
 
 
 ## Callejones: red de nudos desplazados al azar (siempre la misma), solo donde hay casas skaa.
@@ -183,7 +196,7 @@ static func alleys() -> Array:
 
 
 static func _alley_ok(p: Vector2) -> bool:
-	if not inside(p, 10.0) or p.distance_to(HILL) < HILL_RADIUS + 14.0:
+	if not inside(p, 10.0) or near_hill(p, 14.0):
 		return false
 	if absf(p.x) < PLAZA_HALF + 6.0 and absf(p.y) < PLAZA_HALF + 6.0:
 		return false
@@ -314,7 +327,7 @@ static func free_for_house(p: Vector2, radius: float) -> bool:
 		return false
 	if p.distance_to(MARKET) < MARKET_RADIUS + radius or p.distance_to(ASSEMBLY) < ASSEMBLY_RADIUS + radius:
 		return false
-	if p.distance_to(MINISTRY) < 12.0 + radius or p.distance_to(HILL) < HILL_RADIUS + radius:
+	if p.distance_to(MINISTRY) < 12.0 + radius or near_hill(p, radius):
 		return false
 	# Las calles las protege el mapa de ocupación de la ciudad; aquí solo el río.
 	if dist_to_river(p) < RIVER_WIDTH / 2.0 + 4.0 + radius:
@@ -337,7 +350,7 @@ static func street_points(step := 12.0) -> Array[Vector2]:
 			var n := maxi(int(a.distance_to(b) / step), 1)
 			for k in n:
 				var p := a.lerp(b, float(k) / n)
-				if inside(p, 10.0) and dist_to_river(p) > RIVER_WIDTH and p.distance_to(HILL) > HILL_RADIUS:
+				if inside(p, 10.0) and dist_to_river(p) > RIVER_WIDTH and not near_hill(p):
 					out.append(p)
 	return out
 

@@ -25,7 +25,7 @@ func _make_materials() -> void:
 	_m["pale_wood"] = _planks(Color(0.5, 0.38, 0.25), 0.12)
 	_m["red_wood"] = _planks(Color(0.32, 0.15, 0.1), 0.2)
 	var roof: ShaderMaterial = (_m["wall"] as ShaderMaterial).duplicate()
-	roof.set_shader_parameter(&"stone_color", Color(0.24, 0.23, 0.24))
+	roof.set_shader_parameter(&"tint", Color(0.6, 0.58, 0.6))
 	roof.set_shader_parameter(&"ash_amount", 0.75)
 	_m["roof_ash"] = roof
 	_m["plaster"] = _noise_material(Color(0.33, 0.31, 0.28), Color(0.56, 0.53, 0.48), 0.4)

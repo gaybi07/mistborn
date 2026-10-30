@@ -28,6 +28,7 @@ var _label_time := 0.0
 var _moon_energy := 0.5
 var _next_lightning := 10.0
 var _flash := 0.0
+var _dark_mist: FogVolume
 
 
 func _ready() -> void:
@@ -57,6 +58,12 @@ func _ready() -> void:
 	ash_pm.turbulence_influence_min = 0.05
 	ash_pm.turbulence_influence_max = 0.12
 	ash_pm.color_ramp = Fx.fade_ramp(0.1)
+
+	# Nubes negras que siguen a la cámara (cubren todo el alcance de la niebla volumétrica).
+	_dark_mist = FogVolume.new()
+	_dark_mist.size = Vector3(240, 90, 240)
+	_dark_mist.material = WorldKit.materials()["dark_mist"]
+	add_child(_dark_mist)
 
 	var layer := CanvasLayer.new()
 	layer.layer = 12
@@ -134,25 +141,23 @@ func apply(show_label := true) -> void:
 	if day:
 		# Sol rojo de Luthadel tras nubes de ceniza pardas.
 		sky = [Color(0.36, 0.27, 0.25), Color(0.78, 0.5, 0.38), Color(0.2, 0.17, 0.16), Color(0.33, 0.25, 0.22),
-				Color(0.95, 0.6, 0.42), 0.62, 0.0, Color(1.0, 0.42, 0.25), 0.045]
+				Color(0.95, 0.6, 0.42), 0.62, 0.0, Color(0.75, 0.16, 0.07), 0.06]
 		env.ambient_light_energy = 1.0
 		env.fog_light_color = Color(0.75, 0.55, 0.45)
-		env.fog_density = 0.01 * fog_mult
-		env.volumetric_fog_density = 0.01 * fog_mult
+		env.volumetric_fog_density = 0.004 * fog_mult
 		env.volumetric_fog_albedo = Color(0.9, 0.75, 0.65)
-		moon.rotation_degrees = Vector3(-35, -40, 0)
+		moon.rotation_degrees = Vector3(-22, -40, 0)
 		moon.light_color = Color(1.0, 0.68, 0.5)
 		_moon_energy = 1.8
 	else:
 		# Noche de bruma: luna velada, nubes oscuras con el borde plateado y alguna estrella.
 		sky = [Color(0.02, 0.025, 0.045), Color(0.15, 0.14, 0.16), Color(0.02, 0.02, 0.03), Color(0.045, 0.045, 0.055),
-				Color(0.32, 0.37, 0.5), 0.55, 0.55, Color(0.82, 0.88, 1.0), 0.028]
+				Color(0.32, 0.37, 0.5), 0.55, 0.55, Color(0.82, 0.88, 1.0), 0.012]
 		env.ambient_light_energy = 0.5
-		env.fog_light_color = Color(0.48, 0.52, 0.62)
-		env.fog_density = 0.025 * fog_mult
-		env.volumetric_fog_density = 0.035 * fog_mult
+		env.fog_light_color = Color(0.26, 0.28, 0.35)  # claros grises entre las nubes negras
+		env.volumetric_fog_density = 0.01 * fog_mult
 		env.volumetric_fog_albedo = Color(0.8, 0.84, 0.9)
-		moon.rotation_degrees = Vector3(-40, 30, 0)
+		moon.rotation_degrees = Vector3(-26, 30, 0)
 		moon.light_color = Color(0.62, 0.7, 0.92)
 		_moon_energy = 0.55
 	env.tonemap_exposure = 1.0
@@ -168,7 +173,6 @@ func apply(show_label := true) -> void:
 		sky[6] = 0.0
 		env.ambient_light_energy *= 0.75
 		env.fog_light_color = env.fog_light_color.lerp(Color(0.45, 0.5, 0.58), 0.5)
-		env.fog_density *= 1.3
 		env.volumetric_fog_density *= 1.3
 		_moon_energy *= 0.45
 	elif ash:
@@ -180,23 +184,35 @@ func apply(show_label := true) -> void:
 		sky[6] = 0.1
 		env.fog_light_color = env.fog_light_color.lerp(Color(0.5, 0.45, 0.4), 0.6)
 		env.volumetric_fog_albedo = env.volumetric_fog_albedo.lerp(Color(0.6, 0.55, 0.5), 0.6)
-		env.fog_density *= 1.35
 		env.volumetric_fog_density *= 1.35
 		_moon_energy *= 0.7
+	# La bruma se acumula con la distancia: lo que ves acaba donde acaba Art.sight_range() (lo que
+	# ven los alománticos). A esa distancia queda ~45 % de nitidez de noche; el estaño la aparta.
+	env.fog_density = (0.4 if day else 1.0) / Art.sight_range() * fog_scale * (0.12 if sheltered else 1.0)
 	moon.light_energy = _moon_energy
 	moon.light_volumetric_fog_energy = 1.0 if day else 0.5
 	var params := [&"top_color", &"horizon_color", &"ground_color", &"cloud_color", &"cloud_light",
 			&"cloud_cover", &"stars", &"disc_color", &"disc_size"]
 	for i in params.size():
 		sky_mat.set_shader_parameter(params[i], sky[i])
+	# El disco: la luna nítida y brillante; el sol, una brasa roja que la bruma apenas deja pasar.
+	sky_mat.set_shader_parameter(&"disc_energy", 3.0 if day else 5.0)
+	env.fog_sky_affect = 0.25 if day else 0.4  # que la niebla no borre la luna ni el sol
 	sky_mat.set_shader_parameter(&"haze", clampf((0.35 if Art.fog == "poca" else 0.7) + (0.15 if rain or ash else 0.0), 0.0, 1.0))
 
 	# --- Suelo y paredes
 	var mats := WorldKit.materials()
-	for key in ["ground", "stone", "wall", "terrain", "road", "water"]:
+	for key in ["ground", "stone", "wall", "terrain", "road", "water", "citadel_rock", "citadel_stone", "citadel_wall", "citadel_roof", "citadel_trim"]:
 		var m: ShaderMaterial = mats[key]
 		m.set_shader_parameter(&"wetness", 1.0 if rain else 0.0)
 		m.set_shader_parameter(&"ash_amount", 1.0 if ash else 0.0)
+
+	# --- La bruma: nubes negras irregulares (de día, pardas y más ralas).
+	var dark: ShaderMaterial = mats["dark_mist"]
+	var mist_density := (0.04 if day else 0.11) * fog_mult * (1.25 if rain or ash else 1.0)
+	dark.set_shader_parameter(&"density", mist_density)
+	dark.set_shader_parameter(&"albedo", Color(0.05, 0.035, 0.03) if day else Color(0.015, 0.015, 0.02))
+	_dark_mist.visible = not indoor
 
 	# --- Exterior: bruma densa fuera de la muralla y lejanía de los montes de ceniza.
 	var thick := Art.fog == "mucha"
@@ -204,11 +220,40 @@ func apply(show_label := true) -> void:
 	var ext_fog: FogMaterial = mats["exterior_fog"]
 	ext_fog.density = (0.012 if day else 0.045) * (1.5 if thick else 0.6) * (1.2 if bad_weather else 1.0)
 	ext_fog.albedo = env.fog_light_color.lerp(Color(0.85, 0.88, 0.94), 0.5)
+	# --- Luces: de día, faroles y ventanas apagados.
+	var glass: StandardMaterial3D = mats["lamp_glass"]
+	glass.emission_energy_multiplier = 0.0 if day else 4.0
+	glass.albedo_color = Color(0.16, 0.14, 0.12) if day else Color(1.0, 0.75, 0.45)
+	for l: Light3D in get_tree().get_nodes_in_group(&"street_light"):
+		l.visible = not day
+	for key in ["stone", "citadel_stone"]:
+		(mats[key] as ShaderMaterial).set_shader_parameter(&"window_glow", 0.0 if day else (6.0 if key == "citadel_stone" else 3.0))
+	# Kredik Shaw: de noche, velo gris con sus ventanas y puntas brillando; de día, bruma negra y
+	# sin ninguna luz (que casi no se note).
+	var cap: StandardMaterial3D = mats["citadel_cap"]
+	cap.emission_energy_multiplier = 0.0 if day else 0.35
+	cap.disable_fog = not day  # de día la niebla las tapa (si no, el oro refleja el sol)
+	var cloud: StandardMaterial3D = mats["citadel_cloud"]
+	cloud.albedo_color = Color(0.03, 0.03, 0.035, 0.7) if day else Color(env.fog_light_color * 0.9, 0.5)
+	var citadel_fog: FogMaterial = mats["citadel_fog"]
+	citadel_fog.density = ext_fog.density * 5.0
+	citadel_fog.albedo = Color(0.03, 0.03, 0.035) if day else ext_fog.albedo
+	citadel_fog.emission = Color.BLACK if day else env.fog_light_color * 0.06
 	var haze := (0.28 if day else 0.72) + (0.2 if thick else 0.0) + (0.12 if rain else 0.0) + (0.15 if ash else 0.0)
 	var mountain: ShaderMaterial = mats["mountain"]
 	mountain.set_shader_parameter(&"haze", clampf(haze, 0.0, 0.97))
 	mountain.set_shader_parameter(&"haze_color", env.fog_light_color)
 	mountain.set_shader_parameter(&"haze_brightness", 0.9 if day else 0.12)  # de noche, siluetas oscuras
+	(mats["citadel_glass_lit"] as ShaderMaterial).set_shader_parameter(&"glow_energy", 0.0 if day else 4.0)
+	for key in ["citadel_rock", "citadel_stone", "citadel_wall", "citadel_roof", "citadel_trim", "citadel_glass", "citadel_glass_lit", "citadel_red"]:
+		var m: ShaderMaterial = mats[key]
+		m.set_shader_parameter(&"haze_color", Color(0.04, 0.04, 0.05) if day else env.fog_light_color)
+		m.set_shader_parameter(&"haze_brightness", 1.0 if day else 0.6)  # de noche, un velo gris sobre el cielo negro
+		m.set_shader_parameter(&"haze_density", 0.007 * (1.5 if thick else 1.0) * (1.2 if bad_weather else 1.0))
+		m.set_shader_parameter(&"haze_max", 0.92)
+		# Siempre envuelto: la bruma sube hasta media aguja. La roca no (si no, el pie del cordón
+		# de picos se ve como un muro liso).
+		m.set_shader_parameter(&"haze_height", 1.0 if key == "citadel_rock" else 90.0)
 
 	# --- Partículas
 	_rain.emitting = rain and not (indoor or sheltered)
@@ -234,6 +279,7 @@ func _process(delta: float) -> void:
 		var c := cam.global_position
 		_rain.global_position = c + Vector3(0, 14, 0)
 		_ash.global_position = c + Vector3(0, 6, 0)
+		_dark_mist.global_position = Vector3(c.x, maxf(c.y, 30.0), c.z)
 	_label_time -= rd
 	_label.modulate.a = clampf(_label_time, 0.0, 1.0)
 	_update_lightning(rd)

@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://bcpdhr5q4h3bg"
+path="res://.godot/imported/mt_toon_shockwave01.efkmat-a8a6d3ca845121ce46992262053df07f.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Materials/mt_toon_shockwave01.efkmat"
+dest_files=["res://.godot/imported/mt_toon_shockwave01.efkmat-a8a6d3ca845121ce46992262053df07f.res"]
+
+[params]
+
+compress=true

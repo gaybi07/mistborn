@@ -7,11 +7,14 @@ uniform vec3 ash_color : source_color = vec3(0.34, 0.33, 0.32);
 uniform float scale = 2.2;
 uniform float wetness : hint_range(0.0, 1.0) = 0.0;   // lluvia: más oscuro, brillante y con charcos
 uniform float ash_amount : hint_range(0.0, 1.0) = 0.0; // lluvia de ceniza: el suelo se cubre
+uniform float triplanar = 0.0; // 1 = también en paredes (rocas, acantilados), no solo en el suelo
 
 varying vec3 wpos;
+varying vec3 wnrm;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 vec2 hash2(vec2 p) {
@@ -28,7 +31,11 @@ float noise(vec2 p) {
 }
 
 void fragment() {
-	vec2 p = wpos.xz * scale;
+	vec2 pl = wpos.xz;
+	if (triplanar > 0.5 && abs(wnrm.y) < 0.6) {
+		pl = abs(wnrm.x) > abs(wnrm.z) ? wpos.zy : wpos.xy;
+	}
+	vec2 p = pl * scale;
 	vec2 i = floor(p);
 	vec2 f = fract(p);
 	float d1 = 8.0;
@@ -50,14 +57,14 @@ void fragment() {
 	}
 	float gap = 1.0 - smoothstep(0.03, 0.12, d2 - d1);
 	vec3 col = mix(stone_a, stone_b, hash2(cid).x);
-	col *= 0.85 + 0.3 * noise(wpos.xz * 6.0);
-	float ash_n = noise(wpos.xz * 0.15) * 0.7 + noise(wpos.xz * 1.3) * 0.3;
+	col *= 0.85 + 0.3 * noise(pl * 6.0);
+	float ash_n = noise(pl * 0.15) * 0.7 + noise(pl * 1.3) * 0.3;
 	float ashf = smoothstep(mix(0.45, 0.1, ash_amount), 0.85, ash_n) * mix(0.6, 0.95, ash_amount);
 	col = mix(col, ash_color, ashf);
 	col *= 1.0 - gap * 0.7 * (1.0 - ashf * 0.6);
 	float rough = mix(0.72, 1.0, gap);
 	// Mojado: más oscuro y brillante; en los huecos del terreno se forman charcos.
-	float puddle = smoothstep(0.58, 0.68, noise(wpos.xz * 0.09 + 7.0)) * wetness;
+	float puddle = smoothstep(0.58, 0.68, noise(pl * 0.09 + 7.0)) * wetness;
 	col *= mix(1.0, 0.62, wetness) * (1.0 - puddle * 0.25);
 	rough = mix(rough, 0.25, wetness * (1.0 - gap * 0.5));
 	rough = mix(rough, 0.03, puddle);

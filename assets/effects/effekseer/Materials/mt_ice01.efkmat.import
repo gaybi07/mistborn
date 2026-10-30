@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://lkvt350kcjnn"
+path="res://.godot/imported/mt_ice01.efkmat-1cddb13491e624b22a9ee4a892e6732a.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Materials/mt_ice01.efkmat"
+dest_files=["res://.godot/imported/mt_ice01.efkmat-1cddb13491e624b22a9ee4a892e6732a.res"]
+
+[params]
+
+compress=true

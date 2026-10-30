@@ -1,0 +1,5 @@
+Texturas de Poly Haven (https://polyhaven.com), licencia CC0 (dominio público).
+- rock_face_03        https://polyhaven.com/a/rock_face_03
+- castle_brick_07     https://polyhaven.com/a/castle_brick_07
+- large_floor_tiles_02 https://polyhaven.com/a/large_floor_tiles_02
+Resolución 1K. diff = color, nor = normal (OpenGL), arm = oclusión/rugosidad/metal.

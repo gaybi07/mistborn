@@ -95,7 +95,7 @@ func _ready() -> void:
 
 func _venture_materials() -> void:
 	var dark: ShaderMaterial = (_m["wall"] as ShaderMaterial).duplicate()
-	dark.set_shader_parameter(&"stone_color", Color(0.2, 0.19, 0.21))
+	dark.set_shader_parameter(&"tint", Color(0.5, 0.48, 0.52))
 	dark.set_shader_parameter(&"ash_amount", 0.35)
 	_m["dark_stone"] = dark
 	_m["slate"] = _noise_material(Color(0.07, 0.08, 0.1), Color(0.17, 0.18, 0.21), 0.5)

@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://bk85frq4yxemt"
+path="res://.godot/imported/ms_lightning02.efkmodel-f2ec18ede38fcae771c18e16f01130f1.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Meshes/ms_lightning02.efkmodel"
+dest_files=["res://.godot/imported/ms_lightning02.efkmodel-f2ec18ede38fcae771c18e16f01130f1.res"]
+
+[params]
+
+compress=true

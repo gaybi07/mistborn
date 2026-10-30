@@ -14,7 +14,7 @@ extends Building
 const POS := Vector2(-60, 189.5)  ## en el Distrito Skaa, sobre la calle que sale de la avenida del sur
 const YAW := PI  ## la fachada mira al norte, a la calle
 ## Celdas del suelo de la ciudad que se quitan (en el mundo); el taller pone su suelo y rellena el resto.
-const GROUND_HOLE := Rect2(POS.x - 6, POS.y - 11.5, 12, 21)  ## bordes en múltiplos de CityGround.CELL
+const GROUND_HOLE := Rect2(POS.x - 6, POS.y - 11.5, 12, 21)  ## hueco en el terreno (ver tools/terrain/bake_terrain.gd)
 
 const W := 8.0  ## ancho exterior
 const L := 18.0  ## largo exterior

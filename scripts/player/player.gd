@@ -950,18 +950,24 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if attacker and Metals.atium_edge(self, attacker):
 		# Atium: viste venir el golpe y te apartas (salvo que el atacante también queme atium).
 		var side := (global_position - attacker.global_position).cross(Vector3.UP).normalized()
-		velocity += side * (5.0 if randf() < 0.5 else -5.0)
+		velocity += side * (11.0 if randf() < 0.5 else -11.0) + Vector3.UP * 2.0
+		_shoved = 0.25
+		Atium.dodge_trail(visual)
+		atium.pulse()
 		Fx.sparks(get_tree().current_scene, chest_position(), Metals.ATIUM_COLOR)
 		mark_combat()
 		dodged.emit()
 		return
+	# Con atium, el atacante ve el hueco: ni armadura ni peltre frenan el golpe.
+	var unblockable := attacker != null and Metals.atium_edge(attacker, self)
 	if is_rioted():
 		damage *= 1.25
-	damage *= 1.0 - clampf(gear_stat("armor", true), 0.0, 0.8)
+	if not unblockable:
+		damage *= 1.0 - clampf(gear_stat("armor", true), 0.0, 0.8)
 	if _hanging or _climb_t >= 0.0:
 		_release_ledge(Vector3.ZERO)  # un golpe te suelta del borde
 	# El peltre endurece el cuerpo: menos daño y menos empujón (quemando ~40 %, avivando ~55 %).
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := 0.0 if unblockable else allomancy.strength(&"pewter")
 	impulse /= 1.0 + 0.5 * pewter
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
 	_shoved = 0.35
@@ -1078,10 +1084,16 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		to.y = 0.0
 		if to.length() > reach or forward.angle_to(to) > arc:
 			continue
-		npc.take_hit(to.normalized() * knockback, damage, self)
+		var crit := randf() < Metals.crit_chance(self, npc)
+		npc.take_hit(to.normalized() * knockback, damage * (Metals.CRIT_MULT if crit else 1.0), self)
 		mark_combat()
+		if crit:
+			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.45, Metals.ATIUM_COLOR)
+			_shake = maxf(_shake, 0.3)
 		var color := Color(1.0, 0.7, 0.4) if npc.is_in_group(&"metal") else Color(0.6, 0.1, 0.1)
 		Fx.sparks(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), color)
+		if npc.is_in_group(&"metal"):
+			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.3)
 		if heavy:
 			_shake = maxf(_shake, 0.35)
 	for n in get_tree().get_nodes_in_group(&"metal"):

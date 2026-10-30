@@ -19,6 +19,7 @@ var _base_exposure := 1.0
 var _amount := 0.0
 var _version := -1
 var _base_ext_fog := 0.05
+var _base_dark_mist := 0.09
 
 
 func _ready() -> void:
@@ -53,6 +54,7 @@ func _process(delta: float) -> void:
 	_env.volumetric_fog_density = _curve(_base_vol_fog, _base_vol_fog * 0.35, _base_vol_fog * 0.08)
 	_env.tonemap_exposure = _curve(_base_exposure, _base_exposure * 1.5, _base_exposure * 2.2)
 	(WorldKit.materials()["exterior_fog"] as FogMaterial).density = _curve(_base_ext_fog, _base_ext_fog * 0.4, _base_ext_fog * 0.12)
+	(WorldKit.materials()["dark_mist"] as ShaderMaterial).set_shader_parameter(&"density", _curve(_base_dark_mist, _base_dark_mist * 0.35, _base_dark_mist * 0.08))
 	var world_fx := get_tree().get_first_node_in_group(&"world_fx") as WorldFx
 	if world_fx:
 		world_fx.set_mist_strength(_curve(1.0, 0.4, 0.1))
@@ -75,4 +77,5 @@ func _grab_environment() -> bool:
 	_base_vol_fog = _env.volumetric_fog_density
 	_base_exposure = _env.tonemap_exposure
 	_base_ext_fog = (WorldKit.materials()["exterior_fog"] as FogMaterial).density
+	_base_dark_mist = (WorldKit.materials()["dark_mist"] as ShaderMaterial).get_shader_parameter(&"density")
 	return true
