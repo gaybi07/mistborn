@@ -85,6 +85,16 @@ static func atium_edge(defender: Node, attacker: Node) -> bool:
 	return burns_atium(defender) and not burns_atium(attacker)
 
 
+## Probabilidad de crítico (daño x CRIT_MULT): con atium, contra quien no lo quema, ves el hueco
+## exacto en la guardia. Sus golpes, además, no se pueden bloquear (ignoran armadura y peltre).
+const CRIT_MULT := 2.0
+static func crit_chance(attacker: Node, defender: Node) -> float:
+	if not atium_edge(attacker, defender):
+		return 0.05
+	var a: Allomancy = attacker.get(&"allomancy")
+	return 0.7 if a.is_flaring(&"atium") else 0.45
+
+
 ## Nubes de cobre activas: [centro, radio] de cada alomántico que quema cobre.
 static func copper_clouds(tree: SceneTree) -> Array:
 	var out := []

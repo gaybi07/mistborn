@@ -1,60 +1,35 @@
 class_name CityGround
-## Suelo de la zona de la ciudad: una malla en cuadrícula con el cauce del río excavado.
-## Las celdas dentro de la muralla llevan empedrado y las de fuera, tierra. Además, la superficie
-## del agua del río. Cubre un cuadrado de ±HALF; más allá está el suelo del exterior (Exterior).
+## Suelo de la ciudad y sus alrededores (±HALF): un Terrain3D con el cauce del río excavado,
+## empedrado dentro de la muralla y, fuera, tierra con roca en las pendientes. Los datos (alturas,
+## texturas pintadas, huecos bajo Kredik Shaw y el sótano del taller) se generan una vez con
+## tools/terrain/bake_terrain.gd y se cargan de res://terrain/. Además, la superficie del agua.
 
-const HALF := 540.0
-const CELL := 3.0
+const HALF := 1024.0
+const DATA := "res://terrain/data"
+const ASSETS := "res://terrain/assets.res"
+const DIRT := 1
+const ROCK := 2
 
 
-## holes: rectángulos (XZ) sin suelo, para sótanos (quien los pide pone su propio suelo).
-static func build(parent: Node, mats: Dictionary, holes: Array[Rect2] = []) -> void:
-	var n := int(HALF * 2.0 / CELL)
-	var heights := PackedFloat32Array()
-	heights.resize((n + 1) * (n + 1))
-	for iz in n + 1:
-		for ix in n + 1:
-			var p := Vector2(-HALF + ix * CELL, -HALF + iz * CELL)
-			heights[iz * (n + 1) + ix] = CityPlan.river_bed(p)
-	var city := SurfaceTool.new()
-	var land := SurfaceTool.new()
-	city.begin(Mesh.PRIMITIVE_TRIANGLES)
-	land.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for iz in n:
-		for ix in n:
-			var c := Vector2(-HALF + (ix + 0.5) * CELL, -HALF + (iz + 0.5) * CELL)
-			if holes.any(func(r: Rect2) -> bool: return r.has_point(c)):
-				continue
-			var st := city if CityPlan.inside(c) else land
-			var v := [_v(heights, n, ix, iz), _v(heights, n, ix + 1, iz), _v(heights, n, ix, iz + 1), _v(heights, n, ix + 1, iz + 1)]
-			st.add_vertex(v[0])
-			st.add_vertex(v[1])
-			st.add_vertex(v[2])
-			st.add_vertex(v[1])
-			st.add_vertex(v[3])
-			st.add_vertex(v[2])
-	city.generate_normals()
-	land.generate_normals()
-	var mesh := city.commit()
-	land.commit(mesh)
-	mesh.surface_set_material(0, mats["ground"])
-	mesh.surface_set_material(1, mats["terrain"])
-
-	var body := StaticBody3D.new()
-	body.collision_layer = Props.LAYER_WORLD
-	body.collision_mask = 0
-	var col := CollisionShape3D.new()
-	col.shape = mesh.create_trimesh_shape()
-	body.add_child(col)
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	body.add_child(mi)
-	parent.add_child(body)
+static func build(parent: Node, mats: Dictionary) -> void:
+	var terrain := Terrain3D.new()
+	terrain.name = "Terrain3D"
+	terrain.vertex_spacing = 2.0
+	terrain.collision_layer = Props.LAYER_WORLD
+	terrain.collision_mask = 0
+	terrain.collision_mode = Terrain3DCollision.FULL_GAME  # se puede volar lejos: colisión en todo
+	var material := Terrain3DMaterial.new()
+	material.world_background = Terrain3DMaterial.NONE
+	material.auto_shader = true
+	material.set_shader_param("auto_base_texture", DIRT)
+	material.set_shader_param("auto_overlay_texture", ROCK)
+	material.set_shader_param("auto_slope", 4.0)
+	material.set_shader_param("blend_sharpness", 0.9)
+	terrain.material = material
+	terrain.assets = load(ASSETS)
+	terrain.data_directory = DATA
+	parent.add_child(terrain)
 	parent.add_child(_water(mats["water"]))
-
-
-static func _v(heights: PackedFloat32Array, n: int, ix: int, iz: int) -> Vector3:
-	return Vector3(-HALF + ix * CELL, heights[iz * (n + 1) + ix], -HALF + iz * CELL)
 
 
 ## Cinta de agua a lo largo del río (UV.x = metros recorridos, para que el agua fluya).

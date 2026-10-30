@@ -2,6 +2,9 @@ class_name Fx
 ## Efectos de partículas reutilizables y texturas suaves generadas por código.
 
 static var _soft_tex: Texture2D
+## Efectos de Effekseer (assets/effects/effekseer, de los ejemplos oficiales, MIT).
+const EFFEKSEER := "res://assets/effects/effekseer/%s.efkefc"
+static var _effects := {}
 
 
 static func soft_texture() -> Texture2D:
@@ -81,6 +84,20 @@ static func burst(parent: Node, pos: Vector3, color: Color, amount := 24, speed 
 
 static func sparks(parent: Node, pos: Vector3, color: Color) -> void:
 	burst(parent, pos, color * 3.0, 20, 5.0, 0.35, 0.06, -6.0, true)
+
+
+## Efecto de Effekseer que se reproduce una vez y se borra solo. color tiñe el efecto.
+static func effect(parent: Node, name: String, pos: Vector3, size := 1.0, color := Color.WHITE) -> void:
+	if not _effects.has(name):
+		_effects[name] = load(EFFEKSEER % name)
+	var e := EffekseerEmitter3D.new()
+	e.effect = _effects[name]
+	e.color = color
+	e.autofree = true
+	e.scale = Vector3.ONE * size
+	parent.add_child(e)
+	e.global_position = pos
+	e.play()
 
 
 static func dust(parent: Node, pos: Vector3, strength := 1.0) -> void:

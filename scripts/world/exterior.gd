@@ -33,7 +33,7 @@ var _trees: Array = []  # [Vector2 posición, tipo (0 árbol muerto alto, 1 bajo
 func _ready() -> void:
 	_rng.seed = 4242
 	var m := WorldKit.materials()
-	# Suelo exterior alrededor del cuadrado de la ciudad (CityGround cubre el centro, con el río).
+	# Suelo exterior alrededor del terreno de la ciudad (CityGround cubre el centro, con el río).
 	var h := CityGround.HALF
 	var span := WORLD - h
 	for s in [-1.0, 1.0]:
@@ -44,6 +44,7 @@ func _ready() -> void:
 	_plan_road_trees()
 	_plan_scattered_trees(180)
 	_build_trees()
+	_build_logs_and_rocks()
 	_build_hills(m["terrain"])
 	_build_mountains(m["mountain"], m["terrain"])
 	_build_mist(m["exterior_fog"])
@@ -152,6 +153,26 @@ func _plan_scattered_trees(count: int) -> void:
 			continue
 		_trees.append([p, _rng.randi_range(0, 2), _rng.randf_range(0.7, 1.4)])
 		placed += 1
+
+
+## Fuera de la muralla: troncos caídos junto a los árboles muertos y peñascos sueltos (modelos de
+## Poly Haven, en lote).
+func _build_logs_and_rocks() -> void:
+	var props := {}
+	for t: Array in _trees:
+		if _rng.randf() < 0.15:
+			var p: Vector2 = t[0] + Vector2.from_angle(_rng.randf() * TAU) * _rng.randf_range(2.0, 4.0)
+			PolyProps.add(props, "dead_tree_trunk_02", PolyProps.at("dead_tree_trunk_02", Vector3(p.x, -0.1, p.y), _rng.randf() * TAU, _rng.randf_range(0.8, 1.3)))
+	var placed := 0
+	var tries := 0
+	while placed < 80 and tries < 3000:
+		tries += 1
+		var p := Vector2(_rng.randf_range(-900, 900), _rng.randf_range(MOUNTAIN_LINE, 900))
+		if _in_city(p, 25.0) or _dist_to_roads(p) < 6.0:
+			continue
+		PolyProps.add(props, "boulder_01", PolyProps.at("boulder_01", Vector3(p.x, -0.3, p.y), _rng.randf() * TAU, _rng.randf_range(1.0, 3.5)))
+		placed += 1
+	PolyProps.spawn(self, props)
 
 
 const TREE_VARIANTS := 4

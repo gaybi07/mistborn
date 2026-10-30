@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://baeavlb530fx3"
+path="res://.godot/imported/ms_barrior02.efkmodel-4010b61f69a9b3c270444728424a18dc.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Meshes/ms_barrior02.efkmodel"
+dest_files=["res://.godot/imported/ms_barrior02.efkmodel-4010b61f69a9b3c270444728424a18dc.res"]
+
+[params]
+
+compress=true

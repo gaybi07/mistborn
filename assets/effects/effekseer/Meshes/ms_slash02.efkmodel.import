@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://cxhysce4m8rxh"
+path="res://.godot/imported/ms_slash02.efkmodel-9012a3168040359a46b268a7f5a6a8b2.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Meshes/ms_slash02.efkmodel"
+dest_files=["res://.godot/imported/ms_slash02.efkmodel-9012a3168040359a46b268a7f5a6a8b2.res"]
+
+[params]
+
+compress=true

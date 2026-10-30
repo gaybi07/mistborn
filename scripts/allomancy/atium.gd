@@ -1,14 +1,15 @@
 class_name Atium
 extends Node3D
 ## Atium.
-## Quemando: muestra la "sombra" de cada cosa del grupo "atium_visible" donde estará en unos instantes,
-## y esquivas los golpes de quien no queme atium (ver Metals.atium_edge).
-## Avivando: efecto Sandevistan — el mundo se ralentiza, tú no, dejas estelas de colores
-## y la pantalla se tiñe con aberración cromática.
+## Quemando: muestra la "sombra" de cada cosa del grupo "atium_visible" donde estará en unos instantes.
+## Contra quien no queme atium: esquivas todos sus golpes (un salto con siluetas de colores, ver
+## dodge_trail), tus monedas buscan el blanco (Coin) y tus golpes no se pueden bloquear y son
+## críticos a menudo (Metals.crit_chance).
+## Avivando: más críticos y estela Sandevistan continua con la pantalla teñida. El tiempo no se
+## ralentiza (tiene que funcionar en tiempo real, con otros jugadores).
 ## Contra otro que quema atium se anulan: no hay cámara lenta y su sombra se divide en futuros
 ## que saltan de un lado a otro (su futuro depende de lo que tú hagas, y al revés).
 
-@export var slow_time_scale := 0.15
 @export var shadow_lookahead := 0.6  ## segundos de futuro que se ven
 @export var shadow_range := 45.0
 @export var afterimage_interval := 0.045
@@ -25,6 +26,7 @@ var _ghost_mat := Afterimage.ghost_material(Color(0.85, 0.9, 1.0), 0.55)
 var _overlay: ColorRect
 var _overlay_mat: ShaderMaterial
 var _afterimage_timer := 0.0
+var _pulse := 0.0  # destello de pantalla al esquivar
 var _hue := 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
@@ -43,18 +45,32 @@ func _ready() -> void:
 	layer.add_child(_overlay)
 
 
-func _exit_tree() -> void:
-	Engine.time_scale = 1.0
+## Esquive con atium: siluetas de colores a lo largo del salto, como un Sandevistan.
+## source: el nodo cuyas mallas se copian (el cuerpo que se ve).
+static func dodge_trail(source: Node3D, count := 9, life := 0.45) -> void:
+	var tree := source.get_tree()
+	for i in count:
+		tree.create_timer(i * 0.025, true, false, true).timeout.connect(func() -> void:
+			if not is_instance_valid(source):
+				return
+			var ghost := Afterimage.new()
+			tree.current_scene.add_child(ghost)
+			ghost.setup(source, Color.from_hsv(fmod(0.5 + i * 0.08, 1.0), 0.85, 1.0), life))
+
+
+## El jugador esquivó: destello de la pantalla.
+func pulse() -> void:
+	_pulse = 1.0
 
 
 func _process(delta: float) -> void:
-	var rd := delta / Engine.time_scale
+	var rd := delta
 	var burning := player.allomancy.is_burning(&"atium")
 	contested = burning and _rival_burning()
 	var flaring := player.allomancy.is_flaring(&"atium") and not contested
 
-	Engine.time_scale = move_toward(Engine.time_scale, slow_time_scale if flaring else 1.0, rd * 4.0)
-	intensity = move_toward(intensity, 1.0 if flaring else 0.0, rd * 5.0)
+	_pulse = move_toward(_pulse, 0.0, rd * 2.5)
+	intensity = maxf(move_toward(intensity, 0.6 if flaring else 0.0, rd * 5.0), _pulse)
 	_hue = fmod(_hue + rd * 0.9, 1.0)
 	_overlay.visible = intensity > 0.001
 	_overlay_mat.set_shader_parameter(&"intensity", intensity)

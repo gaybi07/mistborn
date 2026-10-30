@@ -1,0 +1,15 @@
+[remap]
+
+importer="effekseer.resource"
+type="Resource"
+uid="uid://d366ay0yil2u"
+path="res://.godot/imported/ms_plane01.efkmodel-ac3e3fbf01c839cfb383051bb8a5d4e3.res"
+
+[deps]
+
+source_file="res://assets/effects/effekseer/Meshes/ms_plane01.efkmodel"
+dest_files=["res://.godot/imported/ms_plane01.efkmodel-ac3e3fbf01c839cfb383051bb8a5d4e3.res"]
+
+[params]
+
+compress=true

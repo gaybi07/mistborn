@@ -175,6 +175,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 			g.target = auto_push
 			g.active = true
 			Fx.sparks(get_tree().current_scene, center_of(auto_push), g.color)
+			Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(auto_push), 0.25, g.color)
 		return
 	var pressed := _grip_input(g, false)
 	if _grip_input(g, true) and g.latched:
@@ -197,6 +198,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.target = t
 		g.active = true
 		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
+		Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(t), 0.25, g.color)
 
 
 func _release(g: Grip) -> void:

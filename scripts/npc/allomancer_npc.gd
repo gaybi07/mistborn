@@ -209,15 +209,17 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if attacker and not down and Metals.atium_edge(self, attacker):
 		# Vio venir el golpe con el atium: se aparta.
 		var side := (global_position - attacker.global_position).cross(Vector3.UP).normalized()
-		velocity += side * (5.0 if randf() < 0.5 else -5.0)
-		_flying = 0.2
+		velocity += side * (11.0 if randf() < 0.5 else -11.0) + Vector3.UP * 2.0
+		_flying = 0.25
+		Atium.dodge_trail(self)
 		atium_dodges += 1
 		mark_combat()
 		_on_hit(attacker)
 		Fx.sparks(get_tree().current_scene, Metals.center_of(self), Metals.ATIUM_COLOR)
 		_popup("esquiva")
 		return
-	var pewter := allomancy.strength(&"pewter")
+	# Con atium, el atacante ve el hueco: el peltre no frena el golpe.
+	var pewter := 0.0 if attacker and Metals.atium_edge(attacker, self) else allomancy.strength(&"pewter")
 	var was_down := down
 	super(impulse / (1.0 + 0.5 * pewter), damage / (1.0 + 0.6 * pewter), attacker)
 	if down and not was_down and attacker is Player:
@@ -523,7 +525,11 @@ func _melee(damage: float, knockback: float, reach: float, cooldown: float) -> v
 		# Con atium (y el rival sin él) sabe adónde se va a mover: el golpe llega igual.
 		var lead := 1.2 if Metals.atium_edge(self, t) else 0.0
 		if now.length() <= reach + lead:
-			t.take_hit(now.normalized() * knockback * (1.0 + pewter), damage * (1.0 + 0.75 * pewter), self)
+			var crit := randf() < Metals.crit_chance(self, t)
+			var dmg := damage * (1.0 + 0.75 * pewter) * (Metals.CRIT_MULT if crit else 1.0)
+			t.take_hit(now.normalized() * knockback * (1.0 + pewter), dmg, self)
+			if crit:
+				Fx.effect(get_tree().current_scene, "ef_fire01", t.global_position + Vector3(0, 1.2, 0), 0.45, Metals.ATIUM_COLOR)
 			Fx.sparks(get_tree().current_scene, t.global_position + Vector3(0, 1.2, 0), Color(1.0, 0.6, 0.4))
 	)
 

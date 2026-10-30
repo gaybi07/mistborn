@@ -24,7 +24,8 @@ func _ready() -> void:
 	ash_pm.turbulence_influence_min = 0.03
 	ash_pm.turbulence_influence_max = 0.08
 
-	_mist_mat = Fx.particle_material(Color(0.72, 0.77, 0.88, _mist_alpha), false, 3.0)
+	_mist_mat = Fx.particle_material(Color(0.1, 0.1, 0.13, _mist_alpha), false, 3.0)  # jirones de las nubes negras
+	_mist_mat.disable_fog = true  # si no, la niebla los aclara y parecen humo blanco
 	_mist = _make_particles(110, 18.0, Vector3(45, 2, 45), 7.0, _mist_mat)
 	var mist_pm := _mist.process_material as ParticleProcessMaterial
 	mist_pm.gravity = Vector3.ZERO

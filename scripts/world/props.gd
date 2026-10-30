@@ -93,6 +93,7 @@ static func lamp_post(base: Vector3, iron: Material, glass: Material, metal := t
 	light.light_energy = 2.2
 	light.omni_range = 10.0
 	light.light_volumetric_fog_energy = 3.0
+	light.add_to_group(&"street_light")  # Weather las apaga de día
 	post.add_child(light)
 	return post
 
