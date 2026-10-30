@@ -4,7 +4,7 @@ extends SceneTree
 ## Escribe en res://terrain/: data/ (regiones con alturas y texturas pintadas), assets.res
 ## (texturas: empedrado, tierra con ceniza, roca). El material lo arma CityGround.
 ## Alturas: el cauce del río (CityPlan.river_bed), llano en el resto. Huecos: bajo la meseta de
-## Kredik Shaw (tiene su propia malla) y el sótano del taller de Clubs.
+## Kredik Shaw (tiene su propia malla) y los sótanos del taller de Clubs y la mansión Venture.
 ## Texturas: dentro de la muralla, empedrado; fuera, automático (tierra en lo llano, roca en
 ## las pendientes).
 
@@ -40,7 +40,7 @@ func _init() -> void:
 			var p := Vector2(-HALF + ix * SPACING, -HALF + iz * SPACING)
 			height.set_pixel(ix, iz, Color(CityPlan.river_bed(p), 0, 0))
 			var c := land
-			if KredikCitadel.ground(p - CityPlan.HILL) > 0.0 or Workshop.GROUND_HOLE.has_point(p):
+			if KredikCitadel.ground(p - CityPlan.HILL) > 0.0 or Workshop.GROUND_HOLE.has_point(p) or VentureManor.GROUND_HOLE.has_point(p):
 				c = hole
 			elif CityPlan.inside(p):
 				c = city

@@ -9,7 +9,11 @@ extends Node3D
 ##  - Suelos de losas, techos con nervaduras, muros macizos, torres redondas y roca.
 ##  - Mobiliario según el uso de cada sala (escritorios, archivos, literas, armerías, el trono...),
 ##    lámparas de hierro (anclas para acero/hierro) y luz cálida de antorchas.
-##  - Escaleras con puertas al nivel de arriba/abajo y salidas a la ciudad (KredikPlan.links).
+##  - Escaleras de ida y vuelta al nivel de arriba (KredikPlan.flights) y túneles de salida a la
+##    ciudad en los subniveles.
+## Los niveles se apilan en la ciudad (KredikInterior): los de arriba solo conservan lo que se apoya
+## en un techo del de abajo (los patios quedan a cielo abierto) y encima de las salas de doble altura
+## de la planta baja queda un hueco (HOLE).
 ## Todo va a dos mallas (sólida con colisión y decorativa sin ella) que se guardan la primera vez.
 
 const X0 := -106.0
@@ -20,6 +24,15 @@ const VOID := -1
 const SOLID := -2
 const ROCK := -3
 const ROUND := -4  ## torre o bastión redondo (se dibuja como cilindro)
+const HOLE := -5  ## encima de una sala de doble altura: sin suelo ni muros (los pone la sala)
+const ROOM_H := KredikPlan.LH - 0.8  ## alto máximo de una sala (cabe la losa del nivel de arriba)
+## Escaleras: rellano de abajo y de media vuelta (m) y ancho máximo de los dos tramos juntos.
+const STAIR_LAND := 1.8
+const STAIR_MID := 2.0
+const STAIR_BAND := 4.4
+## Túneles de salida (subniveles): alto libre y pendiente de la rampa del Subnivel 3.
+const TUNNEL_H := 4.5
+const TUNNEL_SLOPE := 30.0
 
 const SOLID_KEYS := ["ks_wall", "ks_trim", "ks_floor", "ks_court", "ks_ceil", "ks_marble", "wood", "iron",
 		"gold", "rock", "red", "cloth", "paper"]
@@ -39,41 +52,19 @@ var _lights: Array = []  # [pos, color, range, energy]
 var _anchors: Array = []
 var _braziers: Array = []
 var _props := {}  # modelos de Poly Haven: nombre -> [Transform3D] (ver PolyProps)
-var _portals: Array = []  # [pos, yaw, size, nivel, espacio, rótulo, sentido]
-var _solid_h := 12.0
-var _label: Label
+var _solid_h := KredikPlan.LH
+var _skip_ceil: Array[Rect2] = []  # sin techo (la escalera sube por ahí)
+var _skip_floor: Array[Rect2] = []  # sin suelo (el hueco de la escalera de abajo)
+## Colisión de las rampas (escaleras, túneles): cajas simples [Transform3D, tamaño], como las de la
+## mansión Venture; con la malla, el jugador se traba en las aristas donde empalman con el suelo.
+var _ramps: Array = []
 
 
-# ------------------------------------------------------------------ Llegadas
+# ------------------------------------------------------------------ Escaleras
 
-## Dónde aparece el jugador al llegar a `room` del nivel `lvl`. from: "below" (subió desde abajo),
-## "above" (bajó desde arriba) u "out" (entró desde la ciudad).
-static func spawn(lvl: String, room: String, from: String) -> Vector3:
-	if lvl == "tower":
-		return Vector3(0, 0.6, 4.5) if from != "above" else Vector3(0, 0.6, 4.5)
-	var r := _spec_rect(lvl, room)
-	if from == "out":
-		var f := _exit_frame(r)
-		return Vector3(f["edge"].x - f["dir"].x * 7.0, 0.6, f["edge"].y - f["dir"].y * 7.0)
-	var s := stair_frame(r)
-	var rise: float = s["rise"]
-	if from == "above" and rise > 0.0:
-		var p: Vector2 = s["start"] + s["axis"] * (s["len"] - 2.2)
-		return Vector3(p.x, rise + 0.6, p.y)
-	var q: Vector2 = s["start"] + s["axis"] * 2.8
-	return Vector3(q.x, 0.6, q.y)
-
-
-static func _spec_rect(lvl: String, room: String) -> Rect2:
-	var out := Rect2()
-	for spec in KredikPlan.spaces(lvl):
-		if spec[0] == room:
-			out = KredikPlan.rect(spec[2])
-	return out
-
-
-## Escalera: tramo a lo largo del lado largo, del extremo norte/oeste (rellano de abajo) al otro
-## (rellano de arriba). rise = 0 si la sala solo baja.
+## Escalera de ida y vuelta en un rectángulo: a lo largo del lado largo, rellano de abajo en el
+## extremo norte/oeste (start), dos tramos en una franja central (band) con pasillos a los lados y
+## el rellano de media vuelta al otro extremo. hole: el hueco en el suelo del nivel de arriba.
 static func stair_frame(r: Rect2) -> Dictionary:
 	var along_x := r.size.x >= r.size.y
 	var axis := Vector2(1, 0) if along_x else Vector2(0, 1)
@@ -81,16 +72,33 @@ static func stair_frame(r: Rect2) -> Dictionary:
 	var length := r.size.x if along_x else r.size.y
 	var width := r.size.y if along_x else r.size.x
 	var start := r.position + side * width / 2.0
-	return {"start": start, "axis": axis, "side": side, "len": length, "width": width,
-			"rise": clampf((length - 6.5) * 0.62, 1.5, 4.0)}
+	var band := minf(width - 2.4, STAIR_BAND)
+	var a := start + axis * STAIR_LAND - side * band / 2.0
+	var b := start + axis * length + side * band / 2.0
+	return {"start": start, "axis": axis, "side": side, "len": length, "band": band,
+			"hole": Rect2(a.min(b), (b - a).abs())}
 
 
-## Salida: el borde de la sala que mira hacia afuera de la fortaleza.
-static func _exit_frame(r: Rect2) -> Dictionary:
-	var c := r.get_center()
-	var dir := Vector2(signf(c.x), 0) if absf(c.x) > absf(c.y) * 2.0 else Vector2(0, signf(c.y))
-	var edge := c + Vector2(dir.x * r.size.x / 2.0, dir.y * r.size.y / 2.0)
-	return {"dir": dir, "edge": edge}
+## Celda de la cuadrícula en un punto (en metros, relativo al centro de la fortaleza).
+static func cell_at(grid: PackedInt32Array, p: Vector2) -> int:
+	var i := int(floorf(p.x - X0))
+	var j := int(floorf(p.y - Z0))
+	if grid.is_empty() or i < 0 or j < 0 or i >= NX or j >= NZ:
+		return VOID
+	return grid[j * NX + i]
+
+
+## Dónde sale cada túnel de los subniveles: [nivel, z0, z1, x del borde de la cuadrícula,
+## x de la boca]. La boca está donde el tajo del cordón de picos (KredikCitadel.ground) baja a la
+## ciudad; el túnel del Subnivel 3 sube en rampa hasta la altura de la ciudad.
+static func tunnels() -> Array:
+	var out := []
+	for spec: Array in [["sub1", "Salida de emergencia"], ["sub3", "Salida de la cueva"]]:
+		for s: Array in KredikPlan.spaces(spec[0]):
+			if s[0] == spec[1]:
+				var r := KredikPlan.rect(s[2])
+				out.append([spec[0], r.position.y, r.end.y, X0, KredikCitadel.cut_x()])
+	return out
 
 
 # ------------------------------------------------------------------ Escena
@@ -103,8 +111,8 @@ func _ready() -> void:
 			_build()
 		var solid := _mb.commit(SOLID_KEYS)
 		_cache[level] = {"mesh": solid, "shape": solid.create_trimesh_shape(), "deco": _deco.commit(),
-				"lights": _lights, "anchors": _anchors, "braziers": _braziers, "portals": _portals,
-				"rooms": _rooms, "grid": _grid, "props": _props}
+				"lights": _lights, "anchors": _anchors, "braziers": _braziers,
+				"rooms": _rooms, "grid": _grid, "props": _props, "ramps": _ramps}
 	var c: Dictionary = _cache[level]
 	_rooms = c["rooms"]
 	_grid = c["grid"]
@@ -115,10 +123,23 @@ func _ready() -> void:
 	var col := CollisionShape3D.new()
 	col.shape = c["shape"]
 	body.add_child(col)
-	body.add_child(_instance(c["mesh"], mats))
-	add_child(body)
-	add_child(_instance(c["deco"], mats))
+	for r: Array in c["ramps"]:
+		var ramp := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = r[1]
+		ramp.shape = box
+		ramp.transform = r[0]
+		body.add_child(ramp)
 	var dark := level.begins_with("sub")
+	var solid := _instance(c["mesh"], mats)
+	# Bajo tierra no hay sol que proyecte sombras; las molduras y telas tampoco hacen falta.
+	if dark:
+		solid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.add_child(solid)
+	add_child(body)
+	var deco := _instance(c["deco"], mats)
+	deco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(deco)
 	for l: Array in c["lights"]:
 		var light := OmniLight3D.new()
 		light.position = l[0]
@@ -135,26 +156,16 @@ func _ready() -> void:
 		anchor.position = a
 		anchor.add_to_group(&"metal")
 		add_child(anchor)
-	PolyProps.spawn(self, c["props"])
+	PolyProps.spawn(self, c["props"], 24.0, 70.0)
 	for p: Vector3 in c["braziers"]:
 		var b := Brazier.new()
 		b.position = p
 		add_child(b)
-	for p: Array in c["portals"]:
-		var portal := Portal.new()
-		if p[3] == "city":
-			portal.target_scene = "res://scenes/main.tscn"
-			portal.arrival = KredikCitadel.city_exit() if level == "ground" else KredikCitadel.west_exit()
-		else:
-			portal.target_scene = "res://scenes/kredik_shaw.tscn"
-			portal.target_level = p[3]
-			portal.arrival = spawn(p[3], p[4], "below" if p[6] == "up" else "above")
-		portal.label = p[5]
-		portal.door_size = p[2]
-		portal.position = p[0]
-		portal.rotation.y = p[1]
-		add_child(portal)
-	_add_label()
+
+
+## Lo que se guardó de un nivel ya armado (grid, rooms...) o {} si todavía no se armó.
+static func cached(lvl: String) -> Dictionary:
+	return _cache.get(lvl, {})
 
 
 func _instance(mesh: ArrayMesh, mats: Dictionary) -> MeshInstance3D:
@@ -197,39 +208,6 @@ static func materials() -> Dictionary:
 	return m
 
 
-## Rótulo arriba a la izquierda: nivel y sala donde está el jugador.
-func _add_label() -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 11
-	add_child(layer)
-	_label = Label.new()
-	_label.position = Vector2(16, 40)
-	_label.add_theme_font_size_override("font_size", 18)
-	_label.add_theme_constant_override("outline_size", 5)
-	_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	_label.modulate = Color(0.85, 0.82, 0.75)
-	layer.add_child(_label)
-
-
-func _process(_delta: float) -> void:
-	var player := get_tree().get_first_node_in_group(&"player") as Node3D
-	if player == null or _label == null:
-		return
-	var room := ""
-	var id := _cell_at(Vector2(player.global_position.x, player.global_position.z))
-	if id >= 0 and id < _rooms.size():
-		room = _rooms[id]["name"]
-	_label.text = KredikPlan.LEVEL_NAMES[level] + ("\n" + room if room != "" else "")
-
-
-func _cell_at(p: Vector2) -> int:
-	var i := int(floorf(p.x - X0))
-	var j := int(floorf(p.y - Z0))
-	if level == "tower" or i < 0 or j < 0 or i >= NX or j >= NZ:
-		return VOID
-	return _grid[j * NX + i]
-
-
 # ------------------------------------------------------------------ Planta
 
 func _build() -> void:
@@ -238,11 +216,15 @@ func _build() -> void:
 	_grid.fill(VOID)
 	for spec: Array in KredikPlan.spaces(level):
 		_paint(spec)
+	if KredikPlan.BELOW.has(level):
+		_prune(KredikLevel.cached(KredikPlan.BELOW[level]))
+	for f: Array in KredikPlan.flights():
+		var rect := KredikPlan.rect(f[2])
+		if f[0] == level:
+			_skip_ceil.append(rect.grow(0.5))
+		elif f[1] == level:
+			_skip_floor.append(rect)
 	_measure_rooms()
-	var top := 0.0
-	for r: Dictionary in _rooms:
-		top = maxf(top, r["h"])
-	_solid_h = maxf(top + 1.0, 13.0) if not level.begins_with("sub") else top + 0.6
 	_collect_runs()
 	_place_doors()
 	_place_windows()
@@ -258,7 +240,61 @@ func _build() -> void:
 			_ring(i)
 		_furnish(i)
 		_light(i)
-	_links()
+	_flights()
+	for t: Array in tunnels():
+		if t[0] == level:
+			_tunnel(t[1], t[2], t[3], t[4], KredikPlan.FLOOR["sub1"] - KredikPlan.FLOOR[level])
+	if level == "sub3":
+		var cave := KredikPlan.rect([110, 330, 205, 420])  # sin tapar la salida
+		for k in 14:
+			var q := Vector2(_rng.randf_range(cave.position.x, cave.end.x), cave.position.y + (_rng.randf_range(0.0, 3.0) if k % 2 == 0 else cave.size.y - _rng.randf_range(0.0, 3.0)))
+			_poly("boulder_01", Vector3(q.x, -0.3, q.y), _rng.randf() * TAU, _rng.randf_range(1.5, 3.0))
+
+
+## Niveles de arriba: lo que no se apoya en un techo del nivel de abajo (patios, terrazas, vacío)
+## desaparece; encima de las salas de doble altura queda HOLE; los muros macizos sin salas al lado
+## y los restos de salas recortadas también se van.
+func _prune(below: Dictionary) -> void:
+	var bg: PackedInt32Array = below["grid"]
+	var brooms: Array = below["rooms"]
+	for idx in _grid.size():
+		var b := bg[idx]
+		if b >= 0 and brooms[b].get("double", false):
+			_grid[idx] = HOLE
+			continue
+		var held: bool = b == SOLID or b == ROUND or b == HOLE or (b >= 0 and not brooms[b]["open"])
+		if not held:
+			_grid[idx] = VOID
+	var kept: Array = []
+	for t: Array in _rounds:
+		if cell_at(bg, t[0]) == ROUND:
+			kept.append(t)
+	_rounds = kept
+	var walls := []
+	for j in NZ:
+		for i in NX:
+			var id := _grid[j * NX + i]
+			if id != SOLID and id != ROUND:
+				continue
+			var near := false
+			for dj in range(-2, 3):
+				for di in range(-2, 3):
+					var ii := i + di
+					var jj := j + dj
+					if ii >= 0 and jj >= 0 and ii < NX and jj < NZ and (_grid[jj * NX + ii] >= 0 or _grid[jj * NX + ii] == HOLE):
+						near = true
+			if not near:
+				walls.append(j * NX + i)
+	for idx: int in walls:
+		_grid[idx] = VOID
+	var counts := {}
+	for id in _grid:
+		if id >= 0:
+			counts[id] = counts.get(id, 0) + 1
+	for idx in _grid.size():
+		var id := _grid[idx]
+		if id >= 0 and counts[id] < 12:
+			_grid[idx] = VOID
 
 
 func _paint(spec: Array) -> void:
@@ -275,6 +311,8 @@ func _paint(spec: Array) -> void:
 		ids = [ROUND if circle else SOLID]
 	elif kind == "rock":
 		ids = [ROCK]
+	elif kind == "void":
+		ids = [VOID]
 	elif kind == "cells_x" or kind == "cells_y":
 		var along_x := kind == "cells_x"
 		var length := r.size.x if along_x else r.size.y
@@ -294,7 +332,10 @@ func _paint(spec: Array) -> void:
 
 
 func _add_room(name: String, kind: String, props: String, h: float, r: Rect2, circle: bool, c: Vector2, radius: float) -> int:
-	_rooms.append({"name": name, "kind": kind, "props": props, "h": h, "rect": r, "circle": circle,
+	# Las salas altas de la planta baja ocupan dos niveles; el resto cabe en uno.
+	var double := level == "ground" and h >= KredikPlan.DOUBLE_H
+	h = minf(h, ROOM_H + KredikPlan.LH if double else ROOM_H)
+	_rooms.append({"name": name, "kind": kind, "props": props, "h": h, "rect": r, "circle": circle, "double": double,
 			"c": c, "r": radius, "open": kind in KredikPlan.OPEN_KINDS, "circ": kind in KredikPlan.CIRCULATION,
 			"cells": 0, "doors": [], "lo": Vector2i(NX, NZ), "hi": Vector2i(-1, -1)})
 	return _rooms.size() - 1
@@ -367,7 +408,7 @@ func _edge(edges: Dictionary, o: int, line: float, s: float, a: int, b: int) -> 
 	if a == b:
 		return
 	for id in [a, b]:
-		if id == SOLID or id == ROCK or id == ROUND or (id >= 0 and _rooms[id]["circle"]):
+		if id == SOLID or id == ROCK or id == ROUND or id == HOLE or (id >= 0 and _rooms[id]["circle"]):
 			return
 	if _is_open(a) and _is_open(b):
 		return
@@ -450,6 +491,13 @@ func _place_doors() -> void:
 			if _length(_runs[k]) > best_len and _length(_runs[k]) >= 2.4:
 				best_len = _length(_runs[k])
 				best = k
+		if best < 0 and not level.begins_with("sub"):
+			# Sin vecinos (arriba, sobre un patio): una puerta al vacío, para entrar volando.
+			for k in _runs.size():
+				var run: Dictionary = _runs[k]
+				if (run["a"] == i and run["b"] == VOID or run["b"] == i and run["a"] == VOID) and _length(run) > best_len:
+					best_len = _length(run)
+					best = k
 		if best >= 0:
 			_door(best, 2.2, i)
 
@@ -723,28 +771,30 @@ func _greedy(pred: Callable, lo := Vector2i(0, 0), hi := Vector2i(NX - 1, NZ - 1
 func _floors_and_ceilings() -> void:
 	var g := _grid
 	var pool := func(id: int) -> bool: return id >= 0 and _rooms[id]["kind"] == "pool"
+	var skip := func(i: int, j: int, rects: Array[Rect2]) -> bool:
+		for rc: Rect2 in rects:
+			if rc.has_point(Vector2(X0 + i + 0.5, Z0 + j + 0.5)):
+				return true
+		return false
 	for rc: Rect2 in _greedy(func(i: int, j: int) -> bool:
 			var id := g[j * NX + i]
-			return id >= 0 and not _rooms[id]["open"] and not pool.call(id)):
+			return id >= 0 and not _rooms[id]["open"] and not pool.call(id) and not skip.call(i, j, _skip_floor)):
 		_mb.abox("ks_floor", Vector3(rc.get_center().x, -0.5, rc.get_center().y), Vector3(rc.size.x, 1.0, rc.size.y))
 	for rc: Rect2 in _greedy(func(i: int, j: int) -> bool:
 			var id := g[j * NX + i]
 			return id >= 0 and _rooms[id]["open"]):
 		_mb.abox("ks_court", Vector3(rc.get_center().x, -0.5, rc.get_center().y), Vector3(rc.size.x, 1.0, rc.size.y))
-	# Fuera de la planta, una explanada (lo que se ve por las ventanas).
-	if not level.begins_with("sub"):
-		_mb.abox("ks_court", Vector3(0, -1.2, 0), Vector3(420, 1.0, 300))
 	for i in _rooms.size():
 		var r: Dictionary = _rooms[i]
-		if r["cells"] == 0 or r["open"]:
+		if r["cells"] == 0 or r["open"] or r["kind"] == "tower":
 			continue
 		var h: float = r["h"]
-		for rc: Rect2 in _greedy(func(ii: int, j: int) -> bool: return g[j * NX + ii] == i, r["lo"], r["hi"]):
+		for rc: Rect2 in _greedy(func(ii: int, j: int) -> bool: return g[j * NX + ii] == i and not skip.call(ii, j, _skip_ceil), r["lo"], r["hi"]):
 			_mb.abox("ks_ceil", Vector3(rc.get_center().x, h + 0.35, rc.get_center().y), Vector3(rc.size.x, 0.7, rc.size.y))
 		if r["kind"] == "pool":
 			_pool(r)
 		# Nervaduras del techo en los salones.
-		if h >= 7.0 and not r["circle"]:
+		if h >= 7.0 and not r["circle"] and r["kind"] != "stair":
 			var box: Rect2 = r["box"]
 			var along_x := box.size.x >= box.size.y
 			var length := box.size.x if along_x else box.size.y
@@ -806,78 +856,178 @@ func _masses() -> void:
 
 # ------------------------------------------------------------------ Escaleras y salidas
 
-func _links() -> void:
-	if level == "sub3":
-		var cave := KredikPlan.rect([60, 330, 205, 450])
-		for k in 14:
-			var q := Vector2(_rng.randf_range(cave.position.x, cave.end.x), cave.position.y + (_rng.randf_range(0.0, 3.0) if k % 2 == 0 else cave.size.y - _rng.randf_range(0.0, 3.0)))
-			_poly("boulder_01", Vector3(q.x, -0.3, q.y), _rng.randf() * TAU, _rng.randf_range(1.5, 3.0))
-	var links := KredikPlan.links(level)
-	for i in _rooms.size():
-		var r: Dictionary = _rooms[i]
-		if not links.has(r["name"]):
-			continue
-		var l: Array = links[r["name"]]
-		var rect: Rect2 = r["rect"]
-		if l[3] == "out":
-			var f := _exit_frame(rect)
-			var dir: Vector2 = f["dir"]
-			var p: Vector2 = f["edge"] - dir * 0.8
-			_portals.append([Vector3(p.x, 0, p.y), atan2(dir.x, dir.y), Vector2(5.0, 6.0), "city", "", l[2], "out"])
-			# Las dos hojas de la puerta, cerradas detrás del umbral.
-			var side := Vector2(-dir.y, dir.x)
-			for k: float in [-1.0, 1.0]:
-				var q: Vector2 = f["edge"] + dir * 0.4 + side * k * 1.6
-				_poly("large_castle_door", Vector3(q.x, 0, q.y), atan2(dir.x, dir.y), 1.6)
-			continue
-		var s := stair_frame(rect)
-		var start: Vector2 = s["start"]
-		var axis: Vector2 = s["axis"]
-		var side: Vector2 = s["side"]
-		var length: float = s["len"]
-		var width: float = minf(s["width"] - 2.0, 6.0)
-		var yaw := atan2(axis.x, axis.y)
-		var up: bool = l[3] == "up"
-		var down := ""
-		if l[3] == "down":
-			down = l[0]
-		elif l.size() > 4:
-			down = l[4]
-		if up:
-			var rise: float = s["rise"]
-			var run := length - 6.5
-			var a := start + axis * 3.5
-			var b := a + axis * run
-			# Rampa con peldaños marcados y barandillas de hierro.
-			var mid := (a + b) / 2.0
-			var slope := atan2(rise, run)
-			var ax3 := Vector3(axis.x, 0, axis.y)
-			var sd3 := Vector3(side.x, 0, side.y)
-			var x := ax3 * cos(slope) + Vector3.UP * sin(slope)
-			var basis := Basis(x, -ax3 * sin(slope) + Vector3.UP * cos(slope), sd3)
-			_mb.cube("ks_marble", Transform3D(basis, Vector3(mid.x, rise / 2.0 - 0.25, mid.y)), Vector3(run / cos(slope) + 0.2, 0.5, width))
-			var steps := int(rise / 0.25)
-			for k in steps:
-				var t := (k + 0.5) / steps
-				var p := a.lerp(b, t)
-				_mb.cube("ks_trim", Transform3D(basis, Vector3(p.x, rise * t + 0.02, p.y)), Vector3(0.08, 0.06, width))
+func _flights() -> void:
+	for f: Array in KredikPlan.flights():
+		var s := stair_frame(KredikPlan.rect(f[2]))
+		if f[0] == level:
+			_stair(s)
+		elif f[1] == level:
+			# Arriba: barandilla alrededor del hueco (menos el lado del rellano, por donde se llega).
+			var own := false
+			for g: Array in KredikPlan.flights():
+				if g[0] == level and g[2] == f[2]:
+					own = true
+			var axis: Vector2 = s["axis"]
+			var side: Vector2 = s["side"]
+			var start: Vector2 = s["start"]
+			var band: float = s["band"]
+			var length: float = s["len"]
+			var far := start + axis * length
+			# Suelo a medida (la cuadrícula de 1 m no cae justo en el hueco): rellano y pasillos.
+			var rect := KredikPlan.rect(f[2])
+			var hole: Rect2 = s["hole"]
+			var land := Rect2(rect.position, (axis * STAIR_LAND + side * (rect.size.x if axis.x == 0.0 else rect.size.y)).abs())
+			var strips: Array[Rect2] = [land]
+			if axis.x == 0.0:
+				strips.append(Rect2(rect.position.x, hole.position.y, hole.position.x - rect.position.x, hole.size.y))
+				strips.append(Rect2(hole.end.x, hole.position.y, rect.end.x - hole.end.x, hole.size.y))
+			else:
+				strips.append(Rect2(hole.position.x, rect.position.y, hole.size.x, hole.position.y - rect.position.y))
+				strips.append(Rect2(hole.position.x, hole.end.y, hole.size.x, rect.end.y - hole.end.y))
+			for rc: Rect2 in strips:
+				_mb.abox("ks_floor", Vector3(rc.get_center().x, -0.5, rc.get_center().y), Vector3(rc.size.x, 1.0, rc.size.y))
 			for sgn: float in [-1.0, 1.0]:
-				var rail := mid + side * sgn * width / 2.0
-				_mb.cube("iron", Transform3D(basis, Vector3(rail.x, rise / 2.0 + 0.9, rail.y)), Vector3(run / cos(slope), 0.08, 0.08))
-			var land := start + axis * (length - 1.5)
-			_mb.abox("ks_marble", Vector3(land.x, rise / 2.0 - 0.25, land.y), Vector3(3.0 if axis.x != 0.0 else width + 2.0, rise + 0.5, width + 2.0 if axis.x != 0.0 else 3.0))
-			var top := start + axis * (length - 0.6)
-			_portals.append([Vector3(top.x, rise, top.y), yaw, Vector2(minf(width + 1.0, 4.5), 3.6), l[0], l[1], l[2], "up"])
-			_anchors.append(Vector3(top.x, rise + 4.0, top.y))
-		if down != "":
-			var label: String = l[2] if l[3] == "down" else l[5]
-			var target: String = l[1]
-			var p := start + axis * 0.6
-			_portals.append([Vector3(p.x, 0, p.y), yaw + PI, Vector2(minf(width + 1.0, 4.5), 3.6), down, target, label, "down"])
-			# Escalones que bajan: un hueco oscuro con peldaños bajo un arco.
-			for k in 4:
-				var q := start + axis * (0.5 + k * 0.35)
-				_mb.abox("ks_marble", Vector3(q.x, 0.02 - k * 0.02, q.y), Vector3(0.36 if axis.x != 0.0 else width, 0.04, width if axis.x != 0.0 else 0.36))
+				_rail(start + axis * STAIR_LAND + side * sgn * band / 2.0, far + side * sgn * band / 2.0)
+			_rail(far - side * band / 2.0, far + side * band / 2.0)
+			if not own:
+				# Sin tramo propio que siga subiendo: se cierra la mitad por donde no se llega.
+				var a := start + axis * STAIR_LAND
+				_rail(a - side * band / 2.0, a)
+				_rail(a, far)
+
+
+## Dos tramos de ida y vuelta hasta el suelo del nivel de arriba, con el rellano de media vuelta,
+## un murete entre los tramos y barandillas por fuera; una lámpara encima del rellano.
+func _stair(s: Dictionary) -> void:
+	var lh := KredikPlan.LH
+	var axis: Vector2 = s["axis"]
+	var side: Vector2 = s["side"]
+	var start: Vector2 = s["start"]
+	var band: float = s["band"]
+	var length: float = s["len"]
+	var a := start + axis * STAIR_LAND
+	var b := start + axis * (length - STAIR_MID)
+	var w := band / 2.0 - 0.15
+	var off := side * band / 4.0
+	_ramp(a - off, b - off, 0.0, lh / 2.0, w)
+	_ramp(b + off, a + off, lh / 2.0, lh, w)
+	for sgn: float in [-1.0, 1.0]:
+		var o := side * sgn * (band / 2.0 - 0.05)
+		var y0 := 0.0 if sgn < 0.0 else lh
+		var y1 := lh / 2.0
+		_rail3(Vector3(a.x + o.x, y0 + 1.0, a.y + o.y), Vector3(b.x + o.x, y1 + 1.0, b.y + o.y))
+	# Rellano de media vuelta (macizo) y murete central hasta el suelo de arriba.
+	var m := start + axis * (length - STAIR_MID / 2.0)
+	var land := Vector2(STAIR_MID, band) if axis.x != 0.0 else Vector2(band, STAIR_MID)
+	_mb.abox("ks_marble", Vector3(m.x, lh / 4.0 - 0.1, m.y), Vector3(land.x, lh / 2.0 + 0.2, land.y))
+	var core := (a + b) / 2.0
+	var core_len := a.distance_to(b)
+	_mb.abox("ks_wall", Vector3(core.x, lh / 2.0, core.y), Vector3(core_len if axis.x != 0.0 else 0.3, lh, 0.3 if axis.x != 0.0 else core_len))
+	_lights.append([Vector3(m.x, lh / 2.0 + 3.0, m.y), Color(1.0, 0.62, 0.32), 10.0, 1.3])
+	_mb.abox("iron", Vector3(m.x, lh / 2.0 + 3.4, m.y), Vector3(0.5, 0.6, 0.5))
+	_deco.abox("fire", Vector3(m.x, lh / 2.0 + 3.35, m.y), Vector3(0.28, 0.35, 0.28))
+	_anchors.append(Vector3(m.x, lh / 2.0 + 3.4, m.y))
+
+
+## Tramo de escalera: rampa de mármol con las aristas de los peldaños marcadas.
+func _ramp(p0: Vector2, p1: Vector2, y0: float, y1: float, width: float) -> void:
+	var run := p0.distance_to(p1)
+	var dir := (p1 - p0) / run
+	var rise := y1 - y0
+	var slope := atan2(rise, run)
+	var ax3 := Vector3(dir.x, 0, dir.y)
+	var sd3 := ax3.cross(Vector3.UP)
+	var basis := Basis(ax3 * cos(slope) + Vector3.UP * sin(slope), -ax3 * sin(slope) + Vector3.UP * cos(slope), sd3)
+	var mid := (p0 + p1) / 2.0
+	_deco.cube("ks_marble", Transform3D(basis, Vector3(mid.x, (y0 + y1) / 2.0 - 0.25 / cos(slope), mid.y)), Vector3(run / cos(slope) + 0.1, 0.5, width))
+	_ramps.append([Transform3D(basis, Vector3(mid.x, (y0 + y1) / 2.0, mid.y) - basis.y * 0.05 - basis.x * 0.05), Vector3(run / cos(slope) + 0.1, 0.1, width)])
+	var steps := int(absf(rise) / 0.25)
+	for k in steps:
+		var t := (k + 0.5) / steps
+		var p := p0.lerp(p1, t)
+		_deco.cube("ks_trim", Transform3D(basis, Vector3(p.x, lerpf(y0, y1, t) + 0.02, p.y)), Vector3(0.08, 0.06, width))
+
+
+## Barandilla de hierro a 1 m del suelo, con postes.
+func _rail(a: Vector2, b: Vector2) -> void:
+	_rail3(Vector3(a.x, 1.0, a.y), Vector3(b.x, 1.0, b.y))
+
+
+func _rail3(a: Vector3, b: Vector3) -> void:
+	var length := a.distance_to(b)
+	if length < 0.1:
+		return
+	var u := (b - a) / length
+	var flat := Vector3(u.x, 0, u.z).normalized()
+	var side := flat.cross(Vector3.UP)
+	_mb.cube("iron", Transform3D(Basis(u, side.cross(u), side), (a + b) / 2.0), Vector3(length, 0.08, 0.08))
+	var posts := int(length / 1.6) + 1
+	for k in posts + 1:
+		var p := a.lerp(b, float(k) / posts)
+		_mb.abox("iron", p - Vector3(0, 0.5, 0), Vector3(0.06, 1.0, 0.06))
+
+
+## Túnel de salida de un subnivel: sale del borde de la cuadrícula hacia el oeste por la franja
+## z0..z1 y llega a la boca (x1), en el tajo del cordón de picos. Si `rise` > 0 sube en rampa
+## (TUNNEL_SLOPE) hasta esa altura y sigue llano. Suelo de losas, muros y bóveda de roca, antorchas.
+func _tunnel(z0: float, z1: float, x0: float, x1: float, rise: float) -> void:
+	var zc := (z0 + z1) / 2.0
+	var width := z1 - z0
+	var run := rise / tan(deg_to_rad(TUNNEL_SLOPE))
+	var xr := x0 - run  # donde termina la rampa
+	var pieces := []  # [x desde, x hasta, y desde, y hasta]
+	if rise > 0.0:
+		pieces.append([x0, xr, 0.0, rise])
+	pieces.append([xr, x1, rise, rise])
+	for p: Array in pieces:
+		var a := Vector3(p[0], p[2], zc)
+		var b := Vector3(p[1], p[3], zc)
+		var length := Vector2(a.x, a.y).distance_to(Vector2(b.x, b.y))
+		var u := (b - a) / length
+		var up := Vector3(0, 0, 1).cross(u).normalized()
+		if up.y < 0.0:
+			up = -up
+		var basis := Basis(u, up, Vector3(0, 0, 1))
+		var mid := (a + b) / 2.0
+		if p[2] != p[3]:
+			_deco.cube("ks_floor", Transform3D(basis, mid - up * 0.5), Vector3(length + 0.2, 1.0, width + 2.0))
+			_ramps.append([Transform3D(basis, mid - up * 0.05 - u * 0.05), Vector3(length + 0.1, 0.1, width + 2.0)])
+		else:
+			_mb.cube("ks_floor", Transform3D(basis, mid - up * 0.5), Vector3(length, 1.0, width + 2.0))
+		_mb.cube("rock", Transform3D(basis, mid + up * (TUNNEL_H + 0.5)), Vector3(length + 0.2, 1.0, width + 2.0))
+		for sgn: float in [-1.0, 1.0]:
+			_mb.cube("rock", Transform3D(basis, mid + up * TUNNEL_H / 2.0 + Vector3(0, 0, sgn * (width / 2.0 + 0.5))), Vector3(length + 0.2, TUNNEL_H + 2.0, 1.0))
+		if p[2] != p[3]:
+			var steps := int((p[3] - p[2]) / 0.3)
+			for k in steps:
+				var q := a.lerp(b, (k + 0.5) / steps)
+				_deco.cube("ks_trim", Transform3D(basis, q + up * 0.02), Vector3(0.08, 0.06, width))
+	# Portal de roca alrededor de la boca: tapa el hueco que deja la meseta (ver KredikCitadel._plateau).
+	_mb.abox("rock", Vector3(x1 + 3.0, rise + TUNNEL_H + 1.75, zc), Vector3(5.0, 3.5, width + 9.0))
+	for sgn: float in [-1.0, 1.0]:
+		# Del lado del otro túnel (que corre al lado) no: ahí ya están los muros de los dos.
+		var free := true
+		for t: Array in tunnels():
+			var oc: float = (t[1] + t[2]) / 2.0
+			if not is_equal_approx(oc, zc) and signf(oc - zc) == sgn and absf(oc - zc) < width + 8.0:
+				free = false
+		if free:
+			_mb.abox("rock", Vector3(x1 + 3.0, rise + (TUNNEL_H + 3.5) / 2.0, zc + sgn * (width / 2.0 + 2.75)), Vector3(5.0, TUNNEL_H + 3.5, 3.5))
+	# Arco de la boca y un poco de suelo afuera (el hueco del terreno tiene celdas de 2 m).
+	_mb.abox("ks_floor", Vector3(x1 - 1.5, rise - 0.5, zc), Vector3(3.0, 1.0, width + 2.0))
+	for sgn: float in [-1.0, 1.0]:
+		_mb.abox("ks_trim", Vector3(x1 + 0.3, rise + TUNNEL_H / 2.0, zc + sgn * (width / 2.0 + 0.3)), Vector3(0.8, TUNNEL_H + 0.4, 0.9))
+	_mb.abox("ks_trim", Vector3(x1 + 0.3, rise + TUNNEL_H + 0.3, zc), Vector3(0.8, 0.8, width + 1.6))
+	# Antorchas cada 12 m.
+	var x := x0 - 6.0
+	while x > x1 + 3.0:
+		var y := rise if x < xr else (x0 - x) * tan(deg_to_rad(TUNNEL_SLOPE))
+		var p := Vector3(x, y + 2.6, z0 + 0.25)
+		_mb.abox("iron", p, Vector3(0.3, 0.5, 0.3))
+		_deco.abox("fire", p + Vector3(0, 0.35, 0), Vector3(0.2, 0.3, 0.2))
+		_lights.append([p + Vector3(0, 0.6, 1.0), Color(1.0, 0.58, 0.28), 9.0, 1.1])
+		_anchors.append(p)
+		x -= 12.0
 
 
 # ------------------------------------------------------------------ Mobiliario y luz
@@ -972,7 +1122,7 @@ func _furnish(i: int) -> void:
 ## Lámparas de hierro colgadas (anclas) con su luz; más oscuro cuanto más abajo.
 func _light(i: int) -> void:
 	var r: Dictionary = _rooms[i]
-	if r["open"]:
+	if r["open"] or r["kind"] in ["stair", "tower"]:
 		return
 	var box: Rect2 = r["box"]
 	var area: float = r["cells"]
@@ -1420,7 +1570,7 @@ func _loot(box: Rect2) -> void:
 # ------------------------------------------------------------------ Torre del Inquisidor
 
 ## La torre: ocho pisos redondos unidos por rampas que suben pegadas al muro, troneras y la
-## azotea almenada arriba. La entrada (abajo) vuelve al Nivel 3.
+## azotea almenada arriba. La planta de abajo es la sala redonda del Nivel 3 (KredikPlan.TOWER_PX).
 const TOWER_R := 9.0
 const TOWER_FLOOR := 7.0
 const TOWER_NAMES := ["Base de la torre", "Sala de guardia", "Archivo del Inquisidor", "Celdas",
@@ -1435,18 +1585,20 @@ func _build_tower() -> void:
 		var y := f * TOWER_FLOOR
 		_rooms.append({"name": TOWER_NAMES[f]})
 		# Suelo: disco central y anillo, con el hueco por donde llega la rampa de abajo.
-		_mb.frustum("ks_floor", c + Vector3(0, y - 0.5, 0), TOWER_R * 0.55, TOWER_R * 0.55, 0.5, 24)
+		# (La planta de abajo es la sala del Nivel 3: suelo y muro con puertas los pone ese nivel.)
+		if f > 0:
+			_mb.frustum("ks_floor", c + Vector3(0, y - 0.5, 0), TOWER_R * 0.55, TOWER_R * 0.55, 0.5, 24)
 		var below := 0.0 if (f - 1) % 2 == 0 else PI
-		for k in 16:
+		for k in (16 if f > 0 else 0):
 			var a0 := TAU * k / 16.0
 			var a1 := TAU * (k + 1) / 16.0
 			var mid := (a0 + a1) / 2.0
-			if f > 0 and angle_difference(below + 0.9, mid) >= 0.0 and angle_difference(mid, below + 2.5) >= 0.0:
+			if f > 0 and angle_difference(below + 1.6, mid) >= 0.0 and angle_difference(mid, below + 2.7) >= 0.0:
 				continue
 			_mb.arc_wall("ks_floor", c + Vector3(0, y - 0.5, 0), TOWER_R * 0.775, TOWER_R * 0.45 + 1.2, 0.0, 0.5, a0, a1, 1)
 		# Muro con troneras.
 		var top := TOWER_FLOOR if f < floors - 1 else 1.4
-		for k in 24:
+		for k in (24 if f > 0 else 0):
 			var a0 := TAU * k / 24.0
 			var a1 := TAU * (k + 1) / 24.0
 			if f < floors - 1 and k % 3 == 1:
@@ -1457,7 +1609,8 @@ func _build_tower() -> void:
 				_deco.arc_wall("ks_glass", c, TOWER_R + 0.6, 0.1, y + 2.0, y + 4.2, a0 + 0.1, a1 - 0.1, 1)
 			else:
 				_mb.arc_wall("ks_wall", c, TOWER_R + 0.6, 1.2, y, y + top, a0, a1, 1)
-		_mb.arc_wall("ks_trim", c, TOWER_R + 0.5, 1.5, y - 0.2, y + 0.3, 0.0, TAU, 32)
+		if f > 0:
+			_mb.arc_wall("ks_trim", c, TOWER_R + 0.5, 1.5, y - 0.2, y + 0.3, 0.0, TAU, 32)
 		# Rampa al piso siguiente, pegada al muro (tramos inclinados).
 		if f < floors - 1:
 			var a := 0.0 if f % 2 == 0 else PI
@@ -1476,7 +1629,12 @@ func _build_tower() -> void:
 				var upv := out.cross(along).normalized()
 				if upv.y < 0.0:
 					upv = -upv
-				_mb.cube("ks_marble", Transform3D(Basis(along, upv, out), (p0 + p1) / 2.0 - upv * 0.25), Vector3(p0.distance_to(p1) + 0.05, 0.5, 2.6))
+				var xf := Transform3D(Basis(along, upv, out), (p0 + p1) / 2.0)
+				_deco.cube("ks_marble", xf.translated(-upv * 0.25), Vector3(p0.distance_to(p1) + 0.05, 0.5, 2.6))
+				_ramps.append([xf.translated(-upv * 0.05), Vector3(p0.distance_to(p1) + 0.05, 0.1, 2.6)])
+			var end := a + span
+			var tangent := Vector3(-sin(end), 0, cos(end))
+			_ramps.append([Transform3D(Basis(tangent, Vector3.UP, tangent.cross(Vector3.UP)), Vector3(cos(end) * rr, y + TOWER_FLOOR - 0.05, sin(end) * rr) + tangent * 0.75), Vector3(1.5, 0.1, 2.6)])
 		# Mobiliario de cada piso (desplazado a su altura) y su lámpara.
 		var first := _anchors.size()
 		_mb.offset = Vector3(0, y, 0)
@@ -1497,17 +1655,14 @@ func _build_tower() -> void:
 		_mb.offset = Vector3.ZERO
 		for k in range(first, _anchors.size()):
 			_anchors[k] += Vector3(0, y, 0)
-		if f == 0:
-			_portals.append([Vector3(0, 0, TOWER_R - 0.6), 0.0, Vector2(2.8, 3.6), "l3", "Acceso a la Torre del Inquisidor", "Bajar al Nivel 3", "down"])
 		if f < floors - 1:
 			_lights.append([c + Vector3(0, y + 4.5, 0), Color(1.0, 0.6, 0.3), 12.0, 1.4])
 			_mb.abox("iron", c + Vector3(0, y + 5.2, 0), Vector3(0.6, 0.6, 0.6))
 			_deco.abox("fire", c + Vector3(0, y + 5.15, 0), Vector3(0.35, 0.4, 0.35))
 			_anchors.append(c + Vector3(0, y + 5.2, 0))
-	# Almenas de la azotea y el suelo de afuera.
+	# Almenas de la azotea.
 	var y_top := (floors - 1) * TOWER_FLOOR
 	for k in 16:
 		if k % 2 == 0:
 			var a0 := TAU * k / 16.0
 			_mb.arc_wall("ks_wall", c, TOWER_R + 0.6, 1.2, y_top + 1.4, y_top + 2.6, a0, a0 + TAU / 16.0, 1)
-	_mb.frustum("ks_court", c + Vector3(0, -1.0, 0), 60.0, 60.0, 0.5, 8)

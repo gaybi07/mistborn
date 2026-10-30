@@ -6,7 +6,8 @@ class_name PolyProps
 const DIR := "res://assets/models/polyhaven/%s/%s.gltf"
 ## Los que no se atraviesan.
 const SOLID := ["wooden_crate_01", "WoodenTable_02", "GothicCabinet_01", "treasure_chest", "gothic_statue",
-		"large_castle_door", "boulder_01", "dead_tree_trunk_02"]
+		"large_castle_door", "boulder_01", "dead_tree_trunk_02", "GothicBed_01", "GothicCommode_01", "ClassicConsole_01",
+		"Sofa_01", "ArmChair_01", "Ottoman_01", "gothic_coffee_table", "painted_wooden_bench", "ClassicNightstand_01"]
 
 ## Tono que se les aplica (roca volcánica y madera gastada por la ceniza).
 const TINT := {"boulder_01": Color(0.32, 0.3, 0.3), "dead_tree_trunk_02": Color(0.5, 0.45, 0.4)}
@@ -16,9 +17,12 @@ const TINT := {"boulder_01": Color(0.32, 0.3, 0.3), "dead_tree_trunk_02": Color(
 const BUDGET := {"boulder_01": 2500, "dead_tree_trunk_02": 3000, "treasure_chest": 5000, "Lantern_01": 1500,
 		"brass_candleholders": 5000, "gothic_statue": 9000, "marble_bust_01": 3000, "WoodenChair_01": 3000,
 		"GothicCabinet_01": 5000, "large_castle_door": 5000, "wooden_crate_01": 2500, "kite_shield": 2500,
-		"lantern_chandelier_01": 6000}
+		"lantern_chandelier_01": 6000, "Chandelier_01": 3600, "Chandelier_03": 5000, "GothicBed_01": 4700,
+		"ArmChair_01": 3000, "dining_chair_02": 2500, "gothic_coffee_table": 3000, "chess_set": 2500,
+		"brass_goblets": 1500, "antique_ceramic_vase_01": 2000, "ornate_mirror_01": 2000, "mantel_clock_01": 1200, "Ottoman_01": 2500}
 ## Sin sombra (chicos: la sombra duplica el costo y casi no se nota).
-const NO_SHADOW := ["Lantern_01", "brass_candleholders", "marble_bust_01", "wooden_crate_01", "kite_shield", "boulder_01"]
+const NO_SHADOW := ["Lantern_01", "brass_candleholders", "marble_bust_01", "wooden_crate_01", "kite_shield", "boulder_01",
+		"brass_goblets", "chess_set", "mantel_clock_01", "ornate_mirror_01", "ClassicNightstand_01"]
 
 static var _parts := {}  # nombre -> [[Mesh, Transform3D local], ...]
 static var _boxes := {}  # nombre -> AABB del modelo
@@ -95,27 +99,40 @@ static func at(name: String, pos: Vector3, yaw := 0.0, scale := 1.0) -> Transfor
 
 
 ## Dibuja (y da colisión a) todas las copias: props = {nombre: [Transform3D, ...]}.
-static func spawn(parent: Node, props: Dictionary) -> void:
+## Con `tile` > 0 las copias se agrupan por parcelas de ese lado (en el plano) y cada parcela deja
+## de dibujarse a `far` m de la cámara: para interiores grandes llenos de muebles (Kredik Shaw).
+static func spawn(parent: Node, props: Dictionary, tile := 0.0, far := 0.0) -> void:
 	for name: String in props:
 		var xfs: Array = props[name]
 		if xfs.is_empty():
 			continue
+		var groups := {}
+		for xf: Transform3D in xfs:
+			var key := Vector2i(floori(xf.origin.x / tile), floori(xf.origin.z / tile)) if tile > 0.0 else Vector2i.ZERO
+			if not groups.has(key):
+				groups[key] = []
+			groups[key].append(xf)
 		for part: Array in parts(name):
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.mesh = part[0]
-			mm.instance_count = xfs.size()
-			for i in xfs.size():
-				mm.set_instance_transform(i, (xfs[i] as Transform3D) * (part[1] as Transform3D))
-			var mmi := MultiMeshInstance3D.new()
-			mmi.multimesh = mm
-			if name in NO_SHADOW:
-				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			if TINT.has(name):
-				var mat := (part[0] as Mesh).surface_get_material(0).duplicate() as BaseMaterial3D
-				mat.albedo_color = mat.albedo_color * TINT[name]
-				mmi.material_override = mat
-			parent.add_child(mmi)
+			for group: Array in groups.values():
+				var mm := MultiMesh.new()
+				mm.transform_format = MultiMesh.TRANSFORM_3D
+				mm.mesh = part[0]
+				mm.instance_count = group.size()
+				for i in group.size():
+					mm.set_instance_transform(i, (group[i] as Transform3D) * (part[1] as Transform3D))
+				var mmi := MultiMeshInstance3D.new()
+				mmi.multimesh = mm
+				if far > 0.0:
+					mmi.visibility_range_end = far
+					mmi.visibility_range_end_margin = 8.0
+					mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+				if name in NO_SHADOW:
+					mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				if TINT.has(name):
+					var mat := (part[0] as Mesh).surface_get_material(0).duplicate() as BaseMaterial3D
+					mat.albedo_color = mat.albedo_color * TINT[name]
+					mmi.material_override = mat
+				parent.add_child(mmi)
 		if name in SOLID:
 			var body := StaticBody3D.new()
 			body.collision_layer = Props.LAYER_WORLD

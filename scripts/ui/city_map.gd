@@ -303,7 +303,7 @@ func _place_names() -> Array:
 		["KREDIK SHAW", CityPlan.HILL, true],
 		["DISTRITO NOBLE", Vector2(-275, -330), true],
 		["Casa Venture", CityPlan.VENTURE[0], false],
-		["Casa Hastings", (CityPlan.ESTATES[0][0] as Vector2) + Vector2(-10, 30), false],
+		["Casa Hastings", CityPlan.ESTATES[0][0], false],
 		["Casa Lorch", CityPlan.ESTATES[1][0], false],
 		["DISTRITO MERCANTIL", CityPlan.MARKET + Vector2(60, -45), true],
 		["Ministerio del Acero", CityPlan.MINISTRY, false],

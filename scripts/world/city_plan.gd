@@ -47,11 +47,11 @@ const MINISTRY := Vector2(166, -208)
 
 ## Mansiones nobles genéricas: [centro, ancho, fondo, ángulo, casa]
 const ESTATES := [
-	[Vector2(-292, -252), 46.0, 40.0, -0.15, 1],  # Casa Hastings
+	[Vector2(-150, -158), 46.0, 40.0, 0.0, 1],  # Casa Hastings
 	[Vector2(-60, -175), 45.0, 35.0, 0.3, 2],  # Casa Lorch
 ]
-## Terreno de la Casa Venture (ver VentureManor: POS y CITY_LOT): [centro, ancho, fondo, ángulo]
-const VENTURE := [Vector2(-195, -261), 70.0, 92.0, 0.0]
+## Terreno de la Casa Venture (ver VentureManor: POS, LOT y LOT_Z): [centro, ancho, fondo, ángulo]
+const VENTURE := [Vector2(-222, -280), 112.0, 128.0, 0.0]
 ## Cuarteles imperiales: [centro, ancho, fondo, ángulo]
 const BARRACKS := [
 	[Vector2(-267, -150), 120.0, 90.0, 0.0],
@@ -78,7 +78,7 @@ const AVENUES := [
 ## Otras calles principales (polilíneas).
 const STREETS := [
 	[Vector2(-195, -61), Vector2(-195, -203), Vector2(-110, -205), Vector2(-75, -258)],  # al Distrito Noble y la verja de Venture
-	[Vector2(-195, -203), Vector2(-195, -216)],  # hasta la verja de la Casa Venture
+	[Vector2(-195, -203), Vector2(-222, -203), Vector2(-222, -216)],  # hasta la verja de la Casa Venture
 	[Vector2(150, -61), Vector2(195, -240)],  # al cuartel del noreste
 	[Vector2(-2, -120), Vector2(-200, -120)],  # a la Asamblea y el cuartel del noroeste
 	[Vector2(40, -10), Vector2(200, -22)],  # a la dársena

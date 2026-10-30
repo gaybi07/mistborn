@@ -228,6 +228,50 @@ func _lantern(pos: Vector3, energy: float, reach: float, shadows := false) -> vo
 	add_child(light)
 
 
+## Junta en una malla por material las piezas sueltas (cajas, cilindros, prismas) que cuelgan
+## directamente del edificio o de sus cuerpos de colisión: miles de nodos pasan a unas decenas de
+## llamadas de dibujo. Las que se mueven o están en un grupo (anclas de metal) se dejan.
+func _merge_static(root: Node3D = null) -> void:
+	if root == null:
+		root = self
+	var tools := {}  # material -> SurfaceTool
+	for child in root.get_children():
+		var pieces := []  # [MeshInstance3D, transformación respecto al edificio]
+		if child is MeshInstance3D:
+			pieces.append([child, (child as Node3D).transform])
+		elif child is StaticBody3D:
+			for c in child.get_children():
+				if c is MeshInstance3D:
+					pieces.append([c, (child as Node3D).transform * (c as Node3D).transform])
+		for p: Array in pieces:
+			var mi: MeshInstance3D = p[0]
+			if mi.material_override == null or mi.get_child_count() > 0 or not mi.get_groups().is_empty():
+				continue
+			if not (mi.mesh is PrimitiveMesh) or not mi.get_parent().get_groups().is_empty():
+				continue
+			var mat := mi.material_override
+			if not tools.has(mat):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tools[mat] = st
+			(tools[mat] as SurfaceTool).append_from(mi.mesh, 0, p[1])
+			mi.get_parent().remove_child(mi)
+			mi.queue_free()
+	for mat: Material in tools:
+		var out := MeshInstance3D.new()
+		out.mesh = (tools[mat] as SurfaceTool).commit()
+		out.material_override = mat
+		root.add_child(out)
+
+
+## Las luces se apagan solas de lejos (con decenas en un edificio, la ciudad no las paga todas).
+func _fade_lights(begin := 40.0) -> void:
+	for l: OmniLight3D in find_children("*", "OmniLight3D", true, false):
+		l.distance_fade_enabled = true
+		l.distance_fade_begin = begin
+		l.distance_fade_length = 15.0
+
+
 ## La bruma de la noche no entra en casa: volumen de niebla negativo (caja centrada en pos).
 func _clear_fog(size: Vector3, pos: Vector3) -> void:
 	var mat := FogMaterial.new()

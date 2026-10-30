@@ -4,7 +4,8 @@ Kredik Shaw es la fortaleza, el palacio, la sede del Ministerio de Acero y el ce
 
 - `scripts/world/kredik_plan.gd`: los datos de las plantas.
 - `scripts/world/kredik_citadel.gd`: el exterior que se ve desde la ciudad.
-- `scripts/world/kredik_level.gd`: los mapas interiores, uno por nivel.
+- `scripts/world/kredik_level.gd`: cada nivel interior.
+- `scripts/world/kredik_interior.gd`: los niveles apilados dentro de la ciudad, sin cambiar de escena.
 
 Los cambios en las plantas se hacen en `kredik_plan.gd`; el resto se reconstruye solo.
 
@@ -277,9 +278,17 @@ Las otras torres (vigía, mensajería y las cuatro grandes redondas) por ahora s
   - Donde cambian se levantan muros. Las puertas se deciden solas: entre espacios de paso, vanos anchos; entre una sala y un pasillo, una puerta; las salas sin salida se abren a su vecina.
   - Las ventanas van en los muros que dan a patios o al exterior.
   - Suelos, techos y macizos se juntan en rectángulos grandes.
-- **Mallas:** dos por nivel (sólida con colisión y decorativa sin colisión), guardadas en memoria tras la primera carga.
-- **Conexiones:** en `KredikPlan.links(nivel)`. Las escaleras tienen rampa, rellano y una puerta arriba y otra abajo, y las salidas llevan a la ciudad. Se aparece en la sala correspondiente del otro nivel.
-- **En pantalla:** un rótulo arriba a la izquierda dice el nivel y la sala.
+- **Mallas:** dos por nivel (sólida con colisión y decorativa sin colisión), guardadas en memoria tras la primera carga. Las rampas tienen colisión de cajas simples, como la mansión Venture.
+- **Apilado en la ciudad (`KredikInterior`):**
+  - Cada nivel mide 8 m (`KredikPlan.LH`): SL3 a −16 m, SL2 a −8, SL1 a 0 (la altura de la ciudad), la planta baja a +8 sobre la meseta y el nivel 5 a +40.
+  - Las salas caben en un nivel (7,2 m libres). El Salón del Trono, el Gran Salón y el Salón Procesional son de doble altura y ocupan también el nivel 2.
+  - Arriba solo queda lo que se apoya en un techo del nivel de abajo: los patios quedan a cielo abierto en todos los niveles. Las salas que se quedan sin vecinos tienen una puerta al vacío, para entrar volando.
+  - La Torre del Inquisidor arranca en una sala redonda del nivel 3, sobre un basamento macizo, y sube 7 pisos más por una rampa.
+  - Por fuera se agregan la muralla exterior, la Gran Entrada, el pretil almenado de los tejados, las coronas de las cuatro torres redondas, la nave con sus agujas y la gran aguja del Lord Legislador.
+- **Conexiones (`KredikPlan.flights`):**
+  - Escaleras de ida y vuelta con rellano de media vuelta: las Grandes Escaleras de la planta baja al nivel 5, el pozo de los subniveles y las Puertas del subnivel (SL1 a la planta baja).
+  - Las salidas de emergencia (SL1) y de la cueva (SL3) son túneles que salen al oeste por un tajo en el cordón de picos (`KredikCitadel.cut_x`). El del SL3 sube en rampa 16 m.
+- **En pantalla:** un rótulo arriba a la izquierda dice el nivel y la sala, y bajo techo casi no hay bruma.
 
 ### Pendiente para próximas pasadas
 
@@ -287,7 +296,8 @@ Las otras torres (vigía, mensajería y las cuatro grandes redondas) por ahora s
   - Guardias, obligadores e inquisidores, con menos gente cuanto más adentro y más arriba.
   - Patrullas y controles en las puertas de guardia.
 - **Interiores de las demás torres:** vigía, mensajería y las cuatro grandes.
-- **Interior desde afuera:** que los patios del exterior sean caminables con puertas reales a cada nivel, en lugar del único portal de la Gran Entrada.
+- **Salas sin acceso:** en los subniveles, la Rotonda, la Escalera de servicio, la Cámara norte y las salas de la franja sur quedan aisladas por la roca. En el nivel 5 pasa lo mismo con la Alcoba del Lord Legislador.
+- **Fachadas:** los muros de los niveles hacen de fachada. Faltan contrafuertes, impostas y tejados a dos aguas sobre los bloques.
 - **Detalle fino:**
   - Vidrieras con dibujo.
   - Esculturas y tapices con iconografía del Ministerio.

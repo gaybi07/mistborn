@@ -1,6 +1,7 @@
 class_name KredikPlan
 ## Planos de Kredik Shaw (ver docs/kredik_shaw.md): la misma planta sirve para el exterior
-## (KredikCitadel) y para los mapas interiores de cada nivel (KredikLevel).
+## (KredikCitadel) y para los niveles interiores (KredikLevel), apilados dentro de la ciudad
+## (KredikInterior): cada nivel mide LH de alto y se apoya en el de abajo.
 ## Las medidas se copian de los planos de referencia en píxeles (imagen de 1408 × 768) y se pasan a
 ## metros con PX: x hacia el este, z hacia el sur (la Gran Entrada mira al sur, hacia la ciudad).
 ##
@@ -19,6 +20,19 @@ const CENTER := Vector2(705, 388)  ## centro de la muralla exterior en el plano
 const HALF := Vector2(99.0, 47.6)
 
 const LEVELS := ["sub3", "sub2", "sub1", "ground", "l2", "l3", "l4", "l5", "tower"]
+## Alto de cada nivel (m): suelo a suelo. Las salas no pasan de LH - 0.8 (losa y techo), salvo las
+## de doble altura de la planta baja (DOUBLE_H o más), que se comen el nivel 2.
+const LH := 8.0
+const DOUBLE_H := 13.0
+## Altura del suelo de cada nivel sobre la ciudad (la planta baja, sobre la meseta de 8 m).
+const FLOOR := {"sub3": -16.0, "sub2": -8.0, "sub1": 0.0, "ground": 8.0, "l2": 16.0, "l3": 24.0,
+		"l4": 32.0, "l5": 40.0}
+## Nivel de abajo de cada nivel de arriba (sobre él se apoya: ver KredikLevel._prune).
+const BELOW := {"l2": "ground", "l3": "l2", "l4": "l3", "l5": "l4"}
+## Torre del Inquisidor: centro en el plano (px) y radio (px) de su sala en el Nivel 3; arriba de
+## ese nivel queda un hueco algo más ancho por donde sube su muro.
+const TOWER_PX := Vector2(1160, 420)
+const TOWER_ROOM_PX := 64
 const LEVEL_NAMES := {
 	"sub3": "Subnivel 3 · Cimientos antiguos", "sub2": "Subnivel 2 · Archivos restringidos",
 	"sub1": "Subnivel 1 · Arsenal y cuarteles", "ground": "Planta baja · Entrada imperial y Salón del Trono",
@@ -30,9 +44,9 @@ const LEVEL_NAMES := {
 ## Alto por defecto de cada tipo (m).
 const KIND_H := {"court": 0.0, "terrace": 0.0, "garden": 0.0, "corridor": 6.0, "hall": 11.0,
 		"throne": 18.0, "stair": 9.0, "exit": 8.0, "room": 5.5, "cells_x": 4.5, "cells_y": 4.5,
-		"vault": 5.0, "maze": 6.0, "pool": 7.0}
+		"vault": 5.0, "maze": 6.0, "pool": 7.0, "tower": 7.2}
 const OPEN_KINDS := ["court", "terrace", "garden"]
-const CIRCULATION := ["court", "terrace", "garden", "corridor", "hall", "throne", "stair", "exit", "pool"]
+const CIRCULATION := ["court", "terrace", "garden", "corridor", "hall", "throne", "stair", "exit", "pool", "tower"]
 
 
 ## Píxel del plano -> metros (x, z) relativos al centro de la fortaleza.
@@ -104,7 +118,7 @@ static func _keep(top: String, court: String, court_kind: String, court_props: S
 ## Gran Entrada: el portón entre dos torres redondas que sobresale al sur.
 static func _gate(name: String, kind: String) -> Array:
 	return [
-		[name, kind, [680, 688, 730, 742], "banners", 12.0],
+		[name, kind, [680, 688, 730, 742], "banners", 10.5],
 		["Torre de la Gran Entrada", "solid", [664, 716, 17], "", 0],
 		["Torre de la Gran Entrada", "solid", [746, 716, 17], "", 0],
 	]
@@ -133,50 +147,22 @@ static func spaces(level: String) -> Array:
 	return []
 
 
-## Escaleras y salidas: nombre del espacio -> [nivel destino, espacio destino, rótulo, sentido].
-## sentido: "up" (sube: escalera y puerta arriba), "down" (baja), "out" (sale a la ciudad).
-static func links(level: String) -> Dictionary:
-	match level:
-		"ground":
-			return {
-				"Gran Escalera oeste": ["l2", "Gran Escalera oeste", "Subir al Nivel 2", "up"],
-				"Gran Escalera este": ["l2", "Gran Escalera este", "Subir al Nivel 2", "up"],
-				"Puertas del subnivel": ["sub1", "Acceso imperial", "Bajar al Subnivel 1", "down"],
-				"Entrada Imperial": ["city", "", "Salir a Luthadel", "out"],
-			}
-		"l2", "l3", "l4":
-			var below: String = {"l2": "ground", "l3": "l2", "l4": "l3"}[level]
-			var above: String = {"l2": "l3", "l3": "l4", "l4": "l5"}[level]
-			var n_above: String = {"l2": "3", "l3": "4", "l4": "5"}[level]
-			var n_below: String = {"l2": "la planta baja", "l3": "el Nivel 2", "l4": "el Nivel 3"}[level]
-			var out := {
-				"Gran Escalera oeste": [above, "Gran Escalera oeste", "Subir al Nivel " + n_above, "up", below, "Bajar a " + n_below],
-				"Gran Escalera este": [above, "Gran Escalera este", "Subir al Nivel " + n_above, "up", below, "Bajar a " + n_below],
-			}
-			if level == "l3":
-				out["Acceso a la Torre del Inquisidor"] = ["tower", "Base de la torre", "Torre del Inquisidor", "up"]
-			return out
-		"l5":
-			return {
-				"Gran Escalera oeste": ["l4", "Gran Escalera oeste", "Bajar al Nivel 4", "down"],
-				"Gran Escalera este": ["l4", "Gran Escalera este", "Bajar al Nivel 4", "down"],
-			}
-		"sub1":
-			return {
-				"Acceso imperial": ["ground", "Puertas del subnivel", "Subir a la planta baja", "up"],
-				"Pozo vertical": ["sub2", "Pozo vertical", "Bajar al Subnivel 2", "down"],
-				"Salida de emergencia": ["city", "", "Salir a Luthadel", "out"],
-			}
-		"sub2":
-			return {
-				"Pozo vertical": ["sub1", "Pozo vertical", "Subir al Subnivel 1", "up", "sub3", "Bajar al Subnivel 3"],
-			}
-		"sub3":
-			return {
-				"Pozo vertical": ["sub2", "Pozo vertical", "Subir al Subnivel 2", "up"],
-				"Salida de la cueva": ["city", "", "Salir a Luthadel", "out"],
-			}
-	return {}
+## Escaleras de ida y vuelta entre niveles: [nivel de abajo, nivel de arriba, rectángulo (px)].
+## Los tramos van en el nivel de abajo; el de arriba tiene el hueco con su barandilla.
+const STAIR_W := [580, 342, 636, 432]
+const STAIR_E := [774, 342, 830, 432]
+const SHAFT_PX := [1150, 228, 1190, 288]
+
+
+static func flights() -> Array:
+	var out := []
+	for pair in [["ground", "l2"], ["l2", "l3"], ["l3", "l4"], ["l4", "l5"]]:
+		out.append([pair[0], pair[1], STAIR_W])
+		out.append([pair[0], pair[1], STAIR_E])
+	out.append(["sub1", "ground", [612, 604, 668, 686]])
+	out.append(["sub2", "sub1", SHAFT_PX])
+	out.append(["sub3", "sub2", SHAFT_PX])
+	return out
 
 
 static func _ground() -> Array:
@@ -227,6 +213,7 @@ static func _ground() -> Array:
 		["Almacenes este", "room", [1250, 430, 1340, 690], "crates", 7.0],
 	]
 	s += _gate("Entrada Imperial", "exit")
+	s.append(_tower_base())
 	return s
 
 
@@ -273,6 +260,7 @@ static func _l2() -> Array:
 		["Cuarteles de la Guardia este", "cells_x", [808, 602, 992, 690], "bunks", 0],
 		["Mensajería y admisión", "room", [1000, 625, 1100, 690], "table", 0],
 		["Clasificación de documentos", "room", [1105, 635, 1225, 690], "desks", 0],
+		_tower_base(),
 	]
 	return s
 
@@ -310,14 +298,25 @@ static func _l3() -> Array:
 		["Tribunal de los Inquisidores de Acero", "hall", [966, 282, 1146, 330], "altar", 8.0],
 		["Despacho del Alto Prefecto", "hall", [966, 336, 1146, 448], "table", 8.0],
 		["Oficinas de los Inquisidores de Acero", "cells_x", [966, 452, 1146, 510], "desks", 0],
-		["Acceso a la Torre del Inquisidor", "stair", [1110, 512, 1146, 545], "", 6.0],
+		["Antesala de la torre", "room", [1110, 512, 1146, 545], "benches", 0],
 		["Cuarteles de la Guardia oeste", "cells_x", [415, 602, 602, 690], "bunks", 0],
 		["Ruta Procesional (control de obligadores)", "hall", [610, 602, 800, 688], "columns banners", 9.0],
 		["Cuarteles de la Guardia este", "cells_x", [808, 602, 992, 690], "bunks", 0],
 		["Mensajería y admisión", "room", [1000, 625, 1100, 690], "table", 0],
 		["Clasificación de documentos", "room", [1105, 635, 1225, 690], "desks", 0],
+		["Torre del Inquisidor", "tower", [TOWER_PX.x, TOWER_PX.y, TOWER_ROOM_PX], "", 0],
 	]
 	return s
+
+
+## El basamento macizo de la Torre del Inquisidor en la planta baja y el Nivel 2.
+static func _tower_base() -> Array:
+	return ["Basamento de la torre", "solid", [TOWER_PX.x, TOWER_PX.y, TOWER_ROOM_PX], "", 0]
+
+
+## El hueco por donde sube la Torre del Inquisidor en los niveles 4 y 5.
+static func _tower_void() -> Array:
+	return ["Hueco de la torre", "void", [TOWER_PX.x, TOWER_PX.y, TOWER_ROOM_PX + 8], "", 0]
 
 
 static func _l4() -> Array:
@@ -365,6 +364,7 @@ static func _l4() -> Array:
 		["Cuarteles de la Guardia este", "cells_x", [808, 602, 992, 690], "bunks", 0],
 		["Suite del Alto Obligador E", "room", [1000, 610, 1110, 690], "bed", 0],
 		["Suite del Alto Obligador F", "room", [1115, 610, 1225, 690], "bed", 0],
+		_tower_void(),
 	]
 	return s
 
@@ -390,8 +390,8 @@ static func _l5() -> Array:
 		# Salón de recepción
 		["Salón de recepción", "hall", [552, 222, 830, 548], "columns", 12.0],
 		["Comedor privado", "room", [612, 345, 798, 402], "table", 6.0],
-		["Gran Escalera oeste", "stair", [560, 455, 610, 545], "", 0],
-		["Gran Escalera este", "stair", [776, 455, 826, 545], "", 0],
+		["Gran Escalera oeste", "stair", STAIR_W, "", 0],
+		["Gran Escalera este", "stair", STAIR_E, "", 0],
 		["Salas de meditación norte", "room", [832, 225, 892, 290], "altar", 0],
 		["Salas de meditación", "room", [832, 352, 892, 392], "altar", 0],
 		["Sala de audiencias restringida", "room", [835, 396, 945, 455], "throne", 0],
@@ -407,6 +407,7 @@ static func _l5() -> Array:
 		["Cuarteles de la Guardia oeste", "cells_x", [415, 602, 602, 690], "bunks", 0],
 		["Acceso imperial (puertas de personal)", "hall", [610, 602, 800, 688], "banners", 9.0],
 		["Cuarteles de la Guardia este", "cells_x", [808, 602, 992, 690], "bunks", 0],
+		_tower_void(),
 	]
 	return s
 
@@ -424,7 +425,7 @@ static func _sub_base() -> Array:
 
 
 ## El pozo que une los tres subniveles (va al final: tapa a los pasillos).
-const SHAFT := ["Pozo vertical", "stair", [1150, 228, 1190, 288], "", 9.0]
+const SHAFT := ["Pozo vertical", "stair", SHAFT_PX, "", 9.0]
 
 
 static func _sub1() -> Array:
@@ -443,9 +444,9 @@ static func _sub1() -> Array:
 		["Pasillo sur", "corridor", [896, 470, 1146, 548], "", 0],
 		["Armerías", "room", [410, 592, 602, 690], "weapons", 0],
 		["Centro militar de logística", "hall", [610, 592, 800, 690], "crates", 7.0],
-		["Acceso imperial", "stair", [615, 548, 800, 592], "", 6.0],
+		["Acceso imperial", "corridor", [615, 548, 800, 592], "", 6.0],
 		["Almacenes de suministros", "room", [808, 592, 992, 690], "crates", 0],
-		["Salida de emergencia", "exit", [130, 370, 205, 420], "", 5.0],
+		["Salida de emergencia", "exit", [0, 375, 205, 415], "", 5.0],
 		SHAFT,
 	]
 	return s
@@ -504,7 +505,7 @@ static func _sub3() -> Array:
 		["Pozo de acceso inferior", "room", [612, 548, 650, 590], "shaft", 0],
 		["Puertas del subnivel", "corridor", [654, 548, 800, 592], "", 0],
 		["Cueva", "corridor", [100, 330, 205, 450], "", 0],
-		["Salida de la cueva", "exit", [60, 360, 110, 420], "", 5.0],
+		["Salida de la cueva", "exit", [0, 425, 110, 450], "", 5.0],
 		SHAFT,
 	]
 	return s

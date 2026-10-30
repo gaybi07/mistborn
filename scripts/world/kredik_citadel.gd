@@ -12,6 +12,11 @@ extends Node3D
 ##  - Ministerio, cuarteles, complejo inquisitorial con su torre, almacenes y alas de servicio.
 ##  - Ventanas ojivales con marco, parteluz y arco apuntado (algunas encendidas de noche), impostas,
 ##    contrafuertes, almenas y matacanes.
+## Adentro van los niveles apilados (KredikInterior): sus muros son la fachada. Por fuera solo se
+## agrega la muralla exterior con sus puertas, la Gran Entrada y lo que asoma por encima de los
+## tejados: las torres redondas de la muralla interior, la nave del torreón con las agujas de su
+## fachada y la gran aguja del Lord Legislador. Al oeste, un tajo en el cordón de picos deja salir
+## los túneles de los subniveles.
 ## Todo se genera como pocas mallas grandes (la sólida con colisión; ventanas y molduras aparte) y
 ## se guarda la primera vez.
 
@@ -21,12 +26,16 @@ const TOP_SOUTH := 58.0  ## la meseta llega hasta aquí al sur (delante de la Gr
 const RAMP_LEN := 34.0
 const RAMP_HALF := 8.0
 const RIDGE := 30.0  ## ancho medio del cordón de picos alrededor de la meseta (varía de 20 a 40)
+## Tajo del oeste (franja en z) por donde salen los túneles de los subniveles (KredikLevel.tunnels).
+const CUT_Z := Vector2(-3.5, 10.8)
+const CUT_FILL := 6.5  ## hasta la boca, la roca no baja de aquí (cubre los túneles)
 
 static var _cache := {}
 static var _noise_gen: FastNoiseLite
 static var _ridge_gen: FastNoiseLite
 static var _crag_gen: FastNoiseLite
 static var _width_gen: FastNoiseLite
+static var _cut_x := NAN
 
 var _b := MeshBuilder.new()  # con colisión
 var _d := MeshBuilder.new()  # ventanas, molduras y telas: sin colisión
@@ -41,21 +50,37 @@ static func gate_dir() -> Vector2:
 	return Vector2(0, 1)
 
 
-## Donde aparece el jugador al salir por la Gran Entrada: en lo alto de la rampa.
-static func city_exit() -> Vector3:
-	var p := Vector2(0, TOP_SOUTH - 1.0)
-	return Vector3(CityPlan.HILL.x + p.x, ground(p) + 0.6, CityPlan.HILL.y + p.y)
-
-
-## Donde salen los pasadizos de los subniveles: al pie del cordón de picos, al oeste.
-static func west_exit() -> Vector3:
-	return Vector3(CityPlan.HILL.x - HALF.x - 7.0 - 46.0, 0.6, CityPlan.HILL.y)
-
-
 ## Altura del terreno en un punto relativo al centro de la fortaleza (0 en la ciudad).
 ## Arriba, la meseta llana (PLINTH); alrededor, un cordón de picos de roca con crestas afiladas
-## que caen en pendientes imposibles; al sur, la rampa de la Gran Entrada cruza por un desfiladero.
+## que caen en pendientes imposibles; al sur, la rampa de la Gran Entrada cruza por un desfiladero;
+## al oeste, el tajo de los túneles.
 static func ground(p: Vector2) -> float:
+	var h := _raw_ground(p)
+	if p.x < -HALF.x:
+		var edge := smoothstep(CUT_Z.x - 2.0, CUT_Z.x, p.y) * (1.0 - smoothstep(CUT_Z.y, CUT_Z.y + 2.0, p.y))
+		if edge > 0.0:
+			# El tajo empieza 2 m antes de la boca: la pared de roca no tapa el arco.
+			h = lerpf(h, 0.0 if p.x < cut_x() + 2.0 else maxf(h, CUT_FILL), edge)
+	return h if h > 0.02 else 0.0
+
+
+## Dónde empieza el tajo del oeste (x): donde los picos ya no tapan los túneles, al menos a 32 m de
+## la cuadrícula de los niveles (la rampa del Subnivel 3 tiene que llegar arriba antes).
+static func cut_x() -> float:
+	if is_nan(_cut_x):
+		var x := -HALF.x - 7.0
+		while x > -HALF.x - 80.0:
+			var top := 0.0
+			for k in 8:
+				top = maxf(top, _raw_ground(Vector2(x, lerpf(CUT_Z.x, CUT_Z.y, k / 7.0))))
+			if top < CUT_FILL:
+				break
+			x -= 0.5
+		_cut_x = minf(x, KredikLevel.X0 - 32.0)
+	return _cut_x
+
+
+static func _raw_ground(p: Vector2) -> float:
 	if _noise_gen == null:
 		_noise_gen = FastNoiseLite.new()
 		_noise_gen.seed = 77
@@ -98,12 +123,13 @@ static func ground(p: Vector2) -> float:
 		var crag := (_crag_gen.get_noise_2dv(p) * 0.5 + 0.5) * 6.0
 		# Hacia afuera, faldas cada vez más tendidas (el pie del cordón se funde con la ciudad).
 		h = (lerpf(PLINTH, PLINTH + peak, rise) + crag * rise) * pow(fall, 1.5)
-	# La rampa de la Gran Entrada cruza el cordón por un desfiladero.
-	if absf(p.x) < RAMP_HALF + 4.0 and p.y > TOP_SOUTH - 2.0:
+	# La rampa de la Gran Entrada cruza el cordón por un desfiladero; llano desde el portón (el ruido
+	# del borde levantaba lomas delante de la puerta).
+	if absf(p.x) < RAMP_HALF + 4.0 and p.y > 46.0:
 		var ramp := PLINTH * clampf(1.0 - (p.y - TOP_SOUTH) / RAMP_LEN, 0.0, 1.0)
 		var edge := 1.0 - smoothstep(RAMP_HALF, RAMP_HALF + 4.0, absf(p.x))
 		h = lerpf(h, ramp, edge)
-	return h if h > 0.02 else 0.0
+	return h
 
 
 func _ready() -> void:
@@ -138,7 +164,6 @@ func _ready() -> void:
 		anchor.position = a
 		anchor.add_to_group(&"metal")
 		add_child(anchor)
-	_gate_portal()
 	# Bruma espesa alrededor de la meseta: la base se difumina y las agujas asoman por encima.
 	var fog := FogVolume.new()
 	fog.shape = RenderingServer.FOG_VOLUME_SHAPE_ELLIPSOID
@@ -147,6 +172,7 @@ func _ready() -> void:
 	fog.material = m["citadel_fog"]
 	add_child(fog)
 	_add_clouds(m["citadel_cloud"])
+	add_child(KredikInterior.new())
 
 
 func _instance(mesh: ArrayMesh, mats: Dictionary) -> MeshInstance3D:
@@ -183,28 +209,12 @@ func _process(delta: float) -> void:
 	_clouds.rotation.y += delta * 0.006
 
 
-func _gate_portal() -> void:
-	var portal := Portal.new()
-	portal.target_scene = "res://scenes/kredik_shaw.tscn"
-	portal.target_level = "ground"
-	portal.arrival = KredikShaw.entrance()
-	portal.label = "Kredik Shaw"
-	portal.door_size = Vector2(6.5, 9.5)
-	portal.position = Vector3(0, PLINTH, 50.5)
-	add_child(portal)
-
-
 func _generate() -> void:
 	_rng.seed = 1337
 	var rock := MeshBuilder.new()
 	_plateau(rock)
 	_outer_wall()
-	_inner_wall()
-	_keep()
-	_throne_nave()
-	_masses()
-	_inquisitor_tower()
-	_messenger_towers()
+	_crowns()
 	var rock_mesh := rock.commit()
 	var mesh := _b.commit()
 	_cache = {"rock": rock_mesh, "rock_shape": rock_mesh.create_trimesh_shape(),
@@ -228,9 +238,22 @@ func _plateau(b: MeshBuilder) -> void:
 			row.append(Vector3(p.x, h if h > 0.0 else -0.4, p.y))
 		pts.append(row)
 	var below := Vector3(0, -500, 0)
+	# Sin roca encima de la escalera que sube del Subnivel 1 a la planta baja, ni en las bocas de
+	# los túneles (la pared del tajo los cruzaría; ahí va el portal de piedra de KredikLevel._tunnel).
+	var holes: Array[Rect2] = []
+	for f: Array in KredikPlan.flights():
+		if f[1] == "ground":
+			holes.append((KredikLevel.stair_frame(KredikPlan.rect(f[2]))["hole"] as Rect2).grow(0.2))
+	for t: Array in KredikLevel.tunnels():
+		holes.append(Rect2(cut_x() - 0.5, t[1] - 2.5, 4.0, t[2] - t[1] + 5.0))
 	for j in nz:
 		for i in nx:
-			b.quad("rock", pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], below)
+			var quad := Rect2(Vector2(pts[j][i].x, pts[j][i].z), Vector2(step, step))
+			var open := false
+			for hole in holes:
+				open = open or hole.intersects(quad)
+			if not open:
+				b.quad("rock", pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], below)
 	# Agujas de roca y peñascos sueltos por el cordón (como en la ilustración).
 	for k in 260:
 		var side := _rng.randi() % 4
@@ -242,6 +265,8 @@ func _plateau(b: MeshBuilder) -> void:
 			2: p = Vector2(-HALF.x - 7.0 - out, _rng.randf_range(-HALF.y - 30.0, TOP_SOUTH + 20.0))
 			3: p = Vector2(HALF.x + 7.0 + out, _rng.randf_range(-HALF.y - 30.0, TOP_SOUTH + 20.0))
 		if absf(p.x) < RAMP_HALF + 7.0 and p.y > TOP_SOUTH - 4.0:
+			continue
+		if p.x < -HALF.x and p.y > CUT_Z.x - 6.0 and p.y < CUT_Z.y + 6.0:
 			continue
 		if ground(p) <= 0.0:
 			continue
@@ -354,47 +379,12 @@ func _merlons(a: Vector3, c: Vector3, thick: float) -> void:
 		_b.cube("wall", Transform3D(Basis(u, Vector3.UP, u.cross(Vector3.UP)), p + Vector3(0, 0.8, 0)), Vector3(1.2, 1.6, thick))
 
 
-## Bloque de piedra con sus fachadas y tejado (a dos aguas, con pináculos en los piñones y
-## buhardillas) o azotea almenada.
-func _block(r: Rect2, h: float, roof: String, windows: bool, lit := 0.1) -> void:
-	var y0 := PLINTH
-	var c := r.get_center()
-	_b.abox("wall", Vector3(c.x, y0 + h / 2.0 - 0.5, c.y), Vector3(r.size.x, h + 1.0, r.size.y), false)
-	_facades(r, y0, h, windows, lit)
-	var top := y0 + h
-	if roof == "gable":
-		var along_x := r.size.x >= r.size.y
-		var basis := Basis() if along_x else Basis(Vector3.UP, PI / 2.0)
-		var w := r.size.x if along_x else r.size.y
-		var d := r.size.y if along_x else r.size.x
-		var rh := minf(d * 0.75, 12.0)
-		_b.gable("roof", Transform3D(basis, Vector3(c.x, top, c.y)), w + 0.8, d + 1.2, rh)
-		for sgn: float in [-1.0, 1.0]:
-			var e := basis * Vector3(sgn * w / 2.0, 0, 0)
-			_spire(Vector3(c.x + e.x, top + rh - 1.0, c.y + e.z), 0.5, 1.5, 5.0, 4)
-		var dormers := int(w / 8.0)
-		for k in dormers:
-			var t := -w / 2.0 + (k + 0.5) * w / dormers
-			for sgn: float in [-1.0, 1.0]:
-				var p := basis * Vector3(t, 0, sgn * d * 0.22)
-				var dc := Vector3(c.x + p.x, top + rh * 0.3, c.y + p.z)
-				_b.cube("wall", Transform3D(basis, dc + Vector3(0, 1.0, 0)), Vector3(1.8, 2.0, 1.8))
-				_b.gable("roof", Transform3D(basis * Basis(Vector3.UP, PI / 2.0), dc + Vector3(0, 2.0, 0)), 2.6, 2.2, 1.6)
-	else:
-		var cs := [Vector3(r.position.x, top, r.position.y), Vector3(r.end.x, top, r.position.y),
-				Vector3(r.end.x, top, r.end.y), Vector3(r.position.x, top, r.end.y)]
-		for k in 4:
-			_merlons(cs[k], cs[(k + 1) % 4], 0.6)
-		for k in 4:
-			_spire(cs[k], 0.7, 2.5, 6.0, 4)
-
-
 # ------------------------------------------------------------------ Torres
 
 ## Torre redonda: zócalo en talud, ventanas por pisos, matacán y corona almenada; con tejado
 ## cónico si se pide.
-func _round_tower(c2: Vector2, r: float, h: float, cone := 0.0, lit := 0.08) -> void:
-	var base := Vector3(c2.x, PLINTH - 2.0, c2.y)
+func _round_tower(c2: Vector2, r: float, h: float, cone := 0.0, lit := 0.08, y0 := PLINTH - 2.0) -> void:
+	var base := Vector3(c2.x, y0, c2.y)
 	var sides := 24
 	_b.frustum("wall", base, r * 1.12, r, 6.0, sides)
 	_b.frustum("wall", base + Vector3(0, 6.0, 0), r, r, h - 4.0, sides)
@@ -588,101 +578,6 @@ func _banner(foot: Vector3, basis: Basis, top: float, length: float) -> void:
 	_d.cube("cap", Transform3D(basis, foot + Vector3(0, top + 0.1, 0)), Vector3(3.0, 0.25, 0.3))
 
 
-func _inner_wall() -> void:
-	var nw := KredikPlan.m(Vector2(185, 175))
-	var se := KredikPlan.m(Vector2(1215, 595))
-	var ne := Vector2(se.x, nw.y)
-	var sw := Vector2(nw.x, se.y)
-	var h := 19.0
-	_curtain(nw, ne, h, 3.5, Vector2(0, -1), [Vector2(-3.5 - nw.x, 3.5 - nw.x)])
-	_curtain(ne, se, h, 3.5, Vector2(1, 0), [Vector2(-3.0 - ne.y, 3.0 - ne.y)])
-	_curtain(nw, sw, h, 3.5, Vector2(-1, 0), [Vector2(-3.0 - nw.y, 3.0 - nw.y)])
-	_curtain(sw, se, h, 3.5, Vector2(0, 1), [Vector2(-4.0 - sw.x, 4.0 - sw.x)])
-	# Las cuatro grandes torres redondas de las esquinas (las de la ilustración).
-	for p: Vector2 in [Vector2(205, 195), Vector2(1200, 195), Vector2(205, 575), Vector2(1200, 575)]:
-		_round_tower(KredikPlan.m(p), 8.2, 50.0, 0.0, 0.1)
-	# Puerta interior: dos torres redondas y el arco.
-	for sgn: float in [-1.0, 1.0]:
-		_round_tower(Vector2(sgn * 7.2, 27.6), 3.6, 28.0, 7.0, 0.06)
-	_b.abox("wall", Vector3(0, PLINTH + 15.0, 27.6), Vector3(8.0, 8.0, 6.0))
-
-
-# ------------------------------------------------------------------ Torreón y nave del trono
-
-## El torreón: cuerpo con bastiones redondos y, encima, la nave catedralicia con la fachada de dos
-## agujas mirando a la ciudad, rosetón, arbotantes y pináculos.
-func _keep() -> void:
-	var r := KredikPlan.rect([565, 245, 870, 480])
-	var c := r.get_center()
-	var body_h := 26.0
-	_block(r, body_h, "flat", true, 0.12)
-	for p: Vector2 in [Vector2(585, 265), Vector2(850, 265), Vector2(585, 460), Vector2(850, 460)]:
-		_round_tower(KredikPlan.m(p), 4.8, 34.0, 10.0, 0.1)
-	# Nave alta.
-	var nave := Rect2(Vector2(c.x - 10.0, r.position.y + 2.0), Vector2(20.0, r.size.y - 4.0))
-	var nave_h := 44.0
-	var nc := nave.get_center()
-	_b.abox("wall", Vector3(nc.x, PLINTH + nave_h / 2.0, nc.y), Vector3(nave.size.x, nave_h, nave.size.y), false)
-	_facades(nave, PLINTH + body_h, nave_h - body_h, true, 0.15, 9.0, 4.4)
-	_b.gable("roof", Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(nc.x, PLINTH + nave_h, nc.y)), nave.size.y + 1.0, nave.size.x + 1.6, 15.0)
-	for k in 7:
-		var z := nave.position.y + nave.size.y * (k + 0.5) / 7.0
-		for sgn: float in [-1.0, 1.0]:
-			_spire(Vector3(nc.x + sgn * (nave.size.x / 2.0 + 0.2), PLINTH + nave_h, z), 0.6, 2.0, 6.0, 4)
-	_spire(Vector3(nc.x, PLINTH + nave_h + 14.0, nc.y), 1.6, 4.0, 22.0, 8)
-	# Arbotantes: pilas sobre el cuerpo bajo y un brazo inclinado hasta el muro de la nave.
-	for k in 6:
-		var z := nave.position.y + nave.size.y * (k + 0.5) / 6.0
-		for sgn: float in [-1.0, 1.0]:
-			var pier := Vector3(nc.x + sgn * (nave.size.x / 2.0 + 7.0), PLINTH + body_h, z)
-			_b.abox("wall", pier + Vector3(0, 4.0, 0), Vector3(2.0, 8.0, 2.0))
-			_spire(pier + Vector3(0, 8.0, 0), 1.0, 2.0, 7.0, 4)
-			var top := Vector3(nc.x + sgn * nave.size.x / 2.0, PLINTH + nave_h - 6.0, z)
-			var from := pier + Vector3(-sgn * 1.0, 7.0, 0)
-			var along := (top - from).normalized()
-			var side := Vector3(0, 0, 1)
-			var up := side.cross(along).normalized()
-			if up.y < 0.0:
-				up = -up
-			_b.cube("wall", Transform3D(Basis(along, up, side), (top + from) / 2.0), Vector3(top.distance_to(from), 1.0, 1.2))
-	# Fachada sur: dos torres con agujas altísimas, el piñón con el rosetón y el gran portal.
-	var front := r.end.y
-	for sgn: float in [-1.0, 1.0]:
-		var tc := Vector2(nc.x + sgn * 12.0, front - 4.5)
-		var tower_h := 58.0
-		_b.abox("wall", Vector3(tc.x, PLINTH + tower_h / 2.0, tc.y), Vector3(9.0, tower_h, 9.0), false)
-		_facades(Rect2(tc - Vector2(4.5, 4.5), Vector2(9.0, 9.0)), PLINTH, tower_h, true, 0.12, 8.0, 3.0)
-		# Contrafuertes de esquina que se escalonan.
-		for cx: float in [-1.0, 1.0]:
-			for cz: float in [-1.0, 1.0]:
-				var p := Vector3(tc.x + cx * 4.6, 0, tc.y + cz * 4.6)
-				for step in 3:
-					var hh := tower_h * (0.85 - step * 0.22)
-					_b.abox("wall", Vector3(p.x, PLINTH + hh / 2.0, p.z), Vector3(1.6 - step * 0.3, hh, 1.6 - step * 0.3))
-		_b.abox("trim", Vector3(tc.x, PLINTH + tower_h + 0.4, tc.y), Vector3(10.4, 0.8, 10.4))
-		for cx: float in [-1.0, 1.0]:
-			for cz: float in [-1.0, 1.0]:
-				_spire(Vector3(tc.x + cx * 4.3, PLINTH + tower_h + 0.8, tc.y + cz * 4.3), 0.8, 3.0, 9.0, 4)
-		_anchors.append(_spire(Vector3(tc.x, PLINTH + tower_h + 0.8, tc.y), 3.6, 6.0, 46.0, 8))
-	# Piñón entre las torres, con su rosetón y una fila de ventanas altas.
-	var gable_z := front - 1.0
-	_b.abox("wall", Vector3(nc.x, PLINTH + 22.0, gable_z), Vector3(15.0, 44.0, 2.0), false)
-	_b.gable("wall", Transform3D(Basis(), Vector3(nc.x, PLINTH + 44.0, gable_z)), 15.0, 2.0, 11.0)
-	_rose(Vector3(nc.x, PLINTH + 33.0, gable_z + 1.05), 5.0)
-	var o := Vector3(nc.x - 7.5, PLINTH, gable_z + 1.0)
-	for k in 5:
-		_lancet(o, Vector3(1, 0, 0), Vector3(0, 0, 1), 2.0 + k * 2.75, 21.5, 1.2, 5.0, 0.15)
-	# Gran portal: arquivoltas escalonadas y la puerta de hierro.
-	for k in 4:
-		var w := 7.0 - k * 1.0
-		_b.abox("trim", Vector3(nc.x, PLINTH + 6.5 - k * 0.3, gable_z + 1.6 - k * 0.35), Vector3(w + 1.2, 13.0 - k * 0.6, 0.4))
-	for sgn: float in [-1.0, 1.0]:
-		PolyProps.add(_props, "large_castle_door", PolyProps.at("large_castle_door", Vector3(nc.x + sgn * 2.1, PLINTH, gable_z + 2.2), 0.0, 2.1))
-	_anchors.append(Vector3(nc.x, PLINTH + 4.5, gable_z + 2.3))
-	# Galería al trono (puente cubierto hacia el norte).
-	_block(KredikPlan.rect([685, 160, 725, 255]), 20.0, "gable", true, 0.12)
-
-
 ## Rosetón: vidriera (cuatro cuadrados girados), anillo de moldura y radios.
 func _rose(c: Vector3, radius: float) -> void:
 	var u := Vector3(1, 0, 0)
@@ -699,46 +594,56 @@ func _rose(c: Vector3, radius: float) -> void:
 	_pbox(_d, "trim", o, u, n, 0.0, c.y, 0.1, 1.2, 1.2, 0.4, PI / 4.0)
 
 
-## La nave del trono al norte, con la gran aguja del Lord Legislador, la más alta de Luthadel.
-func _throne_nave() -> void:
-	var r := KredikPlan.rect([612, 28, 798, 160])
+## Lo que asoma por encima de los niveles (todos terminan en el techo del Nivel 5).
+##  - Las cuatro torres redondas de la muralla interior: corona almenada y chapitel.
+##  - El torreón: la nave alta con su tejado, pináculos y aguja, y la fachada sur con dos torres de
+##    agujas altísimas, el piñón y el rosetón.
+##  - Sobre el complejo del trono, la gran aguja del Lord Legislador, la más alta de Luthadel.
+func _crowns() -> void:
+	var roof: float = KredikPlan.FLOOR["l5"] + KredikPlan.LH
+	for p: Vector2 in [Vector2(205, 195), Vector2(1200, 195), Vector2(205, 575), Vector2(1200, 575)]:
+		_round_tower(KredikPlan.m(p), 26 * KredikPlan.PX, 14.0, 12.0, 0.1, roof - 0.5)
+	# Nave alta.
+	var r := KredikPlan.rect([565, 245, 870, 480])
 	var c := r.get_center()
-	var h := 36.0
-	_b.abox("wall", Vector3(c.x, PLINTH + h / 2.0 - 1.0, c.y), Vector3(r.size.x, h + 2.0, r.size.y), false)
-	_facades(r, PLINTH, h, true, 0.12, 9.0, 4.0)
-	_b.gable("roof", Transform3D(Basis(), Vector3(c.x, PLINTH + h, c.y)), r.size.x + 1.0, r.size.y + 1.6, 13.0)
+	var nave := Rect2(Vector2(c.x - 10.0, r.position.y + 2.0), Vector2(20.0, r.size.y - 4.0))
+	var nave_h := 18.0
+	var nc := nave.get_center()
+	_b.abox("wall", Vector3(nc.x, roof + nave_h / 2.0, nc.y), Vector3(nave.size.x, nave_h, nave.size.y), false)
+	_facades(nave, roof, nave_h, true, 0.15, 9.0, 4.4)
+	_b.gable("roof", Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(nc.x, roof + nave_h, nc.y)), nave.size.y + 1.0, nave.size.x + 1.6, 15.0)
+	for k in 7:
+		var z := nave.position.y + nave.size.y * (k + 0.5) / 7.0
+		for sgn: float in [-1.0, 1.0]:
+			_spire(Vector3(nc.x + sgn * (nave.size.x / 2.0 + 0.2), roof + nave_h, z), 0.6, 2.0, 6.0, 4)
+	_spire(Vector3(nc.x, roof + nave_h + 14.0, nc.y), 1.6, 4.0, 22.0, 8)
+	# Fachada sur: dos torres con agujas, el piñón con el rosetón.
+	var front := nave.end.y + 4.5
 	for sgn: float in [-1.0, 1.0]:
-		for k in 5:
-			var x := r.position.x + r.size.x * (k + 0.5) / 5.0
-			_spire(Vector3(x, PLINTH + h, c.y + sgn * (r.size.y / 2.0 + 0.2)), 0.7, 2.0, 7.0, 4)
+		var tc := Vector2(nc.x + sgn * 14.5, front - 4.5)
+		var tower_h := 30.0
+		_b.abox("wall", Vector3(tc.x, roof + tower_h / 2.0, tc.y), Vector3(9.0, tower_h, 9.0), false)
+		_facades(Rect2(tc - Vector2(4.5, 4.5), Vector2(9.0, 9.0)), roof, tower_h, true, 0.12, 8.0, 3.0)
+		_b.abox("trim", Vector3(tc.x, roof + tower_h + 0.4, tc.y), Vector3(10.4, 0.8, 10.4))
+		for cx: float in [-1.0, 1.0]:
+			for cz: float in [-1.0, 1.0]:
+				_spire(Vector3(tc.x + cx * 4.3, roof + tower_h + 0.8, tc.y + cz * 4.3), 0.8, 3.0, 9.0, 4)
+		_anchors.append(_spire(Vector3(tc.x, roof + tower_h + 0.8, tc.y), 3.6, 6.0, 46.0, 8))
+	var gable_z := nave.end.y + 1.0
+	_b.abox("wall", Vector3(nc.x, roof + nave_h / 2.0, gable_z), Vector3(20.0, nave_h, 2.0), false)
+	_b.gable("wall", Transform3D(Basis(), Vector3(nc.x, roof + nave_h, gable_z)), 20.0, 2.0, 11.0)
+	_rose(Vector3(nc.x, roof + nave_h - 1.0, gable_z + 1.05), 5.0)
 	# La gran aguja: torre cuadrada, linterna octogonal y una aguja de casi 130 m.
-	var tower_h := 64.0
-	_b.abox("wall", Vector3(c.x, PLINTH + tower_h / 2.0, c.y), Vector3(11.0, tower_h, 11.0), false)
-	_facades(Rect2(c - Vector2(5.5, 5.5), Vector2(11.0, 11.0)), PLINTH + h, tower_h - h, true, 0.2, 7.0, 3.6)
+	var t := KredikPlan.rect([612, 28, 798, 160]).get_center()
+	var tower_h := 22.0
+	_b.abox("wall", Vector3(t.x, roof + tower_h / 2.0, t.y), Vector3(11.0, tower_h, 11.0), false)
+	_facades(Rect2(t - Vector2(5.5, 5.5), Vector2(11.0, 11.0)), roof, tower_h, true, 0.2, 7.0, 3.6)
 	for cx: float in [-1.0, 1.0]:
 		for cz: float in [-1.0, 1.0]:
-			_spire(Vector3(c.x + cx * 5.2, PLINTH + tower_h, c.y + cz * 5.2), 1.1, 6.0, 14.0, 6)
-	_b.frustum("wall", Vector3(c.x, PLINTH + tower_h, c.y), 4.8, 4.5, 10.0, 8, PI / 8.0)
+			_spire(Vector3(t.x + cx * 5.2, roof + tower_h, t.y + cz * 5.2), 1.1, 6.0, 14.0, 6)
+	_b.frustum("wall", Vector3(t.x, roof + tower_h, t.y), 4.8, 4.5, 10.0, 8, PI / 8.0)
 	for k in 8:
 		var a := PI / 8.0 + TAU * (k + 0.5) / 8.0
 		var d := Vector3(cos(a), 0, sin(a))
-		_lancet(Vector3(c.x, PLINTH + tower_h, c.y) + d * 4.5, Vector3(-d.z, 0, d.x), d, 0.0, 2.5, 1.0, 5.0, 0.6)
-	_anchors.append(_spire(Vector3(c.x, PLINTH + tower_h + 10.0, c.y), 4.4, 2.0, 50.0, 8))
-
-
-# ------------------------------------------------------------------ Resto de volúmenes
-
-func _masses() -> void:
-	for mass: Array in KredikPlan.MASSES:
-		_block(KredikPlan.rect(mass[0]), mass[1], mass[2], mass[3], 0.08)
-
-
-## La Torre del Inquisidor, oscura y alta, sobre el complejo inquisitorial.
-func _inquisitor_tower() -> void:
-	_square_tower(KredikPlan.m(Vector2(1160, 420)), 4.6, 66.0, 18.0, 0.15)
-
-
-## Torres de mensajería: finas, con su aguja.
-func _messenger_towers() -> void:
-	for p: Vector2 in [Vector2(400, 240), Vector2(1010, 238)]:
-		_square_tower(KredikPlan.m(p), 2.6, 44.0, 10.0, 0.1)
+		_lancet(Vector3(t.x, roof + tower_h, t.y) + d * 4.5, Vector3(-d.z, 0, d.x), d, 0.0, 2.5, 1.0, 5.0, 0.6)
+	_anchors.append(_spire(Vector3(t.x, roof + tower_h + 10.0, t.y), 4.4, 2.0, 50.0, 8))
