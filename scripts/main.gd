@@ -60,6 +60,9 @@ func _ready() -> void:
 	var hud := Hud.new()
 	hud.player = player
 	add_child(hud)
+	var map := CityMap.new()
+	map.player = player
+	add_child(map)
 	_place_loot()
 
 
