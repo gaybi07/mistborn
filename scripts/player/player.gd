@@ -207,6 +207,8 @@ func _ready() -> void:
 	health = max_health
 	spawn_point = global_position
 	_apply_equipment()
+	Art.load_suit()
+	rig.set_suit(Art.suit)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 

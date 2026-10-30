@@ -78,6 +78,21 @@ const BONES := {
 }
 ## Tono del traje oscuro de nacido de la bruma (inventario).
 const OUTFIT_TINT := Color(0.5, 0.52, 0.62)
+## Traje de color (Art.SUITS): la textura del modelo es casi negra, así que en vez de multiplicarla
+## se toma su brillo (pliegues, costuras, cuero) y se pinta con el color elegido.
+const SUIT_SHADER := """
+shader_type spatial;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec3 suit : source_color;
+uniform vec3 mul : source_color = vec3(1.0);
+void fragment() {
+	vec3 c = texture(tex, UV).rgb;
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	ALBEDO = suit * mul * clamp(0.42 + l * 3.0, 0.0, 1.15);
+	ROUGHNESS = 0.78;
+}
+"""
+static var _suit_shader: Shader
 ## Lo más que se acelera un golpe o una voltereta para que quepa en su tiempo.
 const MAX_ONESHOT_SPEED := 2.4
 
@@ -121,6 +136,8 @@ var _pickup := 0.0
 ## Capa de bruma y frascos del inventario: siguen a los huesos del cuello y la cadera.
 var _cloak_anchor: Node3D
 var _vial_anchor: Node3D
+var _suit := "negro"
+var _outfit := false
 
 
 func _build() -> void:
@@ -268,15 +285,27 @@ func set_weapon(w: Weapon) -> void:
 		mi.visible = shown
 
 
+func set_suit(s: String) -> void:
+	if s == _suit or not Art.SUITS.has(s):
+		return
+	_suit = s
+	_apply_tint(OUTFIT_TINT if _outfit else tint)
+	if _cloak_anchor:
+		# La capa se arma con su color: se rehace con el nuevo.
+		var shown := _cloak_anchor.visible
+		_cloak_anchor.queue_free()
+		_cloak_anchor = null
+		cloak = null
+		_add_cloak()
+		_cloak_anchor.visible = shown
+		_update_anchors()
+
+
 func set_equipment(outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: bool) -> void:
+	_outfit = outfit
 	_apply_tint(OUTFIT_TINT if outfit else tint)
 	if cloak_on and _cloak_anchor == null:
-		_cloak_anchor = Node3D.new()
-		add_child(_cloak_anchor)
-		cloak = Mistcloak.new()
-		_cloak_anchor.add_child(cloak)
-		# Gris azulado del cuero del traje; solo tiras (el modelo ya trae chaqueta y capucha).
-		cloak.build(Color(0.17, 0.19, 0.24), 1.15, null, true)
+		_add_cloak()
 	if _cloak_anchor:
 		_cloak_anchor.visible = cloak_on
 	if vials_on and _vial_anchor == null:
@@ -288,14 +317,37 @@ func set_equipment(outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: boo
 	_update_anchors()
 
 
-## Recolorea la ropa del modelo (no las armas) multiplicando su color original.
+## Tiras de la capa de bruma (el modelo ya trae chaqueta y capucha), del color del traje.
+func _add_cloak() -> void:
+	_cloak_anchor = Node3D.new()
+	add_child(_cloak_anchor)
+	cloak = Mistcloak.new()
+	_cloak_anchor.add_child(cloak)
+	var c: Color = Art.SUITS[_suit]
+	cloak.build(c if _suit == "negro" else c.darkened(0.2), 1.15, null, true)
+
+
+## Recolorea la ropa del modelo (no las armas) multiplicando su color original, o con el color
+## del traje si no es el negro del modelo.
 func _apply_tint(c: Color) -> void:
+	if _suit_shader == null:
+		_suit_shader = Shader.new()
+		_suit_shader.code = SUIT_SHADER
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
 		if _items.has(mi):
 			continue
 		for i in mi.mesh.get_surface_count():
 			var base := mi.mesh.surface_get_material(i) as BaseMaterial3D
-			if base:
+			if base == null:
+				continue
+			if _suit != "negro" and base.albedo_texture:
+				var sm := ShaderMaterial.new()
+				sm.shader = _suit_shader
+				sm.set_shader_parameter("tex", base.albedo_texture)
+				sm.set_shader_parameter("suit", Art.SUITS[_suit])
+				sm.set_shader_parameter("mul", tint)  # sin oscurecer con el traje del inventario: que se te reconozca
+				mi.set_surface_override_material(i, sm)
+			else:
 				var m: BaseMaterial3D = base.duplicate()
 				m.albedo_color = base.albedo_color * c
 				mi.set_surface_override_material(i, m)

@@ -132,6 +132,11 @@ func set_weapon(w: Weapon) -> void:
 
 
 ## Equipo visible del inventario. outfit: traje oscuro de nacido de la bruma.
+## Color del traje y la capucha (ver Art.SUITS). El cuerpo hecho de primitivas no lo usa.
+func set_suit(_suit: String) -> void:
+	pass
+
+
 func set_equipment(_outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: bool) -> void:
 	if cloak:
 		cloak.visible = cloak_on
