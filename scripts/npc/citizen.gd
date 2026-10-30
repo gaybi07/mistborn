@@ -52,6 +52,8 @@ func _role() -> String:
 
 
 func _setup() -> void:
+	loot_coins = Vector2i(2, 5)
+	loot_vial_chance = 0.08
 	rig.slouch = 0.0 if noble else randf_range(0.2, 0.5)
 	walk_speed = randf_range(1.1, 1.6)
 	run_speed = randf_range(4.0, 5.5)

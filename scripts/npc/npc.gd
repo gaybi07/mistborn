@@ -17,6 +17,11 @@ var health := 60.0
 ## Noqueado: tumbado en el suelo hasta que se recupera.
 var down := false
 var _down_until := 0.0
+## Botín al caer ante el jugador (una sola vez por Npc): monedas (mín, máx), probabilidad de frasco y de objeto.
+var loot_coins := Vector2i(1, 3)
+var loot_vial_chance := 0.05
+var loot_item_chance := 0.0
+var _looted := false
 ## Bando: -1 = gente que no pelea; 0 = el jugador y sus aliados; 1, 2... = otros bandos.
 var team := -1
 
@@ -186,6 +191,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		_down_until = _world_time + knockout_time
 		plan_velocity(Vector3.ZERO)
 		_desired = Vector3.ZERO
+		if attacker is Player:
+			_drop_loot_common(attacker)
 
 
 func random_point_near_home() -> Vector3:
@@ -254,3 +261,34 @@ func predict_position(t: float) -> Vector3:
 		var a := maxf(until_switch, 0.0)
 		return global_position + _desired * a + _pending * (t - a)
 	return global_position + _desired * t
+
+
+## Al derrotarlo el jugador suelta monedas y, a veces, un frasco o un objeto nuevo. Solo la primera vez.
+func _drop_loot_common(player: Player) -> void:
+	if _looted:
+		return
+	_looted = true
+	var scene := get_tree().current_scene
+	var origin := global_position + Vector3(0, 0.8, 0)
+	for i in randi_range(loot_coins.x, loot_coins.y):
+		var coin := Props.coin()
+		scene.add_child(coin)
+		coin.global_position = origin
+		var a := randf() * TAU
+		coin.linear_velocity = Vector3(cos(a) * randf_range(1.0, 2.5), randf_range(2.5, 4.5), sin(a) * randf_range(1.0, 2.5))
+		# Si nadie la recoge, desaparece para no llenar el suelo de monedas.
+		get_tree().create_timer(90.0).timeout.connect(func() -> void:
+			if is_instance_valid(coin):
+				coin.queue_free())
+	if randf() < loot_vial_chance:
+		var vial := Vial.new()
+		vial.kind = &"mix"
+		scene.add_child(vial)
+		vial.global_position = global_position + Vector3(randf_range(-0.6, 0.6), 0.7, randf_range(-0.6, 0.6))
+	if randf() < loot_item_chance:
+		var id := ItemPickup.random_new_item(player)
+		if id != "":
+			var pickup := ItemPickup.new()
+			pickup.item_id = id
+			scene.add_child(pickup)
+			pickup.global_position = global_position + Vector3(0, 0.1, 0)
