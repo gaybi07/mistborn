@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 [autoload]
 
 InputSetup="*res://scripts/core/input_setup.gd"
+NetworkManager="*res://scripts/network/network_manager.gd"
 
 [filesystem]
 

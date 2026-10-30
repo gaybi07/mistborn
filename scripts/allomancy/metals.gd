@@ -11,6 +11,8 @@ const BASE_FORCE := 1800.0  ## Newtons a distancia cero (quemando)
 const MAX_TARGET_SPEED := 45.0
 const MAX_DV_PER_STEP := 8.0
 const COPPER_RADIUS := 12.0  ## radio de la nube de cobre (avivando, el doble)
+## Fracción del alcance dentro de la cual la fuerza no baja con la distancia.
+const FALLOFF_PLATEAU := 0.35
 
 
 ## Punto al que apuntan las líneas (meta "center_offset" o el origen del nodo).
@@ -36,7 +38,7 @@ static func effective_reach(t: Node3D, reach: float) -> float:
 	if mass <= 0.0:
 		mass = 2000.0
 	var mass_factor := clampf(log(mass + 1.0) / 7.6, 0.0, 1.0)
-	return reach * lerpf(0.25, 0.8, mass_factor)
+	return reach * lerpf(0.4, 0.85, mass_factor)
 
 
 ## Empuja (dir_sign = 1) o tira (dir_sign = -1) de `target` desde `origin`.
@@ -48,7 +50,8 @@ static func push_pull(origin: Vector3, user_mass: float, target: Node3D, strengt
 	if dist < 0.25:
 		return Vector3.ZERO
 	var dir := to / dist * dir_sign  # dirección en la que se mueve el objetivo
-	var falloff := pow(clampf(1.0 - dist / reach, 0.0, 1.0), 1.5)
+	# La fuerza se mantiene entera en el primer tramo del alcance y recién después decae.
+	var falloff := pow(clampf(1.0 - maxf(dist / reach - FALLOFF_PLATEAU, 0.0) / (1.0 - FALLOFF_PLATEAU), 0.0, 1.0), 1.5)
 	var force := base_force * strength * falloff
 
 	# Si el objetivo ya sale disparado libremente, deja de "apoyarse" en él.
