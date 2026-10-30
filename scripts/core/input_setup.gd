@@ -35,6 +35,7 @@ func _enter_tree() -> void:
 	_key(&"inventory", KEY_I)
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
+	_key(&"map", KEY_M)
 	# Con acero y hierro encendidos: clic izquierdo tira, clic derecho empuja.
 	# Con uno solo, cualquiera de los dos clics lo usa (ver SteelIron).
 	_mouse(&"pull", MOUSE_BUTTON_LEFT)
