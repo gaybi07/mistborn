@@ -24,7 +24,7 @@ static func load_settings() -> void:
 		return
 	sensitivity = clampf(float(cfg.get_value("controles", "sensibilidad", sensitivity)), 0.2, 4.0)
 	fov = clampf(float(cfg.get_value("video", "fov", fov)), 55.0, 110.0)
-	hud_scale = clampf(float(cfg.get_value("video", "hud", hud_scale)), 0.6, 1.4)
+	hud_scale = clampf(float(cfg.get_value("video", "hud", hud_scale)), 0.6, 1.6)
 	volume = clampf(float(cfg.get_value("audio", "volumen", volume)), 0.0, 1.0)
 	fullscreen = bool(cfg.get_value("video", "pantalla_completa", fullscreen))
 	apply_global()

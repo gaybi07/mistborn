@@ -7,12 +7,18 @@ extends Control
 ## Separación (px) entre la barra central y estos paneles, y de la base de la pantalla.
 const GAP := 10.0
 const BOTTOM := 8.0
-const LEFT_SIZE := Vector2(150, 78)
+const LEFT_SIZE := Vector2(190, 112)
 const RIGHT_SIZE := Vector2(310, 66)
+## Alto del panel del arma (arriba) y de la píldora de la bolsa (abajo) en el lado izquierdo.
+const WEAPON_H := 52.0
+const BAG_H := 50.0
 
 var player: Player
-## true: a la izquierda de la barra (bolsa); false: a la derecha (frascos y monedas).
+## true: a la izquierda de la barra (arma y bolsa); false: a la derecha (frascos y monedas).
 var left := true
+var _last_weapon := -1
+## Destello (1 a 0) del panel del arma justo después de cambiarla.
+var _weapon_flash := 0.0
 
 
 func _ready() -> void:
@@ -38,7 +44,11 @@ func _place(s: float) -> void:
 		offset_right = edge + size_px.x
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if player.weapon != _last_weapon:
+		_weapon_flash = 1.0 if _last_weapon >= 0 else 0.0
+		_last_weapon = player.weapon
+	_weapon_flash = move_toward(_weapon_flash, 0.0, delta / Engine.time_scale * 0.8)
 	var s := HudKit.ui_scale(self)
 	scale = Vector2(s, s)
 	_place(s)
@@ -56,15 +66,26 @@ func _draw() -> void:
 
 func _draw_bag(font: Font) -> void:
 	var has := player.has_bag()
-	# Arma actual encima, discreta; debajo la píldora con la bolsa y su tecla.
-	draw_string(font, Vector2(4, 12), player.weapon_stats(player.weapon)["name"], HORIZONTAL_ALIGNMENT_LEFT, 140, 13, HudKit.DIM)
-	var rect := Rect2(0, 24, LEFT_SIZE.x, 50)
+	_draw_weapon(font)
+	var rect := Rect2(0, LEFT_SIZE.y - BAG_H, LEFT_SIZE.x, BAG_H)
 	HudKit.panel(self, rect, 9.0)
 	HudKit.bag(self, rect.position + Vector2(38, 25), 0.5, has)
 	HudKit.key_box(self, font, rect.position + Vector2(rect.size.x - 28, 25), "F", 0.9 if has else 0.4)
 	var text := "" if has and player.carries_metal() else ("SIN BOLSA" if not has else "sin metal")
 	if text != "":
 		draw_string(font, rect.position + Vector2(62, 16), text, HORIZONTAL_ALIGNMENT_LEFT, 60, 10, Color(1.0, 0.7, 0.4, 0.9))
+
+
+## Panel del arma elegida (ícono, nombre y la rueda del ratón para cambiarla). Se ilumina al cambiarla.
+func _draw_weapon(font: Font) -> void:
+	var rect := Rect2(0, 0, LEFT_SIZE.x, WEAPON_H)
+	HudKit.panel(self, rect, 9.0)
+	if _weapon_flash > 0.0:
+		draw_rect(rect.grow(-2.0), Color(HudKit.GOLD_LIGHT, 0.55 * _weapon_flash), false, 2.0)
+	HudKit.weapon_icon(self, Vector2(32, WEAPON_H * 0.5), 0.8, player.weapon)
+	draw_string(font, Vector2(60, 20), "ARMA · rueda", HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 66, 10, Color(1, 1, 1, 0.45))
+	draw_string(font, Vector2(60, 39), player.weapon_stats(player.weapon)["name"], HORIZONTAL_ALIGNMENT_LEFT,
+			rect.size.x - 66, 13, Color(1, 1, 1, 0.5 + 0.45 * maxf(_weapon_flash, 0.7)))
 
 
 func _draw_vials(font: Font) -> void:

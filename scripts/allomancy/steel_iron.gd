@@ -152,12 +152,15 @@ func _physics_process(delta: float) -> void:
 
 ## Si se pulsa el clic de este agarre. Con un solo metal encendido sirven los dos clics.
 func _grip_input(g: Grip, just: bool) -> bool:
-	if player.ui_open:
-		return false
+	if player.ui_open or Input.is_key_pressed(KEY_ALT):
+		return false  # Alt+E es juntar monedas, no tirar
 	var other: Grip = pull_grip if g == push_grip else push_grip
 	var actions: Array[StringName] = [g.action]
 	if not player.allomancy.is_burning(other.metal):
 		actions.append(other.action)
+	# Donde hay algo que usar con E (puerta, armario), E abre y no tira.
+	if player.interactable != null and player.interactable.prompt != "":
+		actions.erase(&"pull")
 	for a in actions:
 		if Input.is_action_just_pressed(a) if just else Input.is_action_pressed(a):
 			return true

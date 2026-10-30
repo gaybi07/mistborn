@@ -24,6 +24,9 @@ var _emotion_tags: Array[Label] = []
 var _vignette_mat: ShaderMaterial
 var _death_screen: ColorRect
 var _impact_label: Label
+var _hint: Label
+## Escala actual del HUD (ver HudKit.ui_scale); la usan los textos y barras flotantes.
+var _ui_scale := 1.0
 var _flash := 0.0
 var _impact_time := 0.0
 
@@ -66,10 +69,6 @@ func _ready() -> void:
 	cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(cross)
 
-	var charge := CoinCharge.new()
-	charge.player = player
-	add_child(charge)
-
 	# Zona de selección de acero/hierro alrededor de la mira
 	var ring_style := StyleBoxFlat.new()
 	ring_style.draw_center = false
@@ -89,12 +88,10 @@ func _ready() -> void:
 	_target_label.offset_top = 8
 	add_child(_target_label)
 
-	var hint := _label("Esc: habilidades y controles")
-	hint.add_theme_font_size_override("font_size", 13)
-	hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	hint.position = Vector2(16, 12)
-	hint.modulate.a = 0.55
-	add_child(hint)
+	_hint = _label("Esc: habilidades y controles")
+	_hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_hint.modulate.a = 0.55
+	add_child(_hint)
 
 
 func _build_damage_overlay() -> void:
@@ -146,8 +143,25 @@ func _on_damaged(amount: float, impact_speed: float) -> void:
 		_impact_label.text = "-%d salud" % int(round(amount))
 
 
+## Textos flotantes del HUD (avisos, estados, objetivo, pista) a la misma escala que la barra central.
+## El aviso queda siempre justo encima de ella.
+func _apply_scale() -> void:
+	var s := HudKit.ui_scale(_impact_label)
+	_impact_label.add_theme_font_size_override("font_size", roundi(22.0 * s))
+	_impact_label.offset_top = -(MetalBar.H + 8.0 + 34.0) * s
+	_status_label.add_theme_font_size_override("font_size", roundi(20.0 * s))
+	_status_label.offset_top = 150.0 * s
+	_target_label.add_theme_font_size_override("font_size", roundi(16.0 * s))
+	_target_label.offset_left = 12.0 * s
+	_target_label.offset_top = 8.0 * s
+	_hint.add_theme_font_size_override("font_size", roundi(13.0 * s))
+	_hint.position = Vector2(16, 12) * s
+	_ui_scale = s
+
+
 func _process(delta: float) -> void:
 	var rd := delta / Engine.time_scale
+	_apply_scale()
 	_update_enemy_bars()
 	_update_status()
 	_flash = move_toward(_flash, 0.0, rd * 1.5)
@@ -192,10 +206,10 @@ func _update_enemy_bars() -> void:
 			continue
 		if used == _enemy_bars.size():
 			var b := _bar(1.0, Color.WHITE)
-			b.custom_minimum_size = Vector2(70, 7)
 			add_child(b)
 			_enemy_bars.append(b)
 		var bar := _enemy_bars[used]
+		bar.custom_minimum_size = Vector2(70, 7) * _ui_scale
 		used += 1
 		var hostile := npc.team >= 0 and npc.team != player.team
 		(bar.get_theme_stylebox(&"fill") as StyleBoxFlat).bg_color = Color(0.8, 0.12, 0.1) if hostile else Color(0.85, 0.6, 0.2)
@@ -237,10 +251,10 @@ func _update_emotion_tags() -> void:
 			continue
 		if used == _emotion_tags.size():
 			var l := _label("")
-			l.add_theme_font_size_override("font_size", 14)
 			add_child(l)
 			_emotion_tags.append(l)
 		var tag := _emotion_tags[used]
+		tag.add_theme_font_size_override("font_size", roundi(14.0 * _ui_scale))
 		used += 1
 		tag.text = text
 		tag.add_theme_color_override("font_color", color)

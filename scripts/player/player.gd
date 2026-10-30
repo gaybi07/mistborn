@@ -142,15 +142,19 @@ var _net_attack_ready_ms := 0
 ## Solo servidor: separación mínima entre dos monedas de un mismo jugador, para que no inunde la arena.
 const COIN_COOLDOWN_MS := 150
 var _net_coin_ready_ms := 0
-## Lanzar monedas: mantener la tecla carga la fuerza hasta el tope (COIN_CHARGE_MS); con menos de
-## COIN_DROP_POWER la moneda solo cae a tus pies. A mano llega a COIN_HAND_SPEED; el acero suma COIN_STEEL_SPEED.
-const COIN_CHARGE_MS := 900
-const COIN_DROP_POWER := 0.2
+## Lanzar monedas (clic derecho): a mano llega a COIN_HAND_SPEED; el acero suma COIN_STEEL_SPEED.
 const COIN_HAND_SPEED := 13.0
 const COIN_STEEL_SPEED := 14.0
-## Distancias (m) del punto que ve la cámara entre las que la moneda pasa de ir en la dirección de la
-## cámara (cerca) a ir hacia ese punto exacto (lejos).
-## Ángulo hacia abajo (grados) desde el que la moneda empieza a ir recta hacia abajo, y desde el que lo hace del todo.
+## Alt+E: radio (m) en el que se atraen las monedas, velocidad a la que vuelan hacia ti y tiempo máximo (ms).
+## Alt+E con acero: cuántas monedas salen en círculo y la pausa (ms) hasta poder repetirlo.
+const COIN_RING_COUNT := 8
+const COIN_RING_COOLDOWN_MS := 500
+const GATHER_RADIUS := 15.0
+const GATHER_SPEED := 24.0
+const GATHER_MS := 2500
+const COIN_CATCH_DIST := 1.1
+var _gathering: Array[Coin] = []
+var _gather_until_ms := 0
 ## Monedero: monedas que llevas (cada lanzamiento o soltada gasta una; las del suelo se recogen al pasar).
 const COIN_START := 1000
 const COIN_MAX := 9999
@@ -159,14 +163,6 @@ var coins_held := COIN_START
 var net_coins := COIN_START  # replicado en red
 ## Cámara: el hombro de la cámara al lado; al mirar hacia abajo pasa al eje del personaje (apunta bajo tus pies).
 const CAMERA_SHOULDER := 0.55
-const COIN_DOWN_FROM := 60.0
-const COIN_DOWN_FULL := 78.0
-const COIN_NEAR_AIM := 2.0
-const COIN_FAR_AIM := 6.0
-## Fuerza acumulada (0 a 1) mientras se mantiene la tecla, para el medidor del HUD.
-var coin_charge := 0.0
-var _coin_charge_start_ms := 0  # 0 = no se está cargando
-var _net_charge_ms := 0  # servidor: cuándo empezó a cargar este jugador
 ## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
 var _seen_health := 100.0
 var _seen_dead := false
@@ -187,8 +183,22 @@ var _combo_window := 0.0
 ## Pulsaste atacar justo antes de poder: el golpe sale en cuanto se pueda.
 var _attack_buffered := false
 var _combat_ms := -1000000
-## G mantenida: moneda soltada que se empuja sola, y cómo estaba el acero antes.
+## Moneda que se empuja sola (clic derecho o salto de acero), y cómo estaba el acero antes.
 var _coin_push_steel := Allomancy.State.OFF
+## La moneda empujada es un disparo del clic derecho (no se frena a GUIDED_COIN_SPEED).
+var _coin_shot := false
+## El empuje automático lo inició un salto de acero: se suelta al soltar Espacio.
+var _jump_push := false
+## Segundo salto en el aire (Espacio dos veces, sin acero): una vez por salto. Altura relativa al salto normal
+## (AIR_JUMP_BOOST sin peltre, más AIR_JUMP_PEWTER por cada punto de peltre) y empuje extra hacia donde pulsas.
+const AIR_JUMP_BOOST := 1.2
+const AIR_JUMP_PEWTER := 1.1
+const AIR_JUMP_FORWARD := 3.0
+## Acero + peltre en el doble Espacio: impulso vertical extra (múltiplo del salto) por punto de peltre.
+const PEWTER_STEEL_KICK := 1.0
+var _air_jump_used := false
+## Último toque de Espacio (ms), para detectar el doble toque.
+var _last_jump_ms := -100000
 ## Doble toque en la tecla de un metal: tecla y momento del último toque, y lo que se aviva
 ## mientras se mantiene (tecla -> metales).
 const DOUBLE_TAP_MS := 300
@@ -383,7 +393,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		drink_vial()
 		return
 	if _look(event):
-		pass
+		if event is InputEventMouseButton:
+			return  # el clic que recaptura el ratón no ataca ni lanza
 	elif event is InputEventKey and not event.echo:
 		var key := event as InputEventKey
 		var group := Allomancy.metals_for_key(key.physical_keycode)
@@ -395,15 +406,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed(&"stop_burning"):
 		allomancy.stop_all()
-	elif event.is_action_pressed(&"throw_coin"):
-		_begin_coin_charge()
-	elif event.is_action_released(&"throw_coin"):
-		var power := _end_coin_charge()
-		if power >= 0.0:
-			throw_coin(Vector3.INF, power)
-	elif event.is_action_pressed(&"drop_coin"):
-		_start_coin_push()
-	elif event.is_action_released(&"drop_coin"):
+	elif event.is_action_pressed(&"gather_coins"):
+		coin_alt_action()
+	elif event.is_action_pressed(&"coin_shot"):
+		_start_coin_shot()
+	elif event.is_action_released(&"coin_shot"):
 		_end_coin_push()
 	elif event.is_action_pressed(&"drop_bag"):
 		toggle_bag()
@@ -418,12 +425,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_fists_chosen = weapon == HumanoidRig.Weapon.NONE
 		_auto_drawn = false
 		rig.set_weapon(weapon)
-		notice.emit(weapon_stats(weapon)["name"])
+	elif event.is_action_pressed(&"interact") and interactable and interactable.prompt != "":
+		interactable.use()
 	elif event.is_action_pressed(&"attack"):
-		if interactable and interactable.prompt != "":
-			interactable.use()
-		else:
-			attack()
+		attack()
 	elif event.is_action_pressed(&"roll"):
 		roll()
 	elif event.is_action_pressed(&"hood") and rig.cloak:
@@ -490,31 +495,27 @@ func _networked_input(event: InputEvent) -> void:
 			_net_metal_key(event.physical_keycode, down)
 		else:
 			_net_metal.rpc_id(1, event.physical_keycode, down)
-	elif event.is_action(&"pull") or event.is_action(&"push"):
-		_net_click(event)
+	elif event.is_action_pressed(&"gather_coins"):  # antes que pull: Alt+E también es E
+		if multiplayer.is_server():
+			coin_alt_action()
+		else:
+			_net_gather.rpc_id(1)
+	elif (event.is_action(&"pull") or event.is_action(&"push")) and not event.is_echo():
+		if not (event is InputEventKey and event.alt_pressed):
+			_net_click(event)
 	elif event.is_action_pressed(&"anchor"):
 		steel_iron.anchor_pressed()
 	elif event.is_action_pressed(&"weapon_cycle"):
 		# En red todavía no hay armas que cambiar: la rueda solo elige objetivo de acero/hierro.
 		steel_iron.cycle_target(-1 if (event as InputEventMouseButton).button_index == MOUSE_BUTTON_WHEEL_DOWN else 1)
-	elif event.is_action_pressed(&"throw_coin"):
-		_begin_coin_charge()  # el medidor es local; la fuerza real la mide el servidor
+	elif event.is_action_pressed(&"coin_shot") or event.is_action_released(&"coin_shot"):
+		var held := event.is_action_pressed(&"coin_shot")
+		var aim := aim_point() if held else Vector3.ZERO
+		var look := aim_direction() if held else Vector3.ZERO
 		if multiplayer.is_server():
-			_net_charge_ms = Time.get_ticks_msec()
+			_net_coin_shot_key(held, aim, look)
 		else:
-			_net_coin_charge.rpc_id(1)
-	elif event.is_action_released(&"throw_coin"):
-		if _end_coin_charge() >= 0.0:
-			if multiplayer.is_server():
-				_net_throw_coin(aim_point(), aim_direction())
-			else:
-				_net_throw.rpc_id(1, aim_point(), aim_direction())
-	elif event.is_action_pressed(&"drop_coin") or event.is_action_released(&"drop_coin"):
-		var held := event.is_action_pressed(&"drop_coin")
-		if multiplayer.is_server():
-			_net_coin_push_key(held)
-		else:
-			_net_coin_push.rpc_id(1, held)
+			_net_coin_shot.rpc_id(1, held, aim, look)
 	elif event.is_action_pressed(&"attack"):
 		if multiplayer.is_server():
 			server_attack()
@@ -701,46 +702,30 @@ func _refill_net_metals() -> void:
 	coins_held = COIN_START
 
 
-## Servidor: lanza una moneda hacia el punto que mandó el cliente (como mucho una cada COIN_COOLDOWN_MS).
-func _net_throw_coin(aim: Vector3, look: Vector3) -> void:
-	var now := Time.get_ticks_msec()
-	if dead or now < _net_coin_ready_ms or not aim.is_finite() or aim.length() > 5000.0 or not look.is_finite() or look.length() < 0.5:
-		return
-	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
-	# La fuerza es el tiempo que el servidor vio la tecla mantenida (sin carga conocida: un toque).
-	var power := 0.0 if _net_charge_ms == 0 else _coin_power_since(_net_charge_ms)
-	_net_charge_ms = 0
-	throw_coin(aim, power, look)
-
-
-## Servidor: G mantenida (suelta una moneda a los pies y la empuja sola) o soltada.
-func _net_coin_push_key(held: bool) -> void:
+## Servidor: clic derecho mantenido (lanza una moneda fuerte hacia donde apunta y la empuja sola) o soltado.
+func _net_coin_shot_key(held: bool, aim: Vector3, look: Vector3) -> void:
 	if not held:
 		_end_coin_push()
 		return
 	var now := Time.get_ticks_msec()
 	if dead or now < _net_coin_ready_ms or steel_iron.auto_push != null:
 		return
+	if not aim.is_finite() or aim.length() > 5000.0 or not look.is_finite() or look.length() < 0.5:
+		return
 	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
-	_start_coin_push()
+	_start_coin_shot(aim, look)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _net_coin_charge() -> void:
-	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id and not dead:
-		_net_charge_ms = Time.get_ticks_msec()
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _net_throw(aim: Vector3, look: Vector3) -> void:
+func _net_gather() -> void:
 	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
-		_net_throw_coin(aim, look)
+		coin_alt_action()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _net_coin_push(held: bool) -> void:
+func _net_coin_shot(held: bool, aim: Vector3, look: Vector3) -> void:
 	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
-		_net_coin_push_key(held)
+		_net_coin_shot_key(held, aim, look)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -878,23 +863,43 @@ func _update_pewter_drag(rd: float) -> void:
 		allomancy.set_state(&"pewter", Allomancy.State.OFF)
 
 
-## G mantenida: suelta una moneda y la empuja con acero sin tocar el ratón (enciende el acero si
-## estaba apagado). Desde el suelo te lanza hacia arriba; cayendo, la moneda sale disparada
-## hacia abajo, llega antes al suelo y el empuje (avivado solo) te frena.
+## Espacio + WASD con el acero encendido: suelta una moneda detrás de ti (según la dirección) y la
+## empuja sola mientras mantengas Espacio: el empuje te lanza hacia arriba y hacia donde pulsas.
+## Cayendo, la moneda sale disparada hacia abajo, llega antes al suelo y el empuje te frena.
 ## Ayudas (ver _assist_coin_push): la moneda no sale volando más rápido que GUIDED_COIN_SPEED y
 ## se clava al tocar el suelo; con WASD dirigís el salto; se dibuja dónde caerías al soltar.
 const GUIDED_COIN_SPEED := 20.0
+## Cuánto detrás de ti (en m) cae la moneda del salto de acero: más atrás, salto más largo y menos alto.
+## Con 0.4 el empuje sale unos 65° hacia arriba: una parábola alta que luego avanza hacia donde pulsas.
+const STEEL_JUMP_BACK := 0.4
 
 
-func _start_coin_push() -> void:
+func _start_coin_push(back := Vector3.ZERO) -> void:
 	if dead:
 		return
-	var coin := drop_coin()
+	var coin := drop_coin(back)
 	if coin == null:
 		return
 	if not is_on_floor():
 		# Algo más rápida que tú, lo justo para ir por debajo (si va muy rápida, no da apoyo).
 		coin.linear_velocity = Vector3(velocity.x, minf(velocity.y, 0.0) - 8.0, velocity.z)
+	_engage_coin_push(coin)
+
+
+## Clic derecho: lanza una moneda a plena fuerza hacia donde apuntas y la empuja con acero mientras
+## mantengas el clic. Sirve para pegar con la moneda o, apuntando abajo, para frenar una caída.
+func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void:
+	if dead:
+		return
+	var coin := throw_coin(aim_target, aim_dir)
+	if coin == null:
+		return
+	_coin_shot = true
+	_engage_coin_push(coin)
+
+
+## Enciende el acero si hace falta y deja la moneda como objetivo del empuje automático.
+func _engage_coin_push(coin: RigidBody3D) -> void:
 	_coin_push_steel = allomancy.state[&"steel"]
 	# Cayendo rápido se aviva solo: quemando normal no alcanza para frenar una caída alta.
 	if velocity.y < -8.0:
@@ -904,12 +909,21 @@ func _start_coin_push() -> void:
 	steel_iron.auto_push = coin
 
 
+## Salto de acero: con el acero encendido y monedas en el monedero.
+func _can_steel_jump() -> bool:
+	return not dead and has_bag() and coins_held > 0 and allomancy.strength(&"steel") > 0.0 \
+			and steel_iron.auto_push == null and Time.get_ticks_msec() >= _net_coin_ready_ms
+
+
 func _end_coin_push() -> void:
+	_jump_push = false
+	_coin_shot = false
 	if steel_iron.auto_push == null:
 		return
 	var coin := steel_iron.auto_push as RigidBody3D
 	if is_instance_valid(coin):
 		coin.set_deferred(&"freeze", false)  # vuelve a ser una moneda suelta
+		coin.gravity_scale = 1.0
 	steel_iron.auto_push = null
 	allomancy.set_state(&"steel", _coin_push_steel)
 
@@ -924,7 +938,7 @@ func _assist_coin_push() -> bool:
 		if coin.get_contact_count() > 0:
 			coin.set_deferred(&"freeze", true)
 			coin.linear_velocity = Vector3.ZERO
-		elif coin.linear_velocity.length() > GUIDED_COIN_SPEED:
+		elif coin.linear_velocity.length() > GUIDED_COIN_SPEED and not _coin_shot:
 			coin.linear_velocity = coin.linear_velocity.normalized() * GUIDED_COIN_SPEED
 	return steel_iron.push_grip.active and steel_iron.push_grip.target == coin
 
@@ -1047,9 +1061,37 @@ func _physics_process(delta: float) -> void:
 	elif not is_on_floor():
 		# Durante el dash planeas un poco (cae más despacio).
 		velocity.y -= _gravity * rd * (0.35 if _dash_time > 0.0 else 1.0)
-	if _just(&"jump") and (is_on_floor() or _swimming) and not dead and not ui_open and _spend_stamina(JUMP_COST):
-		velocity.y = jump_velocity * jump_mult
-		rig.play_jump()
+	if _jump_push and not _held(&"jump"):
+		_end_coin_push()
+	if _just(&"jump") and not dead and not ui_open:
+		var now := Time.get_ticks_msec()
+		var double_tap := now - _last_jump_ms <= DOUBLE_TAP_MS
+		_last_jump_ms = now
+		var move := _move_vector()
+		# Con WASD: salto de acero hacia esa dirección; con doble Espacio sin dirección: recto hacia arriba.
+		if _can_steel_jump() and (move != Vector2.ZERO or double_tap):
+			# Moneda detrás de ti según WASD: el empuje te manda hacia arriba y hacia esa dirección.
+			var back := -(yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y))
+			back.y = 0.0
+			_net_coin_ready_ms = now + COIN_COOLDOWN_MS
+			_start_coin_push(back.normalized() * STEEL_JUMP_BACK)
+			_jump_push = steel_iron.auto_push != null
+			_last_jump_ms = -DOUBLE_TAP_MS * 10
+			# Acero + peltre en el doble Espacio: además del empuje de la moneda, el cuerpo reforzado da un impulso.
+			if double_tap and move == Vector2.ZERO and pewter > 0.0 and _jump_push:
+				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter
+				_air_jump_used = true
+		elif double_tap and not is_on_floor() and not _swimming and not _air_jump_used and _spend_stamina(JUMP_COST):
+			# Doble Espacio en el aire sin acero: segundo salto (el peltre lo hace mucho más fuerte).
+			_air_jump_used = true
+			_last_jump_ms = -DOUBLE_TAP_MS * 10
+			velocity.y = jump_velocity * (AIR_JUMP_BOOST + AIR_JUMP_PEWTER * pewter)
+			var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
+			velocity += push.normalized() * AIR_JUMP_FORWARD * (1.0 + 0.5 * pewter)
+			rig.play_jump()
+		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
+			velocity.y = jump_velocity * jump_mult
+			rig.play_jump()
 
 	var input := Vector2.ZERO if dead else _move_vector()
 	var dir := yaw_pivot.global_basis * Vector3(input.x, 0, input.y)
@@ -1069,6 +1111,7 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor():
 		_air_dash_used = false
 		_air_attack_used = false
+		_air_jump_used = false
 	if _dash_time > 0.0:
 		# El dash acelera rápido al principio y se suaviza al final.
 		var k := _dash_time / DASH_TIME
@@ -1281,7 +1324,6 @@ func _process(delta: float) -> void:
 		# Hacia abajo la cámara pasa del hombro al eje del personaje: la mira apunta justo bajo tus pies.
 		var down := clampf(inverse_lerp(deg_to_rad(40.0), deg_to_rad(80.0), -pitch_pivot.rotation.x), 0.0, 1.0)
 		spring_arm.position.x = lerpf(CAMERA_SHOULDER, 0.0, down)
-	coin_charge = _coin_power_since(_coin_charge_start_ms) if _coin_charge_start_ms != 0 and not dead else 0.0
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():
@@ -1513,9 +1555,6 @@ func _die() -> void:
 	health = 0.0
 	dead = true
 	allomancy.stop_all()
-	_coin_charge_start_ms = 0
-	_net_charge_ms = 0
-	coin_charge = 0.0
 	died.emit()
 	get_tree().create_timer(2.5, true, false, true).timeout.connect(func() -> void:
 		respawn()
@@ -1689,62 +1728,34 @@ func aim_point(max_dist := 150.0) -> Vector3:
 	return hit["position"] if hit else to
 
 
-## Lanza una moneda con `power` (0 a 1: lo que cargaste la tecla). Un toque (poca fuerza) la suelta a tus
-## pies, quieta respecto a ti; a plena fuerza llega lejos. Sale hacia donde apunta el ratón (la cámara),
-## sin importar hacia dónde mire el cuerpo: lejos, hacia el punto exacto que ves; cerca (por ejemplo
-## apuntando casi hacia abajo), en la dirección de la cámara, para que caiga junto a ti y no hacia el
-## costado de donde sale la mira. Con acero va empujada y más rápida (como una bala).
+## Lanza una moneda a plena fuerza justo hacia el centro de la mira: sale del pecho hacia el punto que
+## ve la cámara (el del mundo bajo el puntero, o uno lejano en esa dirección si no hay nada), en línea
+## recta (sin gravedad mientras vuela). Con acero va empujada y más rápida (como una bala).
 ## `aim_target` es el punto que ve la cámara y `aim_dir` su dirección (en red los manda el cliente).
-func throw_coin(aim_target := Vector3.INF, power := 1.0, aim_dir := Vector3.INF) -> void:
+func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3D:
 	if not _check_coins():
-		return
-	if power < COIN_DROP_POWER:
-		var dropped := drop_coin()
-		if dropped != null:
-			dropped.linear_velocity = velocity  # sigue contigo: queda justo debajo aunque te muevas
-		return
+		return null
 	var look := (aim_dir if aim_dir.is_finite() else aim_direction()).normalized()
-	var hit := aim_target if aim_target.is_finite() else aim_point()
 	var start := chest_position()
-	var to_hit := hit - start
-	var dir := look
-	if to_hit.length() > 0.01:
-		dir = look.slerp(to_hit.normalized(), smoothstep(COIN_NEAR_AIM, COIN_FAR_AIM, to_hit.length())).normalized()
-	# Mirando casi recto hacia abajo (el límite de la cámara es -85°) sale recta hacia abajo: cae justo debajo.
-	var below := asin(clampf(-dir.y, -1.0, 1.0))
-	dir = dir.slerp(Vector3.DOWN, clampf(inverse_lerp(deg_to_rad(COIN_DOWN_FROM), deg_to_rad(COIN_DOWN_FULL), below), 0.0, 1.0)).normalized()
-	var speed := power * (COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel"))
+	var hit := aim_target if aim_target.is_finite() else aim_point()
+	# Un punto detrás de ti (la cámara pegada a un muro): usa uno lejano en la dirección de la mira.
+	if (hit - start).dot(look) < 0.5:
+		hit = camera.global_position + look * 150.0
+	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
+	var dir := (hit - start).normalized()
 	var coin := _spawn_coin(start + dir * 0.35)
-	coin.linear_velocity = velocity + dir * speed
+	coin.gravity_scale = 0.0  # vuela en línea recta hasta el punto apuntado (se restaura en _end_coin_push)
+	coin.linear_velocity = dir * speed  # sin sumar tu velocidad: así la trayectoria pasa por la mira
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_throw()
-
-
-## Empieza a cargar el lanzamiento (tecla de moneda pulsada).
-func _begin_coin_charge() -> void:
-	if not dead:
-		_coin_charge_start_ms = Time.get_ticks_msec()
-
-
-## Termina la carga (tecla soltada). Devuelve la fuerza (0 a 1), o -1 si no estabas cargando.
-func _end_coin_charge() -> float:
-	if _coin_charge_start_ms == 0:
-		return -1.0
-	var power := _coin_power_since(_coin_charge_start_ms)
-	_coin_charge_start_ms = 0
-	coin_charge = 0.0
-	return power
-
-
-func _coin_power_since(start_ms: int) -> float:
-	return clampf(float(Time.get_ticks_msec() - start_ms) / COIN_CHARGE_MS, 0.0, 1.0)
+	return coin
 
 
 ## Suelta una moneda a los pies (null si no llevas la bolsa).
-func drop_coin() -> RigidBody3D:
+func drop_coin(offset := Vector3.ZERO) -> RigidBody3D:
 	if not _check_coins():
 		return null
-	return _spawn_coin(global_position + Vector3(0, 0.3, 0))
+	return _spawn_coin(global_position + Vector3(0, 0.3, 0) + offset)
 
 
 func _check_coins() -> bool:
@@ -1799,22 +1810,106 @@ func _start_protection() -> void:
 
 # ---------------------------------------------------------------- Monedero
 
+## Alt+E: con acero encendido lanza una ronda de monedas en todas las direcciones; si no, con hierro
+## encendido atrae las monedas cercanas (ver start_gather).
+func coin_alt_action() -> void:
+	if allomancy.strength(&"steel") > 0.0:
+		fire_coin_ring()
+	else:
+		start_gather()
+
+
+## Lanza COIN_RING_COUNT monedas a ras del pecho, repartidas a partes iguales alrededor tuyo (como las
+## porciones de una pizza), la primera hacia donde mira el cuerpo. Gastan una moneda cada una.
+func fire_coin_ring() -> void:
+	if dead or not _check_coins():
+		return
+	var now := Time.get_ticks_msec()
+	if now < _net_coin_ready_ms:
+		return
+	_net_coin_ready_ms = now + COIN_RING_COOLDOWN_MS
+	var front := -visual.global_basis.z
+	front.y = 0.0
+	front = front.normalized()
+	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
+	var start := chest_position()
+	for i in mini(COIN_RING_COUNT, coins_held):
+		var dir := front.rotated(Vector3.UP, TAU * i / COIN_RING_COUNT)
+		var coin := _spawn_coin(start + dir * 0.5)
+		coin.gravity_scale = 0.25  # casi a ras: cae despacio, no queda flotando
+		coin.linear_velocity = dir * speed
+	rig.play_throw()
+
+
+## Alt+E (con hierro encendido): todas las monedas sueltas cercanas vuelan hacia ti y se guardan al tocarte.
+func start_gather() -> void:
+	if dead or not has_bag():
+		return
+	if allomancy.strength(&"iron") <= 0.0:
+		notice.emit("Alt+E: con acero (1) lanza monedas en círculo, con hierro (2) las atrae")
+		return
+	_stop_gather()
+	var chest := chest_position()
+	for n in get_tree().get_nodes_in_group(&"coin"):
+		var coin := n as Coin
+		if coin != null and not coin.puppet and coin != steel_iron.auto_push \
+				and coin.global_position.distance_to(chest) <= GATHER_RADIUS:
+			_gathering.append(coin)
+	_gather_until_ms = Time.get_ticks_msec() + GATHER_MS
+	if _gathering.is_empty():
+		notice.emit("No hay monedas cerca")
+
+
+## Mantiene las monedas atraídas yendo hacia ti (sin gravedad); termina al pasar GATHER_MS.
+func _update_gather() -> void:
+	if _gathering.is_empty():
+		return
+	if Time.get_ticks_msec() > _gather_until_ms:
+		_stop_gather()
+		return
+	var chest := chest_position()
+	var alive: Array[Coin] = []
+	for coin in _gathering:
+		if not is_instance_valid(coin):
+			continue
+		alive.append(coin)
+		coin.set_deferred(&"freeze", false)
+		coin.gravity_scale = 0.0
+		coin.linear_velocity = (chest - coin.global_position).normalized() * GATHER_SPEED
+	_gathering = alive
+
+
+func _stop_gather() -> void:
+	for coin in _gathering:
+		if is_instance_valid(coin):
+			coin.gravity_scale = 1.0
+	_gathering.clear()
+
 ## Recoge las monedas quietas del suelo que tengas bajo los pies (solo con la bolsa puesta).
 ## No recoge las que estás usando (agarradas con acero/hierro) ni las que acabas de soltar o lanzar y
 ## todavía no se alejaron de ti (ver Coin.pickable): así la moneda que dejas bajo los pies para
 ## impulsarte no te la guardas de nuevo, y al caer de vuelta sí.
+## Las que traes con hierro (E sobre una moneda) o con Alt+E (ver start_gather) se guardan en cuanto te
+## tocan (a menos de COIN_CATCH_DIST del pecho), aunque vayan rápido.
 func _collect_coins() -> void:
 	if dead or coins_held >= COIN_MAX or not has_bag():
+		_stop_gather()
 		return
+	_update_gather()
+	var chest := chest_position()
 	for n in get_tree().get_nodes_in_group(&"coin"):
 		var coin := n as Coin
-		if coin == null or not coin.pickable(self):
+		if coin == null or coin.puppet or coin == steel_iron.auto_push:
 			continue
-		var rel := coin.global_position - global_position
-		if Vector2(rel.x, rel.z).length() > COIN_PICKUP_RADIUS or rel.y > 1.0 or rel.y < -0.4:
-			continue
-		if coin == steel_iron.auto_push or coin == steel_iron.push_grip.target or coin == steel_iron.pull_grip.target:
-			continue
+		if coin == steel_iron.pull_grip.target or _gathering.has(coin):
+			if coin.global_position.distance_to(chest) > COIN_CATCH_DIST:
+				continue
+		else:
+			if not coin.pickable(self) or coin == steel_iron.push_grip.target:
+				continue
+			var rel := coin.global_position - global_position
+			if Vector2(rel.x, rel.z).length() > COIN_PICKUP_RADIUS or rel.y > 1.0 or rel.y < -0.4:
+				continue
 		coins_held += 1
 		Fx.sparks(get_tree().current_scene, coin.global_position, Color(1.0, 0.8, 0.4))
 		if net_peer_id != 0:

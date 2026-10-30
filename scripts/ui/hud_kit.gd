@@ -10,12 +10,13 @@ const PANEL_TOP := Color(0.085, 0.09, 0.11, 0.94)
 const PANEL_BOTTOM := Color(0.03, 0.033, 0.045, 0.94)
 const DIM := Color(0.82, 0.84, 0.9, 0.8)
 const VIAL_COLORS: Array[Color] = [Color(0.9, 0.22, 0.22), Color(0.95, 0.78, 0.25), Color(0.3, 0.6, 1.0)]
-## Ancho de pantalla (px) a partir del cual el HUD se ve a tamaño completo; en ventanas más chicas se reduce.
+## Tamaño de ventana (px) de referencia, en el que el HUD se ve a tamaño natural (escala 1).
 const FULL_SIZE_WIDTH := 1650.0
 const FULL_SIZE_HEIGHT := 880.0
 
 
-## Escala del HUD según la ventana (1 = tamaño completo, nunca menos de la mitad).
+## Escala del HUD según la ventana (1 = tamaño completo, nunca menos de la mitad), por el ajuste
+## "Tamaño del HUD" de las opciones (que sí permite agrandarlo).
 static func ui_scale(ci: CanvasItem) -> float:
 	var vp := ci.get_viewport_rect().size
 	return clampf(minf(vp.x / FULL_SIZE_WIDTH, vp.y / FULL_SIZE_HEIGHT), 0.5, 1.0) * GameSettings.hud_scale
@@ -57,6 +58,30 @@ static func panel(ci: CanvasItem, rect: Rect2, cut := 10.0) -> void:
 	for corner: Vector2 in [Vector2(p.x + cut * 0.55, p.y + cut * 0.55), Vector2(e.x - cut * 0.55, p.y + cut * 0.55),
 			Vector2(e.x - cut * 0.55, e.y - cut * 0.55), Vector2(p.x + cut * 0.55, e.y - cut * 0.55)]:
 		diamond(ci, corner, 3.2, Color(GOLD_LIGHT, 0.9))
+
+
+## Ícono simple del arma (0 puños, 1 dagas, 2 espada) centrado en `c`; `u` es la escala (1 = ~40 px).
+static func weapon_icon(ci: CanvasItem, c: Vector2, u: float, weapon: int) -> void:
+	match weapon:
+		1:
+			for sgn in [-1.0, 1.0]:
+				var a := c + Vector2(sgn * -14, 16) * u
+				var b := c + Vector2(sgn * 12, -16) * u
+				ci.draw_line(a, b, GOLD_LIGHT, 4.0 * u, true)
+				var perp := (b - a).normalized().orthogonal() * 6.0 * u
+				var mid := a.lerp(b, 0.3)
+				ci.draw_line(mid - perp, mid + perp, GOLD, 3.0 * u, true)
+		2:
+			var a := c + Vector2(-15, 17) * u
+			var b := c + Vector2(15, -17) * u
+			ci.draw_line(a, b, GOLD_LIGHT, 5.0 * u, true)
+			var perp := (b - a).normalized().orthogonal() * 9.0 * u
+			var mid := a.lerp(b, 0.25)
+			ci.draw_line(mid - perp, mid + perp, GOLD, 4.0 * u, true)
+		_:
+			ci.draw_circle(c + Vector2(0, 3) * u, 11.0 * u, GOLD_LIGHT)
+			for i in 4:
+				ci.draw_circle(c + Vector2(-9 + i * 6.0, -7) * u, 4.0 * u, GOLD)
 
 
 static func key_box(ci: CanvasItem, font: Font, c: Vector2, text: String, bright: float) -> void:

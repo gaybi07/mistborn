@@ -3,6 +3,9 @@ extends CanvasLayer
 ## Menú de Esc: pausa el juego y muestra todas las habilidades y cómo se usan
 ## (pestañas Controles, Metales y Combate), más Reanudar y Reaparecer.
 
+## Tamaño del panel (px, antes de escalar): ancho para la tabla de controles y alto para las pestañas.
+const PANEL_SIZE := Vector2(980, 640)
+
 var player: Player
 
 var _root: Control
@@ -14,7 +17,7 @@ func _ready() -> void:
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.set_anchors_preset(Control.PRESET_TOP_LEFT)  # el tamaño lo fija _fit_to_window (la capa se escala)
 	_root.visible = false
 	_root.theme = HudKit.menu_theme()
 	add_child(_root)
@@ -27,7 +30,7 @@ func _ready() -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	panel.custom_minimum_size = Vector2(940, 620)
+	panel.custom_minimum_size = PANEL_SIZE
 	_root.add_child(panel)
 
 	var box := VBoxContainer.new()
@@ -51,6 +54,7 @@ func _ready() -> void:
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(tabs)
+	tabs.add_child(_page("Guía", GUIDE))
 	tabs.add_child(_page("Controles", CONTROLS))
 	tabs.add_child(_metals_page())
 	tabs.add_child(_page("Combate", COMBAT))
@@ -132,7 +136,7 @@ func _options_page() -> Control:
 			func(v: float) -> void:
 				GameSettings.fov = v
 				GameSettings.apply_to(player)))
-	page.add_child(_slider_row("Tamaño del HUD", 0.7, 1.3, 0.05, GameSettings.hud_scale, "×%.2f",
+	page.add_child(_slider_row("Tamaño del HUD", 0.7, 1.6, 0.05, GameSettings.hud_scale, "×%.2f",
 			func(v: float) -> void: GameSettings.hud_scale = v))
 	page.add_child(HudKit.section_label("Sonido y pantalla"))
 	page.add_child(_slider_row("Volumen", 0.0, 1.0, 0.05, GameSettings.volume, "%d %%",
@@ -210,7 +214,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+func _process(_delta: float) -> void:
+	if _root.visible:
+		_fit_to_window()
+
+
+## El menú crece con la ventana igual que el HUD (ver HudKit.ui_scale), sin pasarse de lo que cabe:
+## la capa se escala y la raíz ocupa toda la ventana en esas unidades.
+func _fit_to_window() -> void:
+	var vp := _root.get_viewport_rect().size
+	var s := minf(HudKit.ui_scale(_root), minf(vp.x / (PANEL_SIZE.x + 20.0), vp.y / (PANEL_SIZE.y + 20.0)))
+	scale = Vector2(s, s)
+	_root.position = Vector2.ZERO
+	_root.size = vp / s
+
+
 func open() -> void:
+	_fit_to_window()
 	_root.visible = true
 	var online := NetworkManager.is_online()
 	_restart_button.disabled = online
@@ -253,38 +273,88 @@ func _metals_page() -> Control:
 	return _page("Metales", "\n".join(lines))
 
 
+## Guía rápida: qué hace cada control según el metal que estés quemando. Sin metales ni monedas
+## solo valen los movimientos básicos; el resto se desbloquea al encender el metal.
+const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
+[b]1.[/b] Encendé un metal con su tecla (1 acero, 2 hierro, 3 peltre...). Tocar: encender o apagar. Doble toque y mantener: avivar.
+[b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (1) los empuja, hierro (2) tira de ellos.
+[b]3.[/b] Empujá con [b]G[/b], tirá con [b]E[/b] (o el clic derecho para tirar una moneda), anclá con [b]R[/b].
+[b]4.[/b] Combiná: con acero y monedas, [b]Espacio + WASD[/b] te lanza por el aire.
+
+[color=#f2dca8][b]SIN METALES[/b][/color]
+[b]Espacio, Espacio[/b] (en el aire): segundo salto, más alto y con empuje hacia donde pulsás. Uno por salto.
+[b]Shift[/b]: rodar · en el aire: dash. [b]Clic izquierdo[/b]: atacar. [b]Rueda[/b]: cambiar de arma.
+
+[color=#6b9bff][b]ACERO (1)[/b][/color]  empuja metales
+[b]Clic derecho[/b]: moneda fuerte hacia la mira (mantené para seguir empujándola). Apuntá abajo para frenar una caída.
+[b]G[/b]: empujar el metal que miras · [b]R[/b]: anclar el agarre.
+[b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (mantené Espacio para seguir empujando).
+[b]Espacio, Espacio[/b]: salto de acero recto hacia arriba.
+[b]Alt + E[/b]: lluvia de 8 monedas en círculo a tu alrededor. Cada una cuesta una moneda.
+
+[color=#a0a8c0][b]HIERRO (2)[/b][/color]  tira de metales
+[b]E[/b]: tirar del metal que miras. Si es una moneda, viene a vos y se guarda al tocarte.
+[b]Alt + E[/b]: atrae todas las monedas cercanas y las guarda en el monedero.
+Con un solo metal encendido (acero o hierro), E y G hacen lo mismo.
+
+[color=#f28c40][b]PELTRE (3)[/b][/color]  cuerpo reforzado
+Más velocidad, salto, daño y aguante. [b]Espacio, Espacio[/b] sin acero: segundo salto [b]mucho[/b] más fuerte.
+Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
+
+[color=#ffe9a8][b]ACERO + PELTRE[/b][/color]  el salto máximo
+[b]Espacio, Espacio[/b] sin dirección: salto de acero recto hacia arriba y, encima, el impulso del peltre. Gasta una moneda.
+[b]Espacio + WASD[/b]: el salto de acero direccional (el peltre ya suma por la mayor velocidad).
+
+[color=#fff2c8][b]ATIUM (4)[/b][/color]  esquivás solos los golpes y monedas de quien no lo quema.
+
+[color=#d9604d][b]CINC (Z)[/b][/color] y [color=#8fbf9a][b]LATÓN (B)[/b][/color]  alomancia emocional sobre el que tenés en la mira. Cinc lo enardece (ataca más, recibe más); latón lo aplaca (deja de atacar).
+[color=#c77a4d][b]COBRE (X)[/b][/color]  te vuelve invisible al bronce e inmune a cinc y latón.
+[color=#d9a65a][b]BRONCE (C)[/b][/color]  sentís a los alománticos que queman metales. [color=#d1dbb3][b]ESTAÑO (V)[/b][/color]  ves más lejos en la bruma y te recuperás antes de los golpes.
+
+[color=#f2dca8][b]TRUCOS[/b][/color]
+Sin la bolsa (F) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
+[b]Tab[/b] abre la rueda de metales (apuntá y soltá). [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
+
 const CONTROLS := """[table=2]
-[cell][b]WASD[/b][/cell][cell]Moverse[/cell]
+[cell][color=#f2dca8][b]MOVIMIENTO[/b][/color][/cell][cell][/cell]
+[cell][b]W A S D[/b][/cell][cell]Moverse[/cell]
 [cell][b]Espacio[/b][/cell][cell]Saltar[/cell]
+[cell][b]Espacio + WASD[/b][/cell][cell]Con el acero encendido y monedas: salto de acero en esa dirección, en arco hacia arriba. Mantené Espacio para seguir empujando[/cell]
+[cell][b]Espacio, Espacio[/b][/cell][cell]Sin metales: segundo salto en el aire, más alto (con peltre, mucho más). Con acero y monedas: salto de acero recto hacia arriba (con peltre, además un impulso extra)[/cell]
 [cell][b]Shift[/b][/cell][cell]Rodar · en el aire: dash · justo antes de aterrizar: amortigua la caída[/cell]
-[cell][b]1 2 3 4[/b][/cell][cell]Acero, hierro, peltre, atium[/cell]
-[cell][b]Z X C V B[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón[/cell]
+[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
+[cell][color=#f2dca8][b]COMBATE[/b][/color][/cell][cell][/cell]
+[cell][b]Clic izquierdo[/b][/cell][cell]Atacar con el arma elegida (con puños, desenvaina las dagas sola si las tenés) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
+[cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
+[cell][color=#f2dca8][b]METALES[/b][/color][/cell][cell][/cell]
+[cell][b]1 2 3 4[/b][/cell][cell]Acero, hierro, peltre, atium (tocar: encender o apagar · doble toque y mantener: avivar)[/cell]
+[cell][b]Z X C V B[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón (igual que los anteriores)[/cell]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
 [cell][b]Tab[/b] (mantener)[/cell][cell]Rueda de metales: apuntá con el ratón y soltá Tab; clic = avivar[/cell]
-[cell][b]Clic izquierdo[/b][/cell][cell]Tirar (hierro) del metal que miras. Con un solo metal encendido, cualquier clic lo usa. Sin nada a la vista, agarra el metal que más ayuda a moverte hacia donde vas[/cell]
-[cell][b]Clic derecho[/b][/cell][cell]Empujar (acero) el metal que miras. Con un solo metal encendido, cualquier clic lo usa[/cell]
-[cell][b]R[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener el clic). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
-[cell][b]Q[/b][/cell][cell]Lanzar moneda hacia donde apunta el ratón (no donde mira el cuerpo). Un toque la suelta a tus pies; mantenida carga la fuerza (medidor en la mira, con tope). Con acero va más rápida (avivado, aún más)[/cell]
-[cell][b]G[/b] (mantener)[/cell][cell]Moneda a los pies y empuje: salto alto o frenar una caída. Con WASD dirigís el salto; se dibuja dónde caerías[/cell]
+[cell][b]Clic derecho[/b][/cell][cell]Lanza una moneda fuerte justo hacia la mira y la empuja con acero mientras mantengas el clic: pega con la moneda o, apuntando abajo, frena una caída[/cell]
+[cell][b]E[/b][/cell][cell]Tirar (hierro) del metal que miras; donde hay algo que usar (puerta, armario) abre en vez de tirar; una moneda viene a vos y se guarda al tocarte. Con un solo metal encendido, E o G lo usan. Sin nada a la vista, agarra el que más ayuda a moverte hacia donde vas[/cell]
+[cell][b]G[/b][/cell][cell]Empujar (acero) el metal que miras[/cell]
+[cell][b]Alt + E[/b][/cell][cell]Con acero encendido: lanza 8 monedas en círculo a tu alrededor. Con hierro (sin acero): atrae todas las monedas cercanas y las guarda en el monedero[/cell]
+[cell][b]R[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
+[cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]
 [cell][b]F[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
-[cell][b]E[/b][/cell][cell]Usar lo que tengas al lado (puertas, armarios) o atacar (desenvaina las dagas sola) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
-[cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
+[cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
 [cell][b]I[/b][/cell][cell]Inventario: capa, ropa, botas, dagas, espada y frascos. Doble clic para equipar o quitar[/cell]
-[cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
-[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
+[cell][color=#f2dca8][b]JUEGO[/b][/color][/cell][cell][/cell]
+[cell][b]Esc[/b][/cell][cell]Este menú[/cell]
 [cell][b]F1 / F2[/b][/cell][cell]Ciudad / arena[/cell]
 [cell][b]F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
 [/table]"""
 
-const COMBAT := """[b]Combos[/b] (E seguido, a tiempo):
+const COMBAT := """[b]Combos[/b] (clic izquierdo seguido, a tiempo):
   Puños: directo, patada, remate.
   Dagas: cuatro golpes distintos; el cuarto es un tajo doble más fuerte que empuja lejos.
   Espada: dos tajos y un remate fuerte que empuja lejos.
   El remate va con una estocada hacia delante.
 
-[b]Golpe aéreo[/b]: E en el aire. Un tajo giratorio que pega alrededor tuyo y te da un salto extra (uno por salto).
+[b]Golpe aéreo[/b]: clic izquierdo en el aire. Un tajo giratorio que pega alrededor tuyo y te da un salto extra (uno por salto).
 
 [b]Dash[/b]: Shift en el aire, uno por salto.
 

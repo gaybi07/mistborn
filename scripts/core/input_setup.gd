@@ -23,23 +23,29 @@ func _enter_tree() -> void:
 	_key(&"move_left", KEY_A)
 	_key(&"move_right", KEY_D)
 	_key(&"jump", KEY_SPACE)
-	_key(&"throw_coin", KEY_Q)
-	_key(&"drop_coin", KEY_G)
 	_key(&"stop_burning", KEY_N)
 	_key(&"anchor", KEY_R)
 	_key(&"drop_bag", KEY_F)
 	_wheel(&"weapon_cycle")
-	_key(&"attack", KEY_E)
+	_mouse(&"attack", MOUSE_BUTTON_LEFT)
+	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)
 	_key(&"roll", KEY_SHIFT)
 	_key(&"hood", KEY_H)
 	_key(&"inventory", KEY_I)
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)
-	# Con acero y hierro encendidos: clic izquierdo tira, clic derecho empuja.
-	# Con uno solo, cualquiera de los dos clics lo usa (ver SteelIron).
-	_mouse(&"pull", MOUSE_BUTTON_LEFT)
-	_mouse(&"push", MOUSE_BUTTON_RIGHT)
+	# Con acero y hierro encendidos: E tira, G empuja el metal que miras.
+	# Con uno solo, cualquiera de las dos teclas lo usa (ver SteelIron).
+	_key(&"pull", KEY_E)
+	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, E no tira (ver SteelIron)
+	# Alt+E: atrae todas las monedas cercanas al monedero (E sola sigue siendo tirar).
+	_ensure(&"gather_coins")
+	var gather := InputEventKey.new()
+	gather.physical_keycode = KEY_E
+	gather.alt_pressed = true
+	InputMap.action_add_event(&"gather_coins", gather)
+	_key(&"push", KEY_G)
 
 
 func _ensure(action: StringName) -> void:
