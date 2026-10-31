@@ -227,17 +227,19 @@ func _generate() -> void:
 	var rock_mesh := rock.commit()
 	var mesh := _b.commit()
 	_cache = {"rock": rock_mesh, "rock_shape": rock_mesh.create_trimesh_shape(),
-			"citadel": mesh, "citadel_shape": mesh.create_trimesh_shape(), "deco": _d.commit(), "anchors": _anchors, "props": _props}
+			"citadel": mesh, "citadel_shape": ModelKit.solid_trimesh(mesh), "deco": _d.commit(), "anchors": _anchors, "props": _props}
 
 
 # ------------------------------------------------------------------ Meseta
 
 func _plateau(b: MeshBuilder) -> void:
 	var step := 1.5
-	var x0 := -HALF.x - 7.0 - 46.0
-	var z0 := -HALF.y - 9.0 - 46.0
+	# Un margen de sobra alrededor del cordón: el terreno de la ciudad se agujerea por celdas de 2 m
+	# donde hay roca, y la malla tiene que tapar todo ese agujero.
+	var x0 := -HALF.x - 7.0 - 56.0
+	var z0 := -HALF.y - 9.0 - 56.0
 	var nx := int(-x0 * 2.0 / step)
-	var nz := int((TOP_SOUTH + RAMP_LEN + 6.0 - z0) / step)
+	var nz := int((TOP_SOUTH + RAMP_LEN + 16.0 - z0) / step)
 	var pts := []
 	for j in nz + 1:
 		var row := []
@@ -246,7 +248,6 @@ func _plateau(b: MeshBuilder) -> void:
 			var h := ground(p)
 			row.append(Vector3(p.x, h if h > 0.0 else -0.4, p.y))
 		pts.append(row)
-	var below := Vector3(0, -500, 0)
 	# Sin roca encima de la escalera que sube del Subnivel 1 a la planta baja, ni en las bocas de
 	# los túneles (la pared del tajo los cruzaría; ahí va el portal de piedra de KredikLevel._tunnel).
 	var holes: Array[Rect2] = []
@@ -254,7 +255,7 @@ func _plateau(b: MeshBuilder) -> void:
 		if f[1] == "ground":
 			holes.append((KredikLevel.stair_frame(KredikPlan.rect(f[2]))["hole"] as Rect2).grow(0.2))
 	for t: Array in KredikLevel.tunnels():
-		holes.append(Rect2(cut_x() - 0.5, t[1] - 2.5, 4.0, t[2] - t[1] + 5.0))
+		holes.append(Rect2(cut_x() + 1.0, t[1] - 2.5, 2.5, t[2] - t[1] + 5.0))
 	for j in nz:
 		for i in nx:
 			var quad := Rect2(Vector2(pts[j][i].x, pts[j][i].z), Vector2(step, step))
@@ -262,7 +263,10 @@ func _plateau(b: MeshBuilder) -> void:
 			for hole in holes:
 				open = open or hole.intersects(quad)
 			if not open:
-				b.quad("rock", pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], below)
+				# Cara hacia arriba: se orienta con un punto justo debajo (con uno fijo bajo el centro, las
+				# laderas casi verticales que miran a la meseta quedaban al revés: invisibles y sin suelo).
+				var under: Vector3 = (pts[j][i] + pts[j + 1][i + 1]) / 2.0 - Vector3(0, 50, 0)
+				b.quad("rock", pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], under)
 	# Agujas de roca por el cordón (como en la ilustración).
 	for k in 260:
 		var side := _rng.randi() % 4

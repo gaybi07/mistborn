@@ -108,7 +108,7 @@ func _add_parapets() -> void:
 					if (i + j) % 2 == 0:
 						mb.abox("ks_wall", p + Vector3(0, 1.4, 0), size * Vector3(0.6, 0, 0.6).max(Vector3(0.5, 0, 0.5)) + Vector3(0, 0.8, 0))
 		var mesh := mb.commit()
-		_parapets = [mesh, mesh.create_trimesh_shape()]
+		_parapets = [mesh, ModelKit.solid_trimesh(mesh)]
 	var body := StaticBody3D.new()
 	body.collision_layer = Props.LAYER_WORLD
 	body.collision_mask = 0

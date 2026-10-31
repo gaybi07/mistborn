@@ -27,16 +27,17 @@ func add(model_path: String, pos: Vector3, yaw: float, scale: float, color := Co
 	var rot := Basis(Vector3.UP, yaw)
 	_items[zone].append([Transform3D(rot.scaled(Vector3.ONE * scale), pos), color])
 	if collide:
-		var col := CollisionShape3D.new()
-		col.shape = ModelKit.shape(model_path, scale)
-		col.transform = Transform3D(rot, pos)
 		var key := Vector2i(floori(pos.x / CHUNK), floori(pos.z / CHUNK))
 		if not _bodies.has(key):
 			var body := StaticBody3D.new()
 			body.collision_layer = Props.LAYER_WORLD
 			body.collision_mask = 0
 			_bodies[key] = body
-		_bodies[key].add_child(col)
+		for shp: Shape3D in ModelKit.shapes(model_path, scale):
+			var col := CollisionShape3D.new()
+			col.shape = shp
+			col.transform = Transform3D(rot, pos)
+			_bodies[key].add_child(col)
 
 
 func finalize() -> void:

@@ -667,6 +667,26 @@ func _find_ledge(moving: Vector3) -> Dictionary:
 		var up := PhysicsRayQueryParameters3D.create(top + Vector3.UP * 0.1, top + Vector3.UP * 1.9, Props.LAYER_WORLD, [get_rid()])
 		if not space.intersect_ray(up).is_empty():
 			continue
+		# Que se pueda llegar: nada entre tu cabeza y el borde (si no, el "borde" es el piso de arriba
+		# visto a través del techo, o lo de arriba de un dintel, y al trepar atravesarías la pared).
+		var head := global_position + Vector3.UP * 1.7
+		var lip := top + Vector3.UP * 0.4 + nh * 0.25
+		var corner := Vector3(head.x, lip.y, head.z)
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(head, corner, Props.LAYER_WORLD, [get_rid()])).is_empty():
+			continue
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(corner, lip, Props.LAYER_WORLD, [get_rid()])).is_empty():
+			continue
+		# Y que quepas parado arriba.
+		var q := PhysicsShapeQueryParameters3D.new()
+		var cap := CapsuleShape3D.new()
+		cap.radius = 0.35
+		cap.height = 1.7
+		q.shape = cap
+		q.transform = Transform3D(Basis(), top + Vector3.UP * 0.95 - nh * 0.45)
+		q.collision_mask = Props.LAYER_WORLD
+		q.exclude = [get_rid()]
+		if not space.intersect_shape(q, 1).is_empty():
+			continue
 		return {"top": top, "normal": nh, "wall": p}
 	return {}
 

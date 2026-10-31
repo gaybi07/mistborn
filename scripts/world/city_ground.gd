@@ -107,7 +107,7 @@ static func _quays(mats: Dictionary) -> StaticBody3D:
 	body.collision_mask = 0
 	body.set_meta(&"on_ground", true)
 	var col := CollisionShape3D.new()
-	col.shape = mesh.create_trimesh_shape()
+	col.shape = ModelKit.solid_trimesh(mesh)
 	body.add_child(col)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh

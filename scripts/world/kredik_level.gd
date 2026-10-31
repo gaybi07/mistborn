@@ -110,7 +110,7 @@ func _ready() -> void:
 		else:
 			_build()
 		var solid := _mb.commit(SOLID_KEYS)
-		_cache[level] = {"mesh": solid, "shape": solid.create_trimesh_shape(), "deco": _deco.commit(),
+		_cache[level] = {"mesh": solid, "shape": ModelKit.solid_trimesh(solid), "deco": _deco.commit(),
 				"lights": _lights, "anchors": _anchors, "braziers": _braziers,
 				"rooms": _rooms, "grid": _grid, "props": _props, "ramps": _ramps}
 	var c: Dictionary = _cache[level]
