@@ -162,4 +162,4 @@ Total: 51 habilidades base + 36 combinadas = 87. Se propone implementarlas por f
 - Pendientes (se ven como "próximamente"): Escudo metálico, Onda de acero (el empuje en área), Desarme y Furia.
 - Las anclas fijas pesan "infinito": el hierro solo tira de ellas desde el nivel 16 (Balanceo) y el acero las empuja desde el 20.
 - Teclas que cambiaron: anclar pasó a `Y` y la bolsa a `B`, porque `R` y `F` son ranuras por defecto.
-- En red siguen los gestos viejos (E tirar, G empujar, Alt+E monedas) hasta la fase 5.
+- En red (fase 5): el cliente manda su nivel y el de cada metal al servidor, que lo acota a lo que pagan sus puntos y lo guarda por jugador. Las ranuras se envían como habilidad + objetivo y el servidor comprueba que esté desbloqueada. Quedan fuera por ahora la XP en red (matar a otro jugador no da experiencia) y el guardado en el servidor: cada cliente guarda su propio archivo.

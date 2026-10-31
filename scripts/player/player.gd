@@ -161,6 +161,9 @@ const COIN_MAX := 9999
 const COIN_PICKUP_RADIUS := 0.8
 var coins_held := COIN_START
 var net_coins := COIN_START  # replicado en red
+## Servidor: nivel de cada metal que mandó el cliente de este jugador (ver _net_progress); acero y hierro, 1.
+var net_levels: Dictionary = {&"steel": 1, &"iron": 1}
+var _sent_progress_rev := -1
 ## Cámara: el hombro de la cámara al lado; al mirar hacia abajo pasa al eje del personaje (apunta bajo tus pies).
 const CAMERA_SHOULDER := 0.55
 ## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
@@ -278,10 +281,9 @@ func _ready() -> void:
 	allomancy = Allomancy.new()
 	allomancy.name = "Allomancy"
 	add_child(allomancy)
-	if net_peer_id == 0:  # en red el árbol llega con el servidor (fase 5)
-		allomancy.can_burn = func(metal: StringName) -> bool: return Progression.metal_level(metal) > 0
-		allomancy.blocked.connect(func(metal: StringName) -> void:
-			notice.emit("%s bloqueado: gasta un punto en el árbol (K)" % Allomancy.METALS[metal]["label"]))
+	allomancy.can_burn = func(metal: StringName) -> bool: return metal_level(metal) > 0
+	allomancy.blocked.connect(func(metal: StringName) -> void:
+		notice.emit("%s bloqueado: gasta un punto en el árbol (K)" % Allomancy.METALS[metal]["label"]))
 	steel_iron = SteelIron.new()
 	steel_iron.name = "SteelIron"
 	steel_iron.player = self
@@ -522,6 +524,8 @@ func _move_vector() -> Vector2:
 
 ## En red se mira, rueda y golpea; metales y armas llegan en etapas posteriores.
 func _networked_input(event: InputEvent) -> void:
+	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _net_slot_key(event):
+		return
 	if _look(event):
 		return
 	if event.is_action_pressed(&"roll"):
@@ -535,14 +539,6 @@ func _networked_input(event: InputEvent) -> void:
 			_net_metal_key(event.physical_keycode, down)
 		else:
 			_net_metal.rpc_id(1, event.physical_keycode, down)
-	elif event.is_action_pressed(&"gather_coins"):  # antes que pull: Alt+E también es E
-		if multiplayer.is_server():
-			coin_alt_action()
-		else:
-			_net_gather.rpc_id(1)
-	elif (event.is_action(&"pull") or event.is_action(&"push")) and not event.is_echo():
-		if not (event is InputEventKey and event.alt_pressed):
-			_net_click(event)
 	elif event.is_action_pressed(&"anchor"):
 		steel_iron.anchor_pressed()
 	elif event.is_action_pressed(&"weapon_cycle"):
@@ -563,23 +559,109 @@ func _networked_input(event: InputEvent) -> void:
 			_net_attack.rpc_id(1)
 
 
-## Clic de tirar/empujar: pide al servidor agarrar (con el ancla que tienes en la mira) o soltar.
-## Igual que en el juego individual: con un solo metal encendido sirven los dos clics.
-func _net_click(event: InputEvent) -> void:
-	var pressed := event.is_pressed()
-	for is_push in [true, false]:
-		var metal: StringName = &"steel" if is_push else &"iron"
-		var other: StringName = &"iron" if is_push else &"steel"
-		var mine := event.is_action(&"push" if is_push else &"pull")
-		if not allomancy.is_burning(metal) or not (mine or not allomancy.is_burning(other)):
-			continue
-		var id := 0
-		if pressed:
-			# Igual que en individual: lo que miras, lo que tienes
-			# bajo los pies o lo que más ayuda a moverte; el servidor valida cualquiera de ellos.
-			var t := steel_iron.click_target(is_push, chest_position())
-			id = get_parent().target_id(t)
-		steel_iron.net_request(is_push, pressed, id)
+## Nivel de un metal para este jugador: el de su propio árbol si lo manejas tú; en el servidor, el que mandó
+## ese cliente (ver _net_progress), ya acotado a lo que sus puntos pagan.
+func metal_level(metal: StringName) -> int:
+	if net_peer_id != 0 and not is_local_player():
+		return int(net_levels.get(metal, 0))
+	return Progression.metal_level(metal)
+
+
+func skill_unlocked(id: StringName) -> bool:
+	var s := SkillTree.find(id)
+	return not s.is_empty() and metal_level(s["metal"]) >= int(s["level"])
+
+
+## Cliente: tecla de una ranura. Manda al servidor la habilidad (y el metal que miras si es un tirón o empuje).
+func _net_slot_key(key: InputEventKey) -> bool:
+	var slot := Progression.slot_for_key(key.physical_keycode)
+	if slot < 0:
+		return false
+	var skill := Progression.slot_skills[slot]
+	var id := 0
+	if key.pressed:
+		if ui_open or dead:
+			return false
+		if key.physical_keycode == KEY_E and interactable != null and interactable.prompt != "":
+			return false
+		if skill == &"iron_pull" or skill == &"steel_light_push":
+			id = get_parent().target_id(steel_iron.click_target(skill == &"steel_light_push", chest_position()))
+	if multiplayer.is_server():
+		_net_skill_run(skill, key.pressed, id)
+	else:
+		_net_skill.rpc_id(1, skill, key.pressed, id)
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_skill(skill: StringName, pressed: bool, target_id: int) -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		_net_skill_run(skill, pressed, target_id)
+
+
+## Servidor: activa o termina una habilidad de ranura si ese jugador la tiene desbloqueada.
+func _net_skill_run(skill: StringName, pressed: bool, target_id: int) -> void:
+	if dead or not SkillTree.is_assignable(skill) or not skill_unlocked(skill):
+		if not pressed:
+			_net_release_skill(skill)
+		return
+	match skill:
+		&"iron_pull", &"steel_light_push":
+			var is_push := skill == &"steel_light_push"
+			var metal: StringName = &"steel" if is_push else &"iron"
+			if pressed:
+				_skill_burn_on(metal)
+				steel_iron.net_grip_request(is_push, true, target_id)
+			else:
+				_net_release_skill(skill)
+		&"steel_coin_ring":
+			if pressed:
+				_tap_skill(&"steel", fire_coin_ring, SKILL_TAP_BURN_MS)
+		&"iron_coin_magnet":
+			if pressed:
+				_tap_skill(&"iron", start_gather, GATHER_MS + 200)
+
+
+func _net_release_skill(skill: StringName) -> void:
+	if skill == &"iron_pull" or skill == &"steel_light_push":
+		var is_push := skill == &"steel_light_push"
+		steel_iron.net_grip_request(is_push, false, 0)
+		_skill_burn_off(&"steel" if is_push else &"iron")
+
+
+## Cliente: manda su progreso (nivel y nivel de cada metal) para que el servidor sepa qué puede usar.
+func _send_progress() -> void:
+	_sent_progress_rev = Progression.revision
+	var levels := PackedInt32Array()
+	for m: StringName in Allomancy.METALS:
+		levels.append(Progression.metal_level(m))
+	_net_progress.rpc_id(1, Progression.level, levels)
+
+
+## Servidor: guarda el progreso de ese cliente, acotado: sin más niveles de los que pagan sus puntos
+## (si se pasa, queda con los niveles gratis).
+@rpc("any_peer", "call_remote", "reliable")
+func _net_progress(level: int, levels: PackedInt32Array) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != net_peer_id:
+		return
+	var metals := Allomancy.METALS.keys()
+	if levels.size() != metals.size():
+		return
+	var spent := 0
+	var checked := {}
+	for i in metals.size():
+		var m: StringName = metals[i]
+		var free := 1 if m in Progression.FREE_METALS else 0
+		var lvl := clampi(levels[i], free, Progression.metal_cap(m))
+		checked[m] = lvl
+		spent += (lvl - free) * Progression.point_cost(m)
+	if spent > clampi(level, 1, Progression.MAX_LEVEL) - 1:
+		for m: StringName in metals:
+			checked[m] = 1 if m in Progression.FREE_METALS else 0
+	net_levels = checked
+	for m: StringName in metals:
+		if checked[m] <= 0 and allomancy.is_burning(m):
+			allomancy.set_state(m, Allomancy.State.OFF)
 
 
 func _is_net_client() -> bool:
@@ -610,7 +692,7 @@ func server_attack() -> void:
 		to.y = 0.0
 		if to.length() > NET_ATTACK["reach"] or forward.angle_to(to) > NET_ATTACK["arc"]:
 			continue
-		var pewter := allomancy.strength(&"pewter")
+		var pewter := pewter_for(&"pewter_strike")
 		var damage: float = NET_ATTACK["damage"] * (1.0 + 0.75 * pewter) * (0.6 if _pewter_drag > 0.0 else 1.0)
 		var knockback: float = NET_ATTACK["knockback"] * (1.0 + pewter)
 		target._receive_net_hit(to.normalized() * knockback, damage, net_peer_id)
@@ -620,7 +702,7 @@ func server_attack() -> void:
 func _receive_net_hit(impulse: Vector3, damage: float, attacker_id: int) -> void:
 	net_last_attacker = attacker_id
 	# El peltre endurece el cuerpo: menos empujón y menos daño (igual que en take_hit).
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_endurance")
 	impulse /= 1.0 + 0.5 * pewter
 	damage /= 1.0 + 0.6 * pewter
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
@@ -670,6 +752,9 @@ func _setup_network() -> void:
 	# lo ven siempre, si no no pueden enviarle RPCs al servidor.
 	sync.public_visibility = not multiplayer.is_server()
 	add_child(sync)
+	if is_local_player() and not multiplayer.is_server():
+		Progression.load_progress()
+		_send_progress()
 	if multiplayer.is_server():
 		_start_protection()  # también al entrar al duelo
 
@@ -678,6 +763,8 @@ func _setup_network() -> void:
 func _send_net_input() -> void:
 	if not is_local_player():
 		return
+	if Progression.revision != _sent_progress_rev:
+		_send_progress()  # subiste un metal o reasignaste puntos
 	var mask := 0
 	for i in NET_ACTIONS.size():
 		if Input.is_action_pressed(NET_ACTIONS[i]):
@@ -756,12 +843,6 @@ func _net_coin_shot_key(held: bool, aim: Vector3, look: Vector3) -> void:
 		return
 	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
 	_start_coin_shot(aim, look)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _net_gather() -> void:
-	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
-		coin_alt_action()
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -868,10 +949,9 @@ func is_rioted() -> bool:
 
 ## Segundos que le quedan al arrastre de peltre (0 si no lo tienes).
 ## Fuerza del peltre para el efecto de una habilidad: si todavía no la tienes (según el nivel de peltre), 0.
-## En red vale todo hasta que el servidor use el árbol (fase 5).
 func pewter_for(skill: StringName) -> float:
 	var p := allomancy.strength(&"pewter")
-	if p <= 0.0 or net_peer_id != 0 or SkillTree.is_unlocked(skill):
+	if p <= 0.0 or skill_unlocked(skill):
 		return p
 	return 0.0
 
@@ -1975,15 +2055,6 @@ func _start_protection() -> void:
 
 
 # ---------------------------------------------------------------- Monedero
-
-## Alt+E: con acero encendido lanza una ronda de monedas en todas las direcciones; si no, con hierro
-## encendido atrae las monedas cercanas (ver start_gather).
-func coin_alt_action() -> void:
-	if allomancy.strength(&"steel") > 0.0:
-		fire_coin_ring()
-	else:
-		start_gather()
-
 
 ## Lanza COIN_RING_COUNT monedas a ras del pecho, repartidas a partes iguales alrededor tuyo (como las
 ## porciones de una pizza), la primera hacia donde mira el cuerpo. Gastan una moneda cada una.

@@ -167,7 +167,7 @@ func _grip_input(g: Grip, just: bool) -> bool:
 ## Masa máxima (kg) que este agarre puede mover según el nivel de su metal. Lo que no se mueve (anclas) cuenta
 ## como infinito: con hierro hace falta Balanceo (nivel 16) y con acero llegar al nivel 20.
 func mass_limit(g: Grip) -> float:
-	var level := Progression.metal_level(g.metal)
+	var level := player.metal_level(g.metal)
 	if g == pull_grip and level >= 16:
 		return INF
 	return SkillTree.push_mass_limit(level)
@@ -175,8 +175,6 @@ func mass_limit(g: Grip) -> float:
 
 ## Si el agarre puede con ese objetivo; si no, avisa por qué.
 func _can_grip(g: Grip, t: Node3D) -> bool:
-	if player.net_peer_id != 0:
-		return true  # en red las habilidades llegan con el servidor
 	var mass := Metals.movable_mass(t)
 	var limit := mass_limit(g)
 	if mass <= 0.0:
@@ -350,6 +348,8 @@ func net_grip_request(is_push: bool, pressed: bool, id: int) -> void:
 	var origin := player.chest_position()
 	_reach = _net_reach()
 	if center_of(t).distance_to(origin) > effective_reach(t) or not _net_line_of_sight(origin, t):
+		return
+	if not _can_grip(g, t):
 		return
 	g.target = t
 	g.active = true

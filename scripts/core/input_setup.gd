@@ -38,16 +38,7 @@ func _enter_tree() -> void:
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)
-	# Solo en red (hasta que el servidor use las ranuras): E tira, G empuja el metal que miras y Alt+E
-	# lanza o atrae monedas. En partida individual esas habilidades van en las ranuras (ver Progression).
-	_key(&"pull", KEY_E)
 	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, la ranura en E no se activa
-	_ensure(&"gather_coins")
-	var gather := InputEventKey.new()
-	gather.physical_keycode = KEY_E
-	gather.alt_pressed = true
-	InputMap.action_add_event(&"gather_coins", gather)
-	_key(&"push", KEY_G)
 
 
 func _ensure(action: StringName) -> void:

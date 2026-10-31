@@ -22,6 +22,8 @@ static var slot_keys: Array[int] = []
 ## Nivel de cada metal (0 = todavía no aprendido).
 static var metal_levels: Dictionary = {}
 static var _loaded := false
+## Sube cada vez que el progreso cambia (los clientes lo usan para reenviarlo al servidor).
+static var revision := 0
 
 
 static func _static_init() -> void:
@@ -182,6 +184,7 @@ static func load_progress() -> void:
 
 
 static func save() -> void:
+	revision += 1
 	var cfg := ConfigFile.new()
 	cfg.set_value("jugador", "nivel", level)
 	cfg.set_value("jugador", "xp", xp)
