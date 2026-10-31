@@ -16,15 +16,16 @@ const PUSH_MASS_BY_LEVEL := [[20, INF], [16, 100.0], [12, 25.0], [8, 5.0], [4, 1
 ## id, metal, nivel de metal, tipo y nombre.
 const SKILLS := [
 	{"id": &"steel_combat_coin", "metal": &"steel", "level": 1, "kind": Kind.ACTIVE, "name": "Moneda de combate"},
+	{"id": &"steel_coin_burst", "metal": &"steel", "level": 2, "kind": Kind.ACTIVE, "name": "Ráfaga de monedas"},
 	{"id": &"steel_light_push", "metal": &"steel", "level": 4, "kind": Kind.ACTIVE, "name": "Empuje ligero"},
-	{"id": &"steel_coin_ring", "metal": &"steel", "level": 8, "kind": Kind.ACTIVE, "name": "Anillo de monedas"},
-	{"id": &"steel_shield", "metal": &"steel", "level": 12, "kind": Kind.ACTIVE, "name": "Escudo metálico"},
+	{"id": &"steel_coin_shield", "metal": &"steel", "level": 8, "kind": Kind.ACTIVE, "name": "Escudo de monedas"},
 	{"id": &"steel_heavy_push", "metal": &"steel", "level": 16, "kind": Kind.PASSIVE, "name": "Empuje pesado"},
 	{"id": &"steel_wave", "metal": &"steel", "level": 20, "kind": Kind.PASSIVE, "name": "Onda de acero"},
 	{"id": &"iron_pull", "metal": &"iron", "level": 1, "kind": Kind.ACTIVE, "name": "Tirón básico"},
 	{"id": &"iron_light_pull", "metal": &"iron", "level": 4, "kind": Kind.PASSIVE, "name": "Tirón ligero"},
-	{"id": &"iron_coin_magnet", "metal": &"iron", "level": 8, "kind": Kind.ACTIVE, "name": "Imán de monedas"},
-	{"id": &"iron_disarm", "metal": &"iron", "level": 12, "kind": Kind.ACTIVE, "name": "Desarme"},
+	{"id": &"iron_coin_magnet", "metal": &"iron", "level": 2, "kind": Kind.ACTIVE, "name": "Imán de monedas"},
+	{"id": &"iron_coin_anchor", "metal": &"iron", "level": 8, "kind": Kind.ACTIVE, "name": "Anclaje de monedas"},
+	{"id": &"iron_weapon_pull", "metal": &"iron", "level": 12, "kind": Kind.ACTIVE, "name": "Tirón de armas"},
 	{"id": &"iron_swing", "metal": &"iron", "level": 16, "kind": Kind.PASSIVE, "name": "Balanceo"},
 	{"id": &"iron_mass_pull", "metal": &"iron", "level": 20, "kind": Kind.PASSIVE, "name": "Tirón de masa"},
 	{"id": &"pewter_endurance", "metal": &"pewter", "level": 1, "kind": Kind.PASSIVE, "name": "Resistencia"},
@@ -37,7 +38,7 @@ const SKILLS := [
 
 
 ## Habilidades que todavía no hacen nada (se ven en el árbol como "próximamente").
-const PENDING: Array[StringName] = [&"steel_shield", &"steel_wave", &"iron_disarm", &"pewter_fury"]
+const PENDING: Array[StringName] = [&"steel_coin_shield", &"steel_wave", &"iron_coin_anchor", &"iron_weapon_pull", &"iron_swing", &"pewter_fury"]
 ## Activas con tecla propia fuera de las ranuras (la moneda de combate es el clic derecho).
 const FIXED_KEY: Array[StringName] = [&"steel_combat_coin"]
 
@@ -46,6 +47,25 @@ const FIXED_KEY: Array[StringName] = [&"steel_combat_coin"]
 static func is_assignable(id: StringName) -> bool:
 	var s := find(id)
 	return not s.is_empty() and s["kind"] == Kind.ACTIVE and not id in PENDING and not id in FIXED_KEY
+
+
+## Ráfaga de monedas (acero) e Imán de monedas (hierro): desde el nivel 2 salen o se atraen nivel + 1 monedas en un
+## abanico hacia adelante que se abre con cada nivel; desde FAN_RADIAL_LEVEL es un círculo completo.
+const FAN_MIN_LEVEL := 2
+const FAN_RADIAL_LEVEL := 15
+const FAN_MIN_ANGLE := 0.5236  # 30°
+const FAN_MAX_ANGLE := 5.7596  # 330°
+
+
+static func fan_count(metal_level: int) -> int:
+	return maxi(metal_level + 1, 3)
+
+
+## Ángulo total (rad) del abanico; TAU = radial.
+static func fan_angle(metal_level: int) -> float:
+	if metal_level >= FAN_RADIAL_LEVEL:
+		return TAU
+	return lerpf(FAN_MIN_ANGLE, FAN_MAX_ANGLE, clampf(float(metal_level - FAN_MIN_LEVEL) / float(FAN_RADIAL_LEVEL - 1 - FAN_MIN_LEVEL), 0.0, 1.0))
 
 
 static func skills_of(metal: StringName) -> Array:

@@ -145,10 +145,9 @@ var _net_coin_ready_ms := 0
 ## Lanzar monedas (clic derecho): a mano llega a COIN_HAND_SPEED; el acero suma COIN_STEEL_SPEED.
 const COIN_HAND_SPEED := 13.0
 const COIN_STEEL_SPEED := 14.0
-## Alt+E: radio (m) en el que se atraen las monedas, velocidad a la que vuelan hacia ti y tiempo máximo (ms).
-## Alt+E con acero: cuántas monedas salen en círculo y la pausa (ms) hasta poder repetirlo.
-const COIN_RING_COUNT := 8
-const COIN_RING_COOLDOWN_MS := 500
+## Imán de monedas: radio (m) en el que se atraen las monedas, velocidad a la que vuelan hacia ti y tiempo máximo (ms).
+## Ráfaga de monedas: la pausa (ms) hasta poder repetirla.
+const COIN_BURST_COOLDOWN_MS := 500
 const GATHER_RADIUS := 15.0
 const GATHER_SPEED := 24.0
 const GATHER_MS := 2500
@@ -614,9 +613,9 @@ func _net_skill_run(skill: StringName, pressed: bool, target_id: int) -> void:
 				steel_iron.net_grip_request(is_push, true, target_id)
 			else:
 				_net_release_skill(skill)
-		&"steel_coin_ring":
+		&"steel_coin_burst":
 			if pressed:
-				_tap_skill(&"steel", fire_coin_ring, SKILL_TAP_BURN_MS)
+				_tap_skill(&"steel", fire_coin_burst, SKILL_TAP_BURN_MS)
 		&"iron_coin_magnet":
 			if pressed:
 				_tap_skill(&"iron", start_gather, GATHER_MS + 200)
@@ -1037,6 +1036,11 @@ func _start_coin_push(back := Vector3.ZERO) -> void:
 
 ## Clic derecho: lanza una moneda a plena fuerza hacia donde apuntas y la empuja con acero mientras
 ## mantengas el clic. Sirve para pegar con la moneda o, apuntando abajo, para frenar una caída.
+## Punto del mundo al que apunta la moneda de combate y velocidad a la que va hacia él (ver _assist_coin_push).
+var _shot_point := Vector3.ZERO
+var _shot_speed := 0.0
+
+
 func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void:
 	if dead:
 		return
@@ -1080,8 +1084,8 @@ func _skill_press(skill: StringName) -> void:
 			_grip_skill(steel_iron.pull_grip, &"iron", true)
 		&"steel_light_push":
 			_grip_skill(steel_iron.push_grip, &"steel", true)
-		&"steel_coin_ring":
-			_tap_skill(&"steel", fire_coin_ring, SKILL_TAP_BURN_MS)
+		&"steel_coin_burst":
+			_tap_skill(&"steel", fire_coin_burst, SKILL_TAP_BURN_MS)
 		&"iron_coin_magnet":
 			_tap_skill(&"iron", start_gather, GATHER_MS + 200)
 
@@ -1167,13 +1171,61 @@ func _assist_coin_push() -> bool:
 	var coin := steel_iron.auto_push as RigidBody3D
 	if not is_instance_valid(coin):
 		return false
+	if not coin is Coin:
+		return steel_iron.push_grip.active and steel_iron.push_grip.target == coin  # ya se empuja el objeto que chocó
 	if not coin.freeze:
 		if coin.get_contact_count() > 0:
+			var object := _movable_contact(coin)
+			if object != null:
+				# Chocó con un objeto que se mueve: desde ahora se empuja ese objeto (y te empuja según lo que pese).
+				coin.gravity_scale = 1.0
+				steel_iron.auto_push = object
+				return true
 			coin.set_deferred(&"freeze", true)
 			coin.linear_velocity = Vector3.ZERO
 		elif coin.linear_velocity.length() > GUIDED_COIN_SPEED and not _coin_shot:
 			coin.linear_velocity = coin.linear_velocity.normalized() * GUIDED_COIN_SPEED
+		elif _coin_shot:
+			# Moneda de combate: siempre apunta al punto que mirabas al lanzarla, aunque te muevas o el empuje
+			# la desvíe; así es fácil acertar en movimiento.
+			var to := _shot_point - coin.global_position
+			if to.length() > 0.6:
+				coin.linear_velocity = to.normalized() * _shot_speed
 	return steel_iron.push_grip.active and steel_iron.push_grip.target == coin
+
+
+## Tirón de hierro sobre una moneda u objeto suelto (ver SteelIron._steer_pulled): va hacia tu pecho curvando
+## según te muevas, sin gravedad mientras mantienes la tecla. Una moneda no te hace daño y se guarda al
+## llegar; un objeto cualquiera sí puede golpearte.
+const PULL_COIN_SPEED := 22.0
+const PULL_OBJECT_SPEED := 14.0
+const PULL_COIN_ACCEL := 160.0
+const PULL_OBJECT_ACCEL := 60.0
+
+
+func steer_pulled(body: RigidBody3D, delta: float) -> void:
+	var to := chest_position() - body.global_position
+	var dist := to.length()
+	if dist < 0.01:
+		return
+	var is_coin := body is Coin
+	if is_coin:
+		(body as Coin).pull_owner = self
+		body.add_collision_exception_with(self)
+	var speed := (PULL_COIN_SPEED if is_coin else PULL_OBJECT_SPEED) * clampf(dist / 2.0, 0.35, 1.0)
+	# Cerca de ti iguala tu velocidad, para que te alcance aunque corras.
+	var wanted := to / dist * speed + velocity * clampf(1.0 - dist / 4.0, 0.0, 1.0)
+	body.gravity_scale = 0.0
+	body.linear_velocity = body.linear_velocity.move_toward(wanted, (PULL_COIN_ACCEL if is_coin else PULL_OBJECT_ACCEL) * delta)
+
+
+## Un objeto suelto (caja, barril...) contra el que choca la moneda, o null si solo toca algo fijo.
+func _movable_contact(coin: RigidBody3D) -> RigidBody3D:
+	for b in coin.get_colliding_bodies():
+		var rb := b as RigidBody3D
+		if rb != null and not rb.freeze and not rb is Coin and Metals.movable_mass(rb) > 0.0:
+			return rb
+	return null
 
 
 ## Soltar la bolsa (F): sin metal encima nadie puede empujarte ni tirar de ti, pero tampoco
@@ -1992,6 +2044,8 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	var coin := _spawn_coin(start + dir * 0.35)
 	coin.gravity_scale = 0.0  # vuela en línea recta hasta el punto apuntado (se restaura en _end_coin_push)
 	coin.linear_velocity = dir * speed  # sin sumar tu velocidad: así la trayectoria pasa por la mira
+	_shot_point = hit
+	_shot_speed = speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_throw()
 	return coin
@@ -2056,29 +2110,38 @@ func _start_protection() -> void:
 
 # ---------------------------------------------------------------- Monedero
 
-## Lanza COIN_RING_COUNT monedas a ras del pecho, repartidas a partes iguales alrededor tuyo (como las
-## porciones de una pizza), la primera hacia donde mira el cuerpo. Gastan una moneda cada una.
-func fire_coin_ring() -> void:
+## Ráfaga de monedas: lanza nivel de acero + 1 monedas a ras del pecho en un abanico hacia donde mira el cuerpo.
+## El abanico se abre con cada nivel (ver SkillTree.fan_angle) y desde el 15 es un círculo completo, repartido a
+## partes iguales. Gastan una moneda cada una.
+func fire_coin_burst() -> void:
 	if dead or not _check_coins():
 		return
 	var now := Time.get_ticks_msec()
 	if now < _net_coin_ready_ms:
 		return
-	_net_coin_ready_ms = now + COIN_RING_COOLDOWN_MS
+	_net_coin_ready_ms = now + COIN_BURST_COOLDOWN_MS
 	var front := -visual.global_basis.z
 	front.y = 0.0
 	front = front.normalized()
 	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
 	var start := chest_position()
-	for i in mini(COIN_RING_COUNT, coins_held):
-		var dir := front.rotated(Vector3.UP, TAU * i / COIN_RING_COUNT)
+	var level := metal_level(&"steel")
+	var count := mini(SkillTree.fan_count(level), coins_held)
+	var angle := SkillTree.fan_angle(level)
+	for i in count:
+		var turn := 0.0
+		if angle >= TAU:
+			turn = TAU * i / count
+		elif count > 1:
+			turn = -angle * 0.5 + angle * i / (count - 1)
+		var dir := front.rotated(Vector3.UP, turn)
 		var coin := _spawn_coin(start + dir * 0.5)
 		coin.gravity_scale = 0.25  # casi a ras: cae despacio, no queda flotando
 		coin.linear_velocity = dir * speed
 	rig.play_throw()
 
 
-## Alt+E (con hierro encendido): todas las monedas sueltas cercanas vuelan hacia ti y se guardan al tocarte.
+## Imán de monedas (con hierro encendido): las monedas sueltas del abanico vuelan hacia ti y se guardan al tocarte.
 func start_gather() -> void:
 	if dead or not has_bag():
 		return
@@ -2087,11 +2150,31 @@ func start_gather() -> void:
 		return
 	_stop_gather()
 	var chest := chest_position()
+	# Imán de monedas: las más cercanas dentro del abanico hacia adelante (nivel de hierro + 1; todas si es radial).
+	var level := metal_level(&"iron")
+	var angle := SkillTree.fan_angle(level)
+	var front := -visual.global_basis.z
+	front.y = 0.0
+	front = front.normalized()
+	var found := []
 	for n in get_tree().get_nodes_in_group(&"coin"):
 		var coin := n as Coin
-		if coin != null and not coin.puppet and coin != steel_iron.auto_push \
-				and coin.global_position.distance_to(chest) <= GATHER_RADIUS:
-			_gathering.append(coin)
+		if coin == null or coin.puppet or coin == steel_iron.auto_push:
+			continue
+		var to := coin.global_position - chest
+		var dist := to.length()
+		if dist > GATHER_RADIUS:
+			continue
+		to.y = 0.0
+		if angle < TAU and to.length() > 0.5 and front.angle_to(to) > angle * 0.5:
+			continue
+		found.append([dist, coin])
+	found.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	for entry in found.slice(0, found.size() if angle >= TAU else SkillTree.fan_count(level)):
+		var pulled: Coin = entry[1]
+		pulled.pull_owner = self
+		pulled.add_collision_exception_with(self)
+		_gathering.append(pulled)
 	_gather_until_ms = Time.get_ticks_msec() + GATHER_MS
 	if _gathering.is_empty():
 		notice.emit("No hay monedas cerca")

@@ -20,7 +20,7 @@ static func random_new_item(player: Player) -> String:
 func _ready() -> void:
 	collision_layer = 0
 	collision_mask = Props.LAYER_PLAYER
-	monitorable = false
+	set_deferred(&"monitorable", false)  # puede crearse dentro de un choque de física
 	var col := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
 	shape.radius = 0.9

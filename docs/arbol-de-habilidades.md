@@ -47,19 +47,20 @@ A = activa (ocupa ranura). P = pasiva (automática).
 |---|---|
 | 1 | A · Moneda de combate: lanzar moneda con clic derecho y empujarla |
 | 4 | A · Empuje ligero: empujar con una ranura objetos de hasta 1 kg |
-| 8 | A · Anillo de monedas: 8 monedas en círculo (hoy Alt+E con acero) |
-| 12 | A · Escudo metálico: desvía proyectiles metálicos |
+| 2 | A · Ráfaga de monedas: nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; radial desde el 15 |
+| 8 | A · Escudo de monedas: monedas que orbitan y bloquean golpes y proyectiles (pendiente) |
 | 16 | P · Empuje pesado: objetos de hasta 100 kg |
 | 20 | P · Onda de acero: sin tope de masa (anclas) y empuje en área (pendiente) |
 
 ### Hierro
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Tirón básico |
+| 1 | A · Tirón básico: trae monedas y objetos más livianos que tú; si tiras de algo fijo o más pesado (farolas, rejas, techos metálicos), te acerca a ti |
 | 4 | P · Tirón ligero: mueve objetos de hasta 1 kg |
-| 8 | A · Imán de monedas: atrae las monedas cercanas al monedero |
-| 12 | A · Desarme: tirar del arma metálica de un enemigo |
-| 16 | P · Balanceo: permite tirar de anclas fijas |
+| 2 | A · Imán de monedas: atrae nivel + 1 monedas dentro de un abanico hacia adelante; todas alrededor desde el 15 |
+| 8 | A · Anclaje de monedas: clava monedas como anclas temporales para columpiarte (pendiente) |
+| 12 | A · Tirón de armas: arranca el arma metálica de un enemigo (pendiente) |
+| 16 | P · Balanceo: columpiarse de un ancla con más control en el aire (pendiente) |
 | 20 | P · Tirón de masa: sin tope de masa |
 
 ### Peltre
@@ -158,8 +159,8 @@ Total: 51 habilidades base + 36 combinadas = 87. Se propone implementarlas por f
 
 ## Estado de la fase 4
 
-- Funcionan: ranuras (12, teclas reasignables), Tirón básico, Empuje ligero, Anillo de monedas, Imán de monedas, la moneda de combate (clic derecho), los límites de masa por nivel y las pasivas de peltre (Resistencia, Salto, Golpe, Aterrizaje, Segundo aliento).
-- Pendientes (se ven como "próximamente"): Escudo metálico, Onda de acero (el empuje en área), Desarme y Furia.
-- Las anclas fijas pesan "infinito": el hierro solo tira de ellas desde el nivel 16 (Balanceo) y el acero las empuja desde el 20.
+- Funcionan: ranuras (12, teclas reasignables), Tirón básico, Empuje ligero, Ráfaga de monedas, Imán de monedas, la moneda de combate (clic derecho), los límites de masa por nivel y las pasivas de peltre (Resistencia, Salto, Golpe, Aterrizaje, Segundo aliento).
+- Pendientes (se ven como "próximamente"): Escudo de monedas, Anclaje de monedas, Tirón de armas, Onda de acero (el empuje en área) y Furia.
+- Las anclas fijas pesan "infinito": el tirón de hierro te acerca a ellas desde el nivel 1, y el acero (Empuje ligero) solo las empuja desde el 20. La moneda de combate solo te empuja cuando choca con algo fijo o más pesado que tú (una moneda en el aire apenas te mueve).
 - Teclas que cambiaron: anclar pasó a `Y` y la bolsa a `B`, porque `R` y `F` son ranuras por defecto.
 - En red (fase 5): el cliente manda su nivel y el de cada metal al servidor, que lo acota a lo que pagan sus puntos y lo guarda por jugador. Las ranuras se envían como habilidad + objetivo y el servidor comprueba que esté desbloqueada. Quedan fuera por ahora la XP en red (matar a otro jugador no da experiencia) y el guardado en el servidor: cada cliente guarda su propio archivo.

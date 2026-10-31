@@ -32,6 +32,8 @@ var roam_radius := 12.0
 ## Si es true, los destinos se limitan a la plaza.
 var stay_in_plaza := true
 var rig: HumanoidRig
+## Alto del cuerpo (m): el del modelo; la barra de vida y los avisos flotan sobre la cabeza (ver head_y).
+var body_height := 1.8
 ## Vector3 hacia el que se gira cuando está quieto, o null.
 var face_point: Variant = null
 
@@ -59,18 +61,23 @@ func _ready() -> void:
 	add_to_group(&"atium_visible")
 	collision_layer = Props.LAYER_PROPS
 	collision_mask = Props.LAYER_WORLD | Props.LAYER_PROPS | Props.LAYER_PLAYER
-	var shape := CapsuleShape3D.new()
-	shape.radius = 0.32
-	shape.height = 1.8
-	var col := CollisionShape3D.new()
-	col.shape = shape
-	col.position.y = 0.9
-	add_child(col)
-	set_meta(&"center_offset", Vector3(0, 1.2, 0))
 	var look := _make_look()
 	rig = Art.npc_rig(_role(), look)
 	add_child(rig)
+	if rig is ModelRig:
+		body_height = (rig as ModelRig).target_height
+	# Cuerpo, centro de masa y masa alomántica crecen con el alto (1,8 m = el tamaño de siempre).
+	var grow := body_height / 1.8
+	var shape := CapsuleShape3D.new()
+	shape.radius = 0.32 * lerpf(1.0, grow, 0.7)
+	shape.height = body_height
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	col.position.y = body_height * 0.5
+	add_child(col)
+	set_meta(&"center_offset", Vector3(0, body_height * 0.667, 0))
 	_setup()
+	allomantic_mass *= grow * grow
 	health = max_health
 
 
@@ -100,6 +107,11 @@ func _on_pushed() -> void:
 func _on_hit(_attacker: Node3D) -> void:
 	pass
 # -------------------------
+
+
+## Altura (m) sobre sus pies a la que flotan su barra de vida y sus avisos.
+func head_y(extra := 0.35) -> float:
+	return body_height + extra
 
 
 func is_down() -> bool:
@@ -280,9 +292,7 @@ func _drop_loot_common(player: Player) -> void:
 		var a := randf() * TAU
 		coin.linear_velocity = Vector3(cos(a) * randf_range(1.0, 2.5), randf_range(2.5, 4.5), sin(a) * randf_range(1.0, 2.5))
 		# Si nadie la recoge, desaparece para no llenar el suelo de monedas.
-		get_tree().create_timer(90.0).timeout.connect(func() -> void:
-			if is_instance_valid(coin):
-				coin.queue_free())
+		get_tree().create_timer(90.0).timeout.connect(coin.queue_free)
 	if randf() < loot_vial_chance:
 		var vial := Vial.new()
 		vial.kind = &"mix"

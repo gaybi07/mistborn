@@ -217,7 +217,7 @@ func _update_enemy_bars() -> void:
 		var npc := n as Npc
 		if npc == null or npc.down or not npc.in_combat():
 			continue
-		var head := npc.global_position + Vector3(0, 2.15, 0)
+		var head := npc.global_position + Vector3(0, npc.head_y(), 0)
 		if cam.is_position_behind(head) or head.distance_to(cam.global_position) > 50.0:
 			continue
 		if used == _enemy_bars.size():
@@ -262,7 +262,7 @@ func _update_emotion_tags() -> void:
 			color = Color(0.6, 0.9, 0.7)
 		if text == "":
 			continue
-		var head := npc.global_position + Vector3(0, 2.45, 0)
+		var head := npc.global_position + Vector3(0, npc.head_y(0.65), 0)
 		if cam.is_position_behind(head) or head.distance_to(cam.global_position) > 40.0:
 			continue
 		if used == _emotion_tags.size():

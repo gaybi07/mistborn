@@ -287,12 +287,12 @@ const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
 
 [color=#6b9bff][b]ACERO (F1)[/b][/color]  empuja metales
 [b]Clic derecho[/b]: moneda fuerte hacia la mira (mantené para seguir empujándola). Apuntá abajo para frenar una caída.
-Ranura «Empuje ligero» (acero 4): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Anillo de monedas» (acero 8): 8 monedas en círculo.
+Ranura «Empuje ligero» (acero 4): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Ráfaga de monedas» (acero 2): lanza nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; en el nivel 15 sale en círculo.
 [b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (mantené Espacio para seguir empujando).
 [b]Espacio, Espacio[/b]: salto de acero recto hacia arriba.
 
 [color=#a0a8c0][b]HIERRO (F2)[/b][/color]  tira de metales
-Ranura «Tirón básico» (hierro 1): tirar del metal que mirás (una moneda viene a vos y se guarda al tocarte). «Imán de monedas» (hierro 8): atrae las monedas cercanas.
+Ranura «Tirón básico» (hierro 1): tirar del metal que mirás (una moneda viene a vos y se guarda al tocarte). «Imán de monedas» (hierro 2): atrae nivel + 1 monedas dentro de un abanico hacia adelante que se abre con cada nivel; en el nivel 15 atrae las de todo alrededor.
 Con un solo metal encendido (acero o hierro), E y G hacen lo mismo.
 
 [color=#f28c40][b]PELTRE (3)[/b][/color]  cuerpo reforzado
@@ -330,7 +330,7 @@ const CONTROLS := """[table=2]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
 [cell][b]Tab[/b] (mantener)[/cell][cell]Ratón libre para clicar los iconos de los metales (clic: encender o apagar · doble clic y mantener: avivar)[/cell]
 [cell][b]Clic derecho[/b][/cell][cell]Lanza una moneda fuerte justo hacia la mira y la empuja con acero mientras mantengas el clic: pega con la moneda o, apuntando abajo, frena una caída[/cell]
-[cell][b]1 2 3 4 Q E R F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de un anillo o imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
+[cell][b]1 2 3 4 Q E R F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de una ráfaga o un imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
 [cell][b]K[/b][/cell][cell]Árbol de habilidades: subí metales, poné habilidades en las ranuras y cambiá sus teclas[/cell]
 [cell][b]Y[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
 [cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]

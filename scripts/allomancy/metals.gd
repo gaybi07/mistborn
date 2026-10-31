@@ -66,7 +66,9 @@ static func push_pull(origin: Vector3, user_mass: float, target: Node3D, strengt
 			rb.apply_central_impulse(dir * dv * mass)
 		else:
 			target.apply_allomantic_impulse(dir * dv)
-	return -dir * force * share / user_mass
+	# Solo te mueve a ti lo que pesa lo que tú (o más) o no se mueve: una moneda en el aire apenas te empuja.
+	var reaction := 1.0 if mass <= 0.0 else clampf(mass / user_mass, 0.0, 1.0)
+	return -dir * force * share * reaction / user_mass
 
 
 const ATIUM_COLOR := Color(0.92, 0.95, 1.0)

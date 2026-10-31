@@ -12,6 +12,8 @@ const HOMING_RANGE := 70.0
 
 ## Quien la lanzó: no le hace daño a él.
 var shooter: Node3D = null
+## Quien la tiró hacia sí con hierro o el imán: no le hace daño aunque llegue rápido.
+var pull_owner: Node3D = null
 ## Red: id de la moneda (el mismo en todos los procesos; 0 = no es de red) y si es una copia que solo
 ## muestra lo que manda el servidor (sin física ni daño).
 var net_id := 0
@@ -95,7 +97,7 @@ func _pick_target() -> Node3D:
 
 func _on_body_entered(body: Node) -> void:
 	var speed := _last_velocity.length()
-	if speed < HARMFUL_SPEED or body == shooter or not body.has_method(&"take_hit"):
+	if speed < HARMFUL_SPEED or body == shooter or body == pull_owner or not body.has_method(&"take_hit"):
 		return
 	var damage := clampf((speed - 10.0) * 1.1, 3.0, 25.0)
 	var impulse := _last_velocity.normalized() * speed * 0.06

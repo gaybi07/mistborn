@@ -147,6 +147,9 @@ func _physics_process(delta: float) -> void:
 		if g.active:
 			holding = true
 			g.held += delta
+			if _steer_pulled(g, delta):
+				applying_force = true
+				continue
 			var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp(), g.dir_sign, delta, _reach, base_force)
 			player.add_allomantic_acceleration(accel, player.real_delta(delta))
 			applying_force = true
@@ -165,17 +168,17 @@ func _grip_input(g: Grip, just: bool) -> bool:
 
 
 ## Masa máxima (kg) que este agarre puede mover según el nivel de su metal. Lo que no se mueve (anclas) cuenta
-## como infinito: con hierro hace falta Balanceo (nivel 16) y con acero llegar al nivel 20.
+## como infinito: el acero solo las empuja desde el nivel 20. El tirón de hierro no tiene ese límite con lo que pesa
+## tanto como tú o más: en vez de traerlo, te trae a ti (farolas, rejas, techos metálicos).
 func mass_limit(g: Grip) -> float:
-	var level := player.metal_level(g.metal)
-	if g == pull_grip and level >= 16:
-		return INF
-	return SkillTree.push_mass_limit(level)
+	return SkillTree.push_mass_limit(player.metal_level(g.metal))
 
 
 ## Si el agarre puede con ese objetivo; si no, avisa por qué.
 func _can_grip(g: Grip, t: Node3D) -> bool:
 	var mass := Metals.movable_mass(t)
+	if g == pull_grip and (mass <= 0.0 or mass >= player.body_mass):
+		return true  # más firme que tú: tirar de eso te acerca a ti
 	var limit := mass_limit(g)
 	if mass <= 0.0:
 		mass = INF
@@ -185,7 +188,7 @@ func _can_grip(g: Grip, t: Node3D) -> bool:
 		return false
 	g.warned = true
 	if mass == INF:
-		player.notice.emit("Esa ancla es demasiado firme: " + ("Balanceo (hierro 16)" if g == pull_grip else "acero nivel 20"))
+		player.notice.emit("Esa ancla es demasiado firme: hace falta acero nivel 20")
 	else:
 		player.notice.emit("Pesa %.1f kg: tu %s solo mueve hasta %.1f kg" % [mass, "hierro" if g == pull_grip else "acero", limit])
 	return false
@@ -198,8 +201,6 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		if g.target != auto_push:
 			g.target = auto_push
 			g.active = true
-			Fx.sparks(get_tree().current_scene, center_of(auto_push), g.color)
-			Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(auto_push), 0.25, g.color)
 		return
 	var pressed := _grip_input(g, false)
 	if _grip_input(g, true) and g.latched:
@@ -224,11 +225,25 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 			return
 		g.target = t
 		g.active = true
-		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
-		Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(t), 0.25, g.color)
+
+
+## Tirón sobre una moneda u objeto suelto: va hacia ti siguiendo tu posición (también si te mueves) en vez de
+## empujarlo con fuerza, y no te tira a ti. Devuelve true si lo manejó. Las anclas y la gente siguen con push_pull.
+func _steer_pulled(g: Grip, delta: float) -> bool:
+	if g != pull_grip or not is_instance_valid(g.target):
+		return false
+	var body := g.target as RigidBody3D
+	var mass := Metals.movable_mass(body) if body != null else 0.0
+	if body == null or body.freeze or mass <= 0.0 or mass >= player.body_mass:
+		return false  # lo más pesado que tú no viene: tira de ti (ver Metals.push_pull)
+	player.steer_pulled(body, delta)
+	return true
 
 
 func _release(g: Grip) -> void:
+	# Al soltar la tecla, lo que venías tirando cae con la física de siempre.
+	if g == pull_grip and is_instance_valid(g.target) and g.target is RigidBody3D:
+		(g.target as RigidBody3D).gravity_scale = 1.0
 	g.active = false
 	g.latched = false
 	g.target = null
@@ -276,7 +291,6 @@ func _net_physics(delta: float) -> void:
 			push_grip.target = auto_push
 			push_grip.active = true
 			push_grip.latched = false
-			Fx.sparks(get_tree().current_scene, center_of(auto_push), push_grip.color)
 		_net_auto_grip = true
 	elif _net_auto_grip:
 		_net_auto_grip = false
@@ -290,6 +304,9 @@ func _net_physics(delta: float) -> void:
 			continue
 		holding = true
 		g.held += delta
+		if _steer_pulled(g, delta):
+			applying_force = true
+			continue
 		var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp(), g.dir_sign, delta, _reach, base_force)
 		player.add_allomantic_acceleration(accel, player.real_delta(delta))
 		applying_force = true
@@ -355,7 +372,6 @@ func net_grip_request(is_push: bool, pressed: bool, id: int) -> void:
 	g.active = true
 	if g == push_grip:
 		_net_auto_grip = false
-	Fx.sparks(get_tree().current_scene, center_of(t), g.color)
 	_net_publish()
 
 
@@ -432,7 +448,7 @@ func _metals_in_range(origin: Vector3, reach: float) -> Array[Node3D]:
 	return out
 
 
-func _is_valid(t: Node3D, origin: Vector3) -> bool:
+func _is_valid(t, origin: Vector3) -> bool:
 	return is_instance_valid(t) and t.is_inside_tree() and center_of(t).distance_to(origin) <= _reach
 
 

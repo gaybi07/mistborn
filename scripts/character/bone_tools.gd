@@ -144,6 +144,27 @@ const KAYKIT_TO_UE := [
 	["foot_r", "foot.r", "toes.r", "aim"],
 ]
 
+## Mapeo Mistborn (fuente) -> Koloss (destino): los dos esqueletos tienen los mismos nombres (ver
+## tools/koloss/make_koloss_glb.js), así que el koloss repite las animaciones del personaje principal.
+const UE_TO_UE := [
+	["pelvis", "pelvis", "", "root"],
+	["spine_01", "spine_01", "spine_03", "aim"],
+	["spine_03", "spine_03", "Head", "aim"],
+	["Head", "Head", "", "rot"],
+	["upperarm_l", "upperarm_l", "lowerarm_l", "aim"],
+	["lowerarm_l", "lowerarm_l", "hand_l", "aim"],
+	["hand_l", "hand_l", "", "rot"],
+	["upperarm_r", "upperarm_r", "lowerarm_r", "aim"],
+	["lowerarm_r", "lowerarm_r", "hand_r", "aim"],
+	["hand_r", "hand_r", "", "rot"],
+	["thigh_l", "thigh_l", "calf_l", "aim"],
+	["calf_l", "calf_l", "foot_l", "aim"],
+	["foot_l", "foot_l", "ball_l", "aim"],
+	["thigh_r", "thigh_r", "calf_r", "aim"],
+	["calf_r", "calf_r", "foot_r", "aim"],
+	["foot_r", "foot_r", "ball_r", "aim"],
+]
+
 ## Mapeo KayKit (fuente) -> Quaternius (destino).
 const KAYKIT_TO_QUATERNIUS := [
 	["Body", "hips", "", "root"],

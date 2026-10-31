@@ -110,7 +110,19 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 	return _model(SETS[style]["player"], Color(1, 1, 1), [])
 
 
+## Todos los NPC usan el modelo del koloss (ver tools/koloss/make_koloss_glb.js). Su esqueleto copia el del
+## Mistborn, así que repite las animaciones del personaje principal (ver BoneTools.UE_TO_UE).
+const KOLOSS := "res://assets/koloss/Koloss.glb"
+const KOLOSS_ANIMS := "res://assets/mixamo/Mistborn.glb"
+## Alto (m) de los NPC: de este mínimo al máximo, con pocos gigantes (la curva favorece a los bajos).
+const NPC_MIN_HEIGHT := 1.5
+const NPC_MAX_HEIGHT := 3.0
+static var npc_use_koloss := true
+
+
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
+	if npc_use_koloss:
+		return koloss_rig()
 	if not SETS.has(style):
 		return _procedural(look)
 	var set: Dictionary = SETS[style]
@@ -123,6 +135,17 @@ static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
 		"noble":
 			return _model(set["nobles"].pick_random(), Color(0.9, 0.88, 0.9), [])
 	return _model(set["citizens"].pick_random(), CROWD_TINTS.pick_random(), [])
+
+
+static func koloss_rig() -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = KOLOSS
+	rig.flip = true  # mira hacia +Z como los demás glTF
+	rig.retarget_from = KOLOSS_ANIMS
+	rig.retarget_map = BoneTools.UE_TO_UE
+	rig.target_height = NPC_MIN_HEIGHT + (NPC_MAX_HEIGHT - NPC_MIN_HEIGHT) * pow(randf(), 1.4)
+	rig.tint = Color.WHITE.darkened(randf_range(0.0, 0.25))
+	return rig
 
 
 static func _procedural(look: Dictionary) -> HumanoidRig:
