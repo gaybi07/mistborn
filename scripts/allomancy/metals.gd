@@ -44,7 +44,10 @@ static func effective_reach(t: Node3D, reach: float) -> float:
 ## Empuja (dir_sign = 1) o tira (dir_sign = -1) de `target` desde `origin`.
 ## Mueve el objetivo y devuelve la aceleración que recibe quien empuja (de masa user_mass).
 static func push_pull(origin: Vector3, user_mass: float, target: Node3D, strength: float, dir_sign: float,
-		delta: float, reach: float, base_force := BASE_FORCE) -> Vector3:
+		delta: float, reach: float, base_force := BASE_FORCE, power_mass := -1.0) -> Vector3:
+	# power_mass: hasta qué masa (kg) mueves tú al objetivo en vez de que él te mueva a ti. Lo que pesa menos sale
+	# despedido y casi no te empuja; lo que pesa más (o es fijo) te empuja a ti. Sube con el nivel (ver SteelIron).
+	var power := power_mass if power_mass > 0.0 else user_mass
 	var to := center_of(target) - origin
 	var dist := to.length()
 	if dist < 0.25:
@@ -61,12 +64,14 @@ static func push_pull(origin: Vector3, user_mass: float, target: Node3D, strengt
 		var rb := target as RigidBody3D
 		var vel: Vector3 = rb.linear_velocity if rb else target.velocity
 		share = clampf((MAX_TARGET_SPEED - vel.dot(dir)) / (MAX_TARGET_SPEED * 0.3), 0.0, 1.0)
-		var dv := minf(force / mass * delta, MAX_DV_PER_STEP) * share
+		var dv := minf(force / mass * delta, MAX_DV_PER_STEP) * share * minf(power / mass, 1.0)
 		if rb:
 			rb.apply_central_impulse(dir * dv * mass)
 		else:
 			target.apply_allomantic_impulse(dir * dv)
-	return -dir * force * share / user_mass
+	# Te mueve a ti lo que pesa tanto como tu poder (o más) o no se mueve: una moneda en el aire apenas te empuja.
+	var reaction := 1.0 if mass <= 0.0 else clampf(mass / power, 0.0, 1.0)
+	return -dir * force * share * reaction / user_mass
 
 
 const ATIUM_COLOR := Color(0.92, 0.95, 1.0)

@@ -25,6 +25,9 @@ var _vignette_mat: ShaderMaterial
 var _death_screen: ColorRect
 var _impact_label: Label
 var _hint: Label
+## Nivel de jugador, puntos de alomancia sin gastar y barra de experiencia (arriba a la izquierda).
+var _level_label: Label
+var _xp_bar: ProgressBar
 ## Escala actual del HUD (ver HudKit.ui_scale); la usan los textos y barras flotantes.
 var _ui_scale := 1.0
 var _flash := 0.0
@@ -37,9 +40,9 @@ func _ready() -> void:
 	var inventory := InventoryWindow.new()
 	inventory.player = player
 	add_child(inventory)
-	var wheel := MetalWheel.new()
-	wheel.player = player
-	add_child(wheel)
+	var skill_tree := SkillTreeWindow.new()
+	skill_tree.player = player
+	add_child(skill_tree)
 	var bar := MetalBar.new()
 	bar.player = player
 	add_child(bar)
@@ -93,10 +96,17 @@ func _ready() -> void:
 	_target_label.offset_top = 8
 	add_child(_target_label)
 
-	_hint = _label("Esc: habilidades y controles")
+	_hint = _label("Esc: controles  ·  K: habilidades")
 	_hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_hint.modulate.a = 0.55
 	add_child(_hint)
+
+	_level_label = _label("")
+	_level_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	add_child(_level_label)
+	_xp_bar = _bar(1.0, Color(0.95, 0.8, 0.35))
+	_xp_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	add_child(_xp_bar)
 
 
 func _build_damage_overlay() -> void:
@@ -161,6 +171,11 @@ func _apply_scale() -> void:
 	_target_label.offset_top = 8.0 * s
 	_hint.add_theme_font_size_override("font_size", roundi(13.0 * s))
 	_hint.position = Vector2(16, 12) * s
+	_level_label.add_theme_font_size_override("font_size", roundi(14.0 * s))
+	_level_label.position = Vector2(16, 34) * s
+	_xp_bar.custom_minimum_size = Vector2(150, 6) * s
+	_xp_bar.size = _xp_bar.custom_minimum_size
+	_xp_bar.position = Vector2(16, 58) * s
 	_ui_scale = s
 
 
@@ -169,6 +184,7 @@ func _process(delta: float) -> void:
 	_apply_scale()
 	_update_enemy_bars()
 	_update_status()
+	_update_level()
 	_flash = move_toward(_flash, 0.0, rd * 1.5)
 	var low := 1.0 - player.health / player.max_health
 	var pulse := maxf(low - 0.5, 0.0) * (0.6 + 0.4 * sin(Time.get_ticks_msec() / 1000.0 * 4.0))
@@ -206,7 +222,7 @@ func _update_enemy_bars() -> void:
 		var npc := n as Npc
 		if npc == null or npc.down or not npc.in_combat():
 			continue
-		var head := npc.global_position + Vector3(0, 2.15, 0)
+		var head := npc.global_position + Vector3(0, npc.head_y(), 0)
 		if cam.is_position_behind(head) or head.distance_to(cam.global_position) > 50.0:
 			continue
 		if used == _enemy_bars.size():
@@ -251,7 +267,7 @@ func _update_emotion_tags() -> void:
 			color = Color(0.6, 0.9, 0.7)
 		if text == "":
 			continue
-		var head := npc.global_position + Vector3(0, 2.45, 0)
+		var head := npc.global_position + Vector3(0, npc.head_y(0.65), 0)
 		if cam.is_position_behind(head) or head.distance_to(cam.global_position) > 40.0:
 			continue
 		if used == _emotion_tags.size():
@@ -283,6 +299,18 @@ func _update_status() -> void:
 	if player.atium.contested:
 		lines.append("Atium contra atium: se anulan")
 	_status_label.text = "\n".join(lines)
+
+
+func _update_level() -> void:
+	var free := Progression.points_free()
+	var text := "Nivel %d" % Progression.level
+	if Progression.level >= Progression.MAX_LEVEL:
+		text += " (máx.)"
+	if free > 0:
+		text += "  ·  %d punto%s" % [free, "" if free == 1 else "s"]
+	_level_label.text = text
+	_xp_bar.max_value = Progression.xp_for_next(Progression.level)
+	_xp_bar.value = Progression.xp
 
 
 func _bar(max_value: float, color: Color) -> ProgressBar:

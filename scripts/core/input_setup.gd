@@ -1,13 +1,15 @@
 extends Node
 ## Registra las acciones de entrada por código (así no hace falta tocar el Mapa de Entrada)
-## y cambia de escenario: F1 ciudad, F2 arena.
-## Las teclas de metales (1-4 y Z X C V B) se leen directamente en player.gd.
+## y cambia de escenario: Ctrl+F1 ciudad, Ctrl+F2 arena.
+## Las teclas de metales (F1 a F9) se leen directamente en player.gd.
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var scene := ""
+	if not event.ctrl_pressed:
+		return  # F1-F9 son los metales (ver Allomancy)
 	if event.keycode == KEY_F1:
 		scene = "res://scenes/main.tscn"
 	elif event.keycode == KEY_F2:
@@ -24,28 +26,19 @@ func _enter_tree() -> void:
 	_key(&"move_right", KEY_D)
 	_key(&"jump", KEY_SPACE)
 	_key(&"stop_burning", KEY_N)
-	_key(&"anchor", KEY_R)
-	_key(&"drop_bag", KEY_F)
+	_key(&"anchor", KEY_Y)
+	_key(&"drop_bag", KEY_B)
 	_wheel(&"weapon_cycle")
 	_mouse(&"attack", MOUSE_BUTTON_LEFT)
 	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)
 	_key(&"roll", KEY_SHIFT)
 	_key(&"hood", KEY_H)
 	_key(&"inventory", KEY_I)
+	_key(&"skill_tree", KEY_K)
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)
-	# Con acero y hierro encendidos: E tira, G empuja el metal que miras.
-	# Con uno solo, cualquiera de las dos teclas lo usa (ver SteelIron).
-	_key(&"pull", KEY_E)
-	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, E no tira (ver SteelIron)
-	# Alt+E: atrae todas las monedas cercanas al monedero (E sola sigue siendo tirar).
-	_ensure(&"gather_coins")
-	var gather := InputEventKey.new()
-	gather.physical_keycode = KEY_E
-	gather.alt_pressed = true
-	InputMap.action_add_event(&"gather_coins", gather)
-	_key(&"push", KEY_G)
+	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, la ranura en E no se activa
 
 
 func _ensure(action: StringName) -> void:

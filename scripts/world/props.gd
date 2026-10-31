@@ -368,8 +368,10 @@ static func metal_crate(size: Vector3, pos: Vector3, mass: float, mat: Material,
 	return body
 
 
-static var _coin_mesh: CylinderMesh
-static var _coin_mat: StandardMaterial3D
+
+
+## Escala visual de las monedas del juego respecto a CoinKit (que mide 18 cm de diámetro).
+const COIN_SCALE := 0.55
 
 
 static func coin() -> Coin:
@@ -387,16 +389,12 @@ static func coin() -> Coin:
 	body.physics_material_override = pm
 	var col := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
-	shape.radius = 0.07
+	shape.radius = 0.04
 	col.shape = shape
 	body.add_child(col)
-	if _coin_mesh == null:
-		_coin_mesh = CylinderMesh.new()
-		_coin_mesh.top_radius = 0.09
-		_coin_mesh.bottom_radius = 0.09
-		_coin_mesh.height = 0.02
-		_coin_mat = material(Color(0.85, 0.6, 0.3), 1.0, 0.25)
-	_part(body, _coin_mesh, Vector3.ZERO, _coin_mat)
+	# Moneda 3D de bronce, igual para todas, a poco más de la mitad de su tamaño original (unos 10 cm de diámetro).
+	var visual := _part(body, CoinKit.mesh(), Vector3.ZERO, CoinKit.material())
+	visual.scale = Vector3.ONE * COIN_SCALE
 	body.add_to_group(&"metal")
 	body.add_to_group(&"atium_visible")
 	body.add_to_group(&"coin")

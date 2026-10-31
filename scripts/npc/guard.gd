@@ -34,6 +34,7 @@ func _role() -> String:
 
 
 func _setup() -> void:
+	xp_reward = 180
 	loot_coins = Vector2i(4, 8)
 	loot_vial_chance = 0.25
 	loot_item_chance = 0.1

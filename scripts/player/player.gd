@@ -145,10 +145,9 @@ var _net_coin_ready_ms := 0
 ## Lanzar monedas (clic derecho): a mano llega a COIN_HAND_SPEED; el acero suma COIN_STEEL_SPEED.
 const COIN_HAND_SPEED := 13.0
 const COIN_STEEL_SPEED := 14.0
-## Alt+E: radio (m) en el que se atraen las monedas, velocidad a la que vuelan hacia ti y tiempo máximo (ms).
-## Alt+E con acero: cuántas monedas salen en círculo y la pausa (ms) hasta poder repetirlo.
-const COIN_RING_COUNT := 8
-const COIN_RING_COOLDOWN_MS := 500
+## Imán de monedas: radio (m) en el que se atraen las monedas, velocidad a la que vuelan hacia ti y tiempo máximo (ms).
+## Ráfaga de monedas: la pausa (ms) hasta poder repetirla.
+const COIN_BURST_COOLDOWN_MS := 500
 const GATHER_RADIUS := 15.0
 const GATHER_SPEED := 24.0
 const GATHER_MS := 2500
@@ -161,6 +160,9 @@ const COIN_MAX := 9999
 const COIN_PICKUP_RADIUS := 0.8
 var coins_held := COIN_START
 var net_coins := COIN_START  # replicado en red
+## Servidor: nivel de cada metal que mandó el cliente de este jugador (ver _net_progress); acero y hierro, 1.
+var net_levels: Dictionary = {&"steel": 1, &"iron": 1}
+var _sent_progress_rev := -1
 ## Cámara: el hombro de la cámara al lado; al mirar hacia abajo pasa al eje del personaje (apunta bajo tus pies).
 const CAMERA_SHOULDER := 0.55
 ## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
@@ -278,6 +280,9 @@ func _ready() -> void:
 	allomancy = Allomancy.new()
 	allomancy.name = "Allomancy"
 	add_child(allomancy)
+	allomancy.can_burn = func(metal: StringName) -> bool: return metal_level(metal) > 0
+	allomancy.blocked.connect(func(metal: StringName) -> void:
+		notice.emit("%s bloqueado: gasta un punto en el árbol (K)" % Allomancy.METALS[metal]["label"]))
 	steel_iron = SteelIron.new()
 	steel_iron.name = "SteelIron"
 	steel_iron.player = self
@@ -316,6 +321,8 @@ func _ready() -> void:
 	_setup_network()
 	GameSettings.load_settings()
 	GameSettings.apply_to(self)
+	if is_local_player():
+		Progression.load_progress()
 
 
 ## Borra el inventario y equipo que pasan de un escenario a otro (empezar de cero).
@@ -394,13 +401,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"drink"):
 		drink_vial()
 		return
+	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _slot_key(event):
+		return
 	if _look(event):
 		if event is InputEventMouseButton:
 			return  # el clic que recaptura el ratón no ataca ni lanza
 	elif event is InputEventKey and not event.echo:
 		var key := event as InputEventKey
 		var group := Allomancy.metals_for_key(key.physical_keycode)
-		if not group.is_empty():
+		if not group.is_empty() and not key.ctrl_pressed:  # Ctrl+F1..F5 son de depuración (escenas, clima)
 			if key.pressed:
 				_metal_key_down(key.physical_keycode, group)
 			else:
@@ -408,8 +417,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed(&"stop_burning"):
 		allomancy.stop_all()
-	elif event.is_action_pressed(&"gather_coins"):
-		coin_alt_action()
 	elif event.is_action_pressed(&"coin_shot"):
 		_start_coin_shot()
 	elif event.is_action_released(&"coin_shot"):
@@ -458,6 +465,40 @@ func is_local_player() -> bool:
 	return net_peer_id == 0 or (multiplayer.has_multiplayer_peer() and net_peer_id == multiplayer.get_unique_id())
 
 
+## Experiencia por usar metales ("práctica"): por segundo quemando algo y con tope por minuto, para no farmear.
+const XP_PRACTICE_RATE := 6.0
+const XP_PRACTICE_CAP_PER_MIN := 180
+var _practice_acc := 0.0
+var _practice_window_ms := 0
+var _practice_window_xp := 0
+
+
+## Suma experiencia del jugador local (por ahora solo en partida individual; la red llega con el servidor).
+func grant_xp(amount: int) -> void:
+	if net_peer_id != 0 or not is_local_player():
+		return
+	var gained := Progression.add_xp(amount)
+	if gained > 0:
+		notice.emit("Nivel %d  ·  +%d punto%s de alomancia" % [Progression.level, gained, "" if gained == 1 else "s"])
+
+
+func _update_practice_xp(rd: float) -> void:
+	if net_peer_id != 0 or not is_local_player() or dead or allomancy.burning_metals().is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if now - _practice_window_ms >= 60000:
+		_practice_window_ms = now
+		_practice_window_xp = 0
+	_practice_acc += XP_PRACTICE_RATE * rd
+	if _practice_acc < 5.0:
+		return
+	var give := mini(int(_practice_acc), XP_PRACTICE_CAP_PER_MIN - _practice_window_xp)
+	_practice_acc = 0.0
+	if give > 0:
+		_practice_window_xp += give
+		grant_xp(give)
+
+
 ## Este proceso simula la física de este jugador (siempre en partida individual).
 func is_simulated() -> bool:
 	return net_peer_id == 0 or (multiplayer.has_multiplayer_peer() and multiplayer.is_server())
@@ -484,6 +525,8 @@ func _move_vector() -> Vector2:
 
 ## En red se mira, rueda y golpea; metales y armas llegan en etapas posteriores.
 func _networked_input(event: InputEvent) -> void:
+	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _net_slot_key(event):
+		return
 	if _look(event):
 		return
 	if event.is_action_pressed(&"roll"):
@@ -497,14 +540,6 @@ func _networked_input(event: InputEvent) -> void:
 			_net_metal_key(event.physical_keycode, down)
 		else:
 			_net_metal.rpc_id(1, event.physical_keycode, down)
-	elif event.is_action_pressed(&"gather_coins"):  # antes que pull: Alt+E también es E
-		if multiplayer.is_server():
-			coin_alt_action()
-		else:
-			_net_gather.rpc_id(1)
-	elif (event.is_action(&"pull") or event.is_action(&"push")) and not event.is_echo():
-		if not (event is InputEventKey and event.alt_pressed):
-			_net_click(event)
 	elif event.is_action_pressed(&"anchor"):
 		steel_iron.anchor_pressed()
 	elif event.is_action_pressed(&"weapon_cycle"):
@@ -525,23 +560,118 @@ func _networked_input(event: InputEvent) -> void:
 			_net_attack.rpc_id(1)
 
 
-## Clic de tirar/empujar: pide al servidor agarrar (con el ancla que tienes en la mira) o soltar.
-## Igual que en el juego individual: con un solo metal encendido sirven los dos clics.
-func _net_click(event: InputEvent) -> void:
-	var pressed := event.is_pressed()
-	for is_push in [true, false]:
-		var metal: StringName = &"steel" if is_push else &"iron"
-		var other: StringName = &"iron" if is_push else &"steel"
-		var mine := event.is_action(&"push" if is_push else &"pull")
-		if not allomancy.is_burning(metal) or not (mine or not allomancy.is_burning(other)):
-			continue
-		var id := 0
-		if pressed:
-			# Igual que en individual: lo que miras, lo que tienes
-			# bajo los pies o lo que más ayuda a moverte; el servidor valida cualquiera de ellos.
-			var t := steel_iron.click_target(is_push, chest_position())
-			id = get_parent().target_id(t)
-		steel_iron.net_request(is_push, pressed, id)
+## Nivel de un metal para este jugador: el de su propio árbol si lo manejas tú; en el servidor, el que mandó
+## ese cliente (ver _net_progress), ya acotado a lo que sus puntos pagan.
+func metal_level(metal: StringName) -> int:
+	if net_peer_id != 0 and not is_local_player():
+		return int(net_levels.get(metal, 0))
+	return Progression.metal_level(metal)
+
+
+func skill_unlocked(id: StringName) -> bool:
+	var s := SkillTree.find(id)
+	return not s.is_empty() and metal_level(s["metal"]) >= int(s["level"])
+
+
+## Cliente: tecla de una ranura. Manda al servidor la habilidad (y el metal que miras si es un tirón o empuje).
+func _net_slot_key(key: InputEventKey) -> bool:
+	var slot := Progression.slot_for_key(key.physical_keycode)
+	if slot < 0:
+		return false
+	var skill := Progression.slot_skills[slot]
+	var id := 0
+	var aim := Vector3.ZERO
+	if key.pressed:
+		if ui_open or dead:
+			return false
+		if key.physical_keycode == KEY_E and interactable != null and interactable.prompt != "":
+			return false
+		if skill == &"iron_pull" or skill == &"steel_light_push":
+			id = get_parent().target_id(steel_iron.click_target(skill == &"steel_light_push", chest_position()))
+		elif skill == &"steel_coin_burst" or skill == &"iron_coin_magnet" or skill == &"steel_spear":
+			aim = _burst_aim(Vector3.INF)
+	if multiplayer.is_server():
+		_net_skill_run(skill, key.pressed, id, aim)
+	else:
+		_net_skill.rpc_id(1, skill, key.pressed, id, aim)
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _net_skill(skill: StringName, pressed: bool, target_id: int, aim: Vector3) -> void:
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
+		_net_skill_run(skill, pressed, target_id, aim)
+
+
+## Servidor: activa o termina una habilidad de ranura si ese jugador la tiene desbloqueada.
+func _net_skill_run(skill: StringName, pressed: bool, target_id: int, aim := Vector3.INF) -> void:
+	if dead or not SkillTree.is_assignable(skill) or not skill_unlocked(skill):
+		if not pressed:
+			_net_release_skill(skill)
+		return
+	match skill:
+		&"iron_pull", &"steel_light_push":
+			var is_push := skill == &"steel_light_push"
+			var metal: StringName = &"steel" if is_push else &"iron"
+			if pressed:
+				_skill_burn_on(metal)
+				steel_iron.net_grip_request(is_push, true, target_id)
+			else:
+				_net_release_skill(skill)
+		&"steel_coin_burst":
+			if pressed:
+				_tap_skill(&"steel", fire_coin_burst.bind(aim), SKILL_TAP_BURN_MS)
+		&"steel_spear":
+			if pressed:
+				_tap_skill(&"steel", fire_steel_spear.bind(aim), SKILL_TAP_BURN_MS)
+		&"steel_magnetic_field":
+			if pressed:
+				_tap_skill(&"steel", activate_magnetic_field, SKILL_TAP_BURN_MS)
+		&"iron_coin_magnet":
+			if pressed:
+				_tap_skill(&"iron", start_gather.bind(aim), GATHER_MS + 200)
+
+
+func _net_release_skill(skill: StringName) -> void:
+	if skill == &"iron_pull" or skill == &"steel_light_push":
+		var is_push := skill == &"steel_light_push"
+		steel_iron.net_grip_request(is_push, false, 0)
+		_skill_burn_off(&"steel" if is_push else &"iron")
+
+
+## Cliente: manda su progreso (nivel y nivel de cada metal) para que el servidor sepa qué puede usar.
+func _send_progress() -> void:
+	_sent_progress_rev = Progression.revision
+	var levels := PackedInt32Array()
+	for m: StringName in Allomancy.METALS:
+		levels.append(Progression.metal_level(m))
+	_net_progress.rpc_id(1, Progression.level, levels)
+
+
+## Servidor: guarda el progreso de ese cliente, acotado: sin más niveles de los que pagan sus puntos
+## (si se pasa, queda con los niveles gratis).
+@rpc("any_peer", "call_remote", "reliable")
+func _net_progress(level: int, levels: PackedInt32Array) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != net_peer_id:
+		return
+	var metals := Allomancy.METALS.keys()
+	if levels.size() != metals.size():
+		return
+	var spent := 0
+	var checked := {}
+	for i in metals.size():
+		var m: StringName = metals[i]
+		var free := 1 if m in Progression.FREE_METALS else 0
+		var lvl := clampi(levels[i], free, Progression.metal_cap(m))
+		checked[m] = lvl
+		spent += (lvl - free) * Progression.point_cost(m)
+	if spent > clampi(level, 1, Progression.MAX_LEVEL) - 1:
+		for m: StringName in metals:
+			checked[m] = 1 if m in Progression.FREE_METALS else 0
+	net_levels = checked
+	for m: StringName in metals:
+		if checked[m] <= 0 and allomancy.is_burning(m):
+			allomancy.set_state(m, Allomancy.State.OFF)
 
 
 func _is_net_client() -> bool:
@@ -572,7 +702,7 @@ func server_attack() -> void:
 		to.y = 0.0
 		if to.length() > NET_ATTACK["reach"] or forward.angle_to(to) > NET_ATTACK["arc"]:
 			continue
-		var pewter := allomancy.strength(&"pewter")
+		var pewter := pewter_for(&"pewter_strike")
 		var damage: float = NET_ATTACK["damage"] * (1.0 + 0.75 * pewter) * (0.6 if _pewter_drag > 0.0 else 1.0)
 		var knockback: float = NET_ATTACK["knockback"] * (1.0 + pewter)
 		target._receive_net_hit(to.normalized() * knockback, damage, net_peer_id)
@@ -582,7 +712,7 @@ func server_attack() -> void:
 func _receive_net_hit(impulse: Vector3, damage: float, attacker_id: int) -> void:
 	net_last_attacker = attacker_id
 	# El peltre endurece el cuerpo: menos empujón y menos daño (igual que en take_hit).
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_endurance")
 	impulse /= 1.0 + 0.5 * pewter
 	damage /= 1.0 + 0.6 * pewter
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
@@ -632,6 +762,9 @@ func _setup_network() -> void:
 	# lo ven siempre, si no no pueden enviarle RPCs al servidor.
 	sync.public_visibility = not multiplayer.is_server()
 	add_child(sync)
+	if is_local_player() and not multiplayer.is_server():
+		Progression.load_progress()
+		_send_progress()
 	if multiplayer.is_server():
 		_start_protection()  # también al entrar al duelo
 
@@ -640,6 +773,8 @@ func _setup_network() -> void:
 func _send_net_input() -> void:
 	if not is_local_player():
 		return
+	if Progression.revision != _sent_progress_rev:
+		_send_progress()  # subiste un metal o reasignaste puntos
 	var mask := 0
 	for i in NET_ACTIONS.size():
 		if Input.is_action_pressed(NET_ACTIONS[i]):
@@ -672,6 +807,8 @@ func _net_roll() -> void:
 
 ## Metales que funcionan en red por ahora: acero (1), hierro (2) y peltre (3).
 func _is_net_metal_key(event: InputEventKey) -> bool:
+	if event.ctrl_pressed:
+		return false
 	var group := Allomancy.metals_for_key(event.physical_keycode)
 	return group.size() == 1 and NET_METALS.has(group[0])
 
@@ -716,12 +853,6 @@ func _net_coin_shot_key(held: bool, aim: Vector3, look: Vector3) -> void:
 		return
 	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
 	_start_coin_shot(aim, look)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _net_gather() -> void:
-	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
-		coin_alt_action()
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -777,6 +908,24 @@ func _metal_key_down(key: Key, group: Array[StringName]) -> void:
 		allomancy.set_state(m, Allomancy.State.OFF if any_on else Allomancy.State.BURN)
 
 
+## Clic sobre el icono de un metal en el HUD: igual que apretar o soltar su tecla (doble clic y mantener: avivar).
+func click_metal(metal: StringName, pressed: bool) -> void:
+	if dead:
+		return
+	var code: Key = Allomancy.METALS[metal]["key"]
+	var group: Array[StringName] = [metal]
+	if net_peer_id == 0:
+		if pressed:
+			_metal_key_down(code, group)
+		else:
+			_metal_key_up(code)
+	elif NET_METALS.has(metal):
+		if multiplayer.is_server():
+			_net_metal_key(code, pressed)
+		else:
+			_net_metal.rpc_id(1, code, pressed)
+
+
 func _metal_key_up(key: Key) -> void:
 	if not _flare_held.has(key):
 		return
@@ -809,6 +958,14 @@ func is_rioted() -> bool:
 
 
 ## Segundos que le quedan al arrastre de peltre (0 si no lo tienes).
+## Fuerza del peltre para el efecto de una habilidad: si todavía no la tienes (según el nivel de peltre), 0.
+func pewter_for(skill: StringName) -> float:
+	var p := allomancy.strength(&"pewter")
+	if p <= 0.0 or skill_unlocked(skill):
+		return p
+	return 0.0
+
+
 func pewter_drag() -> float:
 	return maxf(_pewter_drag, 0.0)
 
@@ -819,7 +976,7 @@ func is_exhausted() -> bool:
 
 ## Peltre: gastas menos (×0,67 quemando, ×0,5 avivando) y recuperas más rápido; con arrastre, al revés.
 func _stamina_cost_mult() -> float:
-	return (1.0 / (1.0 + 0.5 * allomancy.strength(&"pewter"))) * (1.5 if _pewter_drag > 0.0 else 1.0)
+	return (1.0 / (1.0 + 0.5 * pewter_for(&"pewter_endurance"))) * (1.5 if _pewter_drag > 0.0 else 1.0)
 
 
 ## Quieto en el suelo recuperas; caminando gastas un poco; en el aire ni una cosa ni la otra
@@ -827,7 +984,7 @@ func _stamina_cost_mult() -> float:
 func _update_stamina(rd: float) -> void:
 	if dead or not is_on_floor():
 		return
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_endurance")
 	if _move_vector().length() < 0.1:
 		var regen := STAMINA_REGEN * (1.0 + 0.5 * pewter) * (0.5 if _pewter_drag > 0.0 else 1.0)
 		stamina += regen * rd
@@ -890,6 +1047,11 @@ func _start_coin_push(back := Vector3.ZERO) -> void:
 
 ## Clic derecho: lanza una moneda a plena fuerza hacia donde apuntas y la empuja con acero mientras
 ## mantengas el clic. Sirve para pegar con la moneda o, apuntando abajo, para frenar una caída.
+## Punto del mundo al que apunta la moneda de combate y velocidad a la que va hacia él (ver _assist_coin_push).
+var _shot_point := Vector3.ZERO
+var _shot_speed := 0.0
+
+
 func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void:
 	if dead:
 		return
@@ -898,6 +1060,96 @@ func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void
 		return
 	_coin_shot = true
 	_engage_coin_push(coin)
+
+
+# ---------------------------------------------------------------- Ranuras de habilidades
+
+## Cuánto queda encendido un metal que una habilidad de un toque (anillo, imán) encendió por su cuenta.
+const SKILL_TAP_BURN_MS := 1200
+## Metales que encendió una habilidad (no el jugador): se apagan solos al terminar.
+var _skill_started := {}
+var _skill_off_ms := {}
+
+
+## Tecla de una ranura: pulsarla activa su habilidad y soltarla la termina. Devuelve true si era de una ranura.
+## Donde hay algo que usar con E (puerta, armario), E abre y la ranura no se activa.
+func _slot_key(key: InputEventKey) -> bool:
+	var slot := Progression.slot_for_key(key.physical_keycode)
+	if slot < 0:
+		return false
+	var skill := Progression.slot_skills[slot]
+	if not key.pressed:
+		_skill_release(skill)
+		return true
+	if ui_open or dead:
+		return false
+	if key.physical_keycode == KEY_E and interactable != null and interactable.prompt != "":
+		return false
+	_skill_press(skill)
+	return true
+
+
+func _skill_press(skill: StringName) -> void:
+	match skill:
+		&"iron_pull":
+			_grip_skill(steel_iron.pull_grip, &"iron", true)
+		&"steel_light_push":
+			_grip_skill(steel_iron.push_grip, &"steel", true)
+		&"steel_coin_burst":
+			_tap_skill(&"steel", fire_coin_burst, SKILL_TAP_BURN_MS)
+		&"steel_coin_shield":
+			_tap_skill(&"steel", toggle_coin_shield, SKILL_TAP_BURN_MS)
+		&"steel_spear":
+			_tap_skill(&"steel", fire_steel_spear, SKILL_TAP_BURN_MS)
+		&"steel_magnetic_field":
+			_tap_skill(&"steel", activate_magnetic_field, SKILL_TAP_BURN_MS)
+		&"iron_coin_magnet":
+			_tap_skill(&"iron", start_gather, GATHER_MS + 200)
+
+
+func _skill_release(skill: StringName) -> void:
+	match skill:
+		&"iron_pull":
+			_grip_skill(steel_iron.pull_grip, &"iron", false)
+		&"steel_light_push":
+			_grip_skill(steel_iron.push_grip, &"steel", false)
+
+
+## Habilidad sostenida (tirón, empuje): enciende su metal mientras mantienes la tecla y suelta al terminar.
+func _grip_skill(g: SteelIron.Grip, metal: StringName, pressed: bool) -> void:
+	if pressed:
+		_skill_burn_on(metal)
+		g.input_held = true
+		g.input_just = true
+	else:
+		g.input_held = false
+		_skill_burn_off(metal)
+
+
+## Habilidad de un toque (anillo de monedas, imán): enciende su metal, actúa y lo apaga un momento después.
+func _tap_skill(metal: StringName, action: Callable, burn_ms: int) -> void:
+	_skill_burn_on(metal)
+	action.call()
+	_skill_off_ms[metal] = Time.get_ticks_msec() + burn_ms
+	get_tree().create_timer(burn_ms / 1000.0).timeout.connect(func() -> void:
+		if Time.get_ticks_msec() >= int(_skill_off_ms.get(metal, 0)):
+			_skill_burn_off(metal))
+
+
+func _skill_burn_on(metal: StringName) -> void:
+	if allomancy.is_burning(metal):
+		return
+	allomancy.set_state(metal, Allomancy.State.BURN)
+	if allomancy.is_burning(metal):
+		_skill_started[metal] = true
+
+
+## Apaga el metal solo si lo encendió una habilidad (uno encendido por el jugador no se toca).
+func _skill_burn_off(metal: StringName) -> void:
+	if not _skill_started.has(metal) or (metal == &"steel" and steel_iron.auto_push != null):
+		return
+	_skill_started.erase(metal)
+	allomancy.set_state(metal, Allomancy.State.OFF)
 
 
 ## Enciende el acero si hace falta y deja la moneda como objetivo del empuje automático.
@@ -918,6 +1170,7 @@ func _can_steel_jump() -> bool:
 
 
 func _end_coin_push() -> void:
+	var was_shot := _coin_shot
 	_jump_push = false
 	_coin_shot = false
 	if steel_iron.auto_push == null:
@@ -926,6 +1179,10 @@ func _end_coin_push() -> void:
 	if is_instance_valid(coin):
 		coin.set_deferred(&"freeze", false)  # vuelve a ser una moneda suelta
 		coin.gravity_scale = 1.0
+		if was_shot and not coin.freeze:
+			# Un clic corto: soltar el botón deja de empujar la moneda y casi se frena en el aire, en vez de seguir
+			# volando a toda velocidad lejos de ti.
+			coin.linear_velocity *= 0.2
 	steel_iron.auto_push = null
 	allomancy.set_state(&"steel", _coin_push_steel)
 
@@ -936,13 +1193,61 @@ func _assist_coin_push() -> bool:
 	var coin := steel_iron.auto_push as RigidBody3D
 	if not is_instance_valid(coin):
 		return false
+	if not coin is Coin:
+		return steel_iron.push_grip.active and steel_iron.push_grip.target == coin  # ya se empuja el objeto que chocó
 	if not coin.freeze:
 		if coin.get_contact_count() > 0:
+			var object := _movable_contact(coin)
+			if object != null:
+				# Chocó con un objeto que se mueve: desde ahora se empuja ese objeto (y te empuja según lo que pese).
+				coin.gravity_scale = 1.0
+				steel_iron.auto_push = object
+				return true
 			coin.set_deferred(&"freeze", true)
 			coin.linear_velocity = Vector3.ZERO
 		elif coin.linear_velocity.length() > GUIDED_COIN_SPEED and not _coin_shot:
 			coin.linear_velocity = coin.linear_velocity.normalized() * GUIDED_COIN_SPEED
+		elif _coin_shot:
+			# Moneda de combate: siempre apunta al punto que mirabas al lanzarla, aunque te muevas o el empuje
+			# la desvíe; así es fácil acertar en movimiento.
+			var to := _shot_point - coin.global_position
+			if to.length() > 0.6:
+				coin.linear_velocity = to.normalized() * _shot_speed
 	return steel_iron.push_grip.active and steel_iron.push_grip.target == coin
+
+
+## Tirón de hierro sobre una moneda u objeto suelto (ver SteelIron._steer_pulled): va hacia tu pecho curvando
+## según te muevas, sin gravedad mientras mantienes la tecla. Una moneda no te hace daño y se guarda al
+## llegar; un objeto cualquiera sí puede golpearte.
+const PULL_COIN_SPEED := 22.0
+const PULL_OBJECT_SPEED := 14.0
+const PULL_COIN_ACCEL := 160.0
+const PULL_OBJECT_ACCEL := 60.0
+
+
+func steer_pulled(body: RigidBody3D, delta: float) -> void:
+	var to := chest_position() - body.global_position
+	var dist := to.length()
+	if dist < 0.01:
+		return
+	var is_coin := body is Coin
+	if is_coin:
+		(body as Coin).pull_owner = self
+		body.add_collision_exception_with(self)
+	var speed := (PULL_COIN_SPEED if is_coin else PULL_OBJECT_SPEED) * clampf(dist / 2.0, 0.35, 1.0)
+	# Cerca de ti iguala tu velocidad, para que te alcance aunque corras.
+	var wanted := to / dist * speed + velocity * clampf(1.0 - dist / 4.0, 0.0, 1.0)
+	body.gravity_scale = 0.0
+	body.linear_velocity = body.linear_velocity.move_toward(wanted, (PULL_COIN_ACCEL if is_coin else PULL_OBJECT_ACCEL) * delta)
+
+
+## Un objeto suelto (caja, barril...) contra el que choca la moneda, o null si solo toca algo fijo.
+func _movable_contact(coin: RigidBody3D) -> RigidBody3D:
+	for b in coin.get_colliding_bodies():
+		var rb := b as RigidBody3D
+		if rb != null and not rb.freeze and not rb is Coin and Metals.movable_mass(rb) > 0.0:
+			return rb
+	return null
 
 
 ## Soltar la bolsa (F): sin metal encima nadie puede empujarte ni tirar de ti, pero tampoco
@@ -1031,11 +1336,14 @@ func _physics_process(delta: float) -> void:
 			_net_move = Vector2.ZERO
 			_net_held.clear()
 	var rd := real_delta(delta)
+	_update_practice_xp(rd)
+	_update_shield(rd)
+	_update_field()
 	_update_pewter_drag(rd)
 	allomancy.flare_blocked = is_soothed()
 	var pewter := allomancy.strength(&"pewter")
 	var speed_mult := (1.0 + 0.6 * pewter) * gear_stat("speed")  # peltre: 1.6x quemando, 2.2x avivando
-	var jump_mult := 1.0 + 0.3 * pewter
+	var jump_mult := 1.0 + 0.3 * pewter_for(&"pewter_jump")
 	if _pewter_drag > 0.0:
 		speed_mult = 0.6
 		jump_mult = 0.7
@@ -1080,16 +1388,16 @@ func _physics_process(delta: float) -> void:
 			_jump_push = steel_iron.auto_push != null
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
 			# Acero + peltre en el doble Espacio: además del empuje de la moneda, el cuerpo reforzado da un impulso.
-			if double_tap and move == Vector2.ZERO and pewter > 0.0 and _jump_push:
-				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter
+			if double_tap and move == Vector2.ZERO and pewter_for(&"pewter_jump") > 0.0 and _jump_push:
+				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter_for(&"pewter_jump")
 				_air_jump_used = true
 		elif double_tap and not is_on_floor() and not _swimming and not _air_jump_used and _spend_stamina(JUMP_COST):
 			# Doble Espacio en el aire sin acero: segundo salto (el peltre lo hace mucho más fuerte).
 			_air_jump_used = true
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
-			velocity.y = jump_velocity * (AIR_JUMP_BOOST + AIR_JUMP_PEWTER * pewter)
+			velocity.y = jump_velocity * (AIR_JUMP_BOOST + AIR_JUMP_PEWTER * pewter_for(&"pewter_jump"))
 			var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
-			velocity += push.normalized() * AIR_JUMP_FORWARD * (1.0 + 0.5 * pewter)
+			velocity += push.normalized() * AIR_JUMP_FORWARD * (1.0 + 0.5 * pewter_for(&"pewter_jump"))
 			rig.play_jump()
 		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
 			velocity.y = jump_velocity * jump_mult
@@ -1329,7 +1637,7 @@ func _process(delta: float) -> void:
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():
-		health = minf(health + regen_rate * (1.0 + 2.0 * allomancy.strength(&"pewter")) * rd, max_health)
+		health = minf(health + regen_rate * (1.0 + 2.0 * pewter_for(&"pewter_second_wind")) * rd, max_health)
 	# El estaño (el dolor te despeja) te recupera antes de un golpe: avivado, el triple de rápido.
 	var recover := rd * 3.0 * (1.0 + allomancy.strength(&"tin"))
 	if rig is ModelRig:
@@ -1356,7 +1664,7 @@ func _process(delta: float) -> void:
 ## Daño que haría un impacto a esa velocidad. El peltre sube el umbral y reduce el daño
 ## (quemando: 20 m/s y la mitad; avivando: 28 m/s y un tercio); las botas suben el umbral.
 func impact_damage_for(impact_speed: float) -> float:
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_landing")
 	var safe := safe_impact_speed + 8.0 * pewter + gear_stat("impact", true)
 	return maxf(impact_speed - safe, 0.0) * impact_damage / (1.0 + pewter)
 
@@ -1510,7 +1818,7 @@ func apply_allomantic_impulse(dv: Vector3) -> void:
 
 
 ## Golpe cuerpo a cuerpo o de una moneda.
-func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
+func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged := false) -> void:
 	if dead:
 		return
 	if attacker and Metals.atium_edge(self, attacker):
@@ -1526,6 +1834,9 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		return
 	# Con atium, el atacante ve el hueco: ni armadura ni peltre frenan el golpe.
 	var unblockable := attacker != null and Metals.atium_edge(attacker, self)
+	if _shield > 0 and not unblockable and not ranged and randf() < SkillTree.shield_block_chance(_shield):
+		_shield_block(attacker)  # el escudo de monedas desvía el golpe cuerpo a cuerpo
+		return
 	if is_rioted():
 		damage *= 1.25
 	if not unblockable:
@@ -1533,7 +1844,7 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if _hanging or _climb_t >= 0.0:
 		_release_ledge(Vector3.ZERO)  # un golpe te suelta del borde
 	# El peltre endurece el cuerpo: menos daño y menos empujón (quemando ~40 %, avivando ~55 %).
-	var pewter := 0.0 if unblockable else allomancy.strength(&"pewter")
+	var pewter := 0.0 if unblockable else pewter_for(&"pewter_endurance")
 	impulse /= 1.0 + 0.5 * pewter
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
 	_shoved = 0.35
@@ -1563,6 +1874,7 @@ func _die() -> void:
 	health = 0.0
 	dead = true
 	allomancy.stop_all()
+	_dismiss_shield()
 	died.emit()
 	get_tree().create_timer(2.5, true, false, true).timeout.connect(func() -> void:
 		respawn()
@@ -1585,7 +1897,7 @@ func attack() -> void:
 		weapon = HumanoidRig.Weapon.DAGGERS  # desenvaina sola
 		_auto_drawn = true
 		rig.set_weapon(weapon)
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_strike")
 	var stats := weapon_stats(weapon)
 	if not is_on_floor() and not _air_attack_used:
 		_air_attack(stats, pewter)
@@ -1760,6 +2072,8 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	var coin := _spawn_coin(start + dir * 0.35)
 	coin.gravity_scale = 0.0  # vuela en línea recta hasta el punto apuntado (se restaura en _end_coin_push)
 	coin.linear_velocity = dir * speed  # sin sumar tu velocidad: así la trayectoria pasa por la mira
+	_shot_point = hit
+	_shot_speed = speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_throw()
 	return coin
@@ -1824,51 +2138,293 @@ func _start_protection() -> void:
 
 # ---------------------------------------------------------------- Monedero
 
-## Alt+E: con acero encendido lanza una ronda de monedas en todas las direcciones; si no, con hierro
-## encendido atrae las monedas cercanas (ver start_gather).
-func coin_alt_action() -> void:
-	if allomancy.strength(&"steel") > 0.0:
-		fire_coin_ring()
-	else:
-		start_gather()
+## Ráfaga de monedas: lanza nivel de acero + 1 monedas a ras del pecho en un abanico hacia donde mira el cuerpo.
+## El abanico se abre con cada nivel (ver SkillTree.fan_angle) y desde el 15 es un círculo completo, repartido a
+## partes iguales. Gastan una moneda cada una.
+## Ángulo (grados) entre la dirección apuntada y el anillo de monedas de la ráfaga radial.
+const RADIAL_BURST_TILT := 70.0
 
 
-## Lanza COIN_RING_COUNT monedas a ras del pecho, repartidas a partes iguales alrededor tuyo (como las
-## porciones de una pizza), la primera hacia donde mira el cuerpo. Gastan una moneda cada una.
-func fire_coin_ring() -> void:
+func fire_coin_burst(aim := Vector3.INF) -> void:
 	if dead or not _check_coins():
 		return
 	var now := Time.get_ticks_msec()
 	if now < _net_coin_ready_ms:
 		return
-	_net_coin_ready_ms = now + COIN_RING_COOLDOWN_MS
-	var front := -visual.global_basis.z
-	front.y = 0.0
-	front = front.normalized()
+	_net_coin_ready_ms = now + COIN_BURST_COOLDOWN_MS
+	# Todo sale hacia donde apunta el ratón, también hacia arriba o abajo (no a la altura del cuerpo). El abanico se
+	# abre a izquierda y derecha de esa dirección, vista desde la cámara; el radial (nivel 15) es una moneda hacia
+	# donde apuntas y el resto en un anillo ancho alrededor de esa dirección.
+	var base := _burst_aim(aim)
+	var right := base.cross(Vector3.UP)
+	right = right.normalized() if right.length() > 0.05 else (camera.global_basis.x if camera != null else Vector3.RIGHT)
+	var view_up := right.cross(base).normalized()
 	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
 	var start := chest_position()
-	for i in mini(COIN_RING_COUNT, coins_held):
-		var dir := front.rotated(Vector3.UP, TAU * i / COIN_RING_COUNT)
+	var level := metal_level(&"steel")
+	var count := mini(SkillTree.fan_count(level), coins_held)
+	var angle := SkillTree.fan_angle(level)
+	for i in count:
+		var dir := base
+		if angle >= TAU:
+			if i > 0:
+				var around := TAU * (i - 1) / maxi(count - 1, 1)
+				var toward := right * cos(around) + view_up * sin(around)
+				dir = base.rotated(base.cross(toward).normalized(), deg_to_rad(RADIAL_BURST_TILT))
+		elif count > 1:
+			dir = base.rotated(view_up, -angle * 0.5 + angle * i / (count - 1))
 		var coin := _spawn_coin(start + dir * 0.5)
-		coin.gravity_scale = 0.25  # casi a ras: cae despacio, no queda flotando
+		coin.gravity_scale = 0.25  # cae despacio: no queda flotando
 		coin.linear_velocity = dir * speed
 	rig.play_throw()
 
 
-## Alt+E (con hierro encendido): todas las monedas sueltas cercanas vuelan hacia ti y se guardan al tocarte.
-func start_gather() -> void:
+## Escudo de monedas (acero 8): monedas del monedero que giran a tu alrededor y dan una probabilidad de desviar cada golpe
+## cuerpo a cuerpo (más monedas, más probabilidad; ver SkillTree.shield_block_chance). Dura SkillTree.SHIELD_DURATION s y
+## se retira solo (o pulsando otra vez): las monedas no se gastan, vuelven al monedero. Los proyectiles los para el Campo magnético. Solo en partida individual.
+const SHIELD_RADIUS := 0.95
+var _shield := 0
+var _shield_until_ms := 0
+var _shield_root: Node3D
+var _shield_orbits: Array[Dictionary] = []
+
+
+func toggle_coin_shield() -> void:
+	if net_peer_id != 0:
+		return
+	if _shield > 0:
+		_dismiss_shield()
+		notice.emit("Escudo de monedas guardado")
+		return
+	if not _check_coins():
+		return
+	_shield = mini(SkillTree.shield_count(metal_level(&"steel")), coins_held)
+	coins_held -= _shield
+	_shield_until_ms = Time.get_ticks_msec() + int(SkillTree.SHIELD_DURATION * 1000.0)
+	_rebuild_shield()
+
+
+## Guarda de nuevo en el monedero las monedas que quedan en el escudo.
+func _dismiss_shield() -> void:
+	coins_held += _shield
+	_shield = 0
+	_rebuild_shield()
+
+
+## El escudo desvía un golpe cuerpo a cuerpo: no hace daño ni empuja. Las monedas siguen girando.
+func _shield_block(attacker: Node3D) -> void:
+	mark_combat()
+	if attacker != null and attacker.has_method(&"mark_combat"):
+		attacker.mark_combat()
+	notice.emit("¡Bloqueado!")
+
+
+func _rebuild_shield() -> void:
+	_shield_orbits.clear()  # antes de liberar las monedas: si no, quedan referencias a nodos liberados
+	if _shield_root != null:
+		_shield_root.queue_free()
+		_shield_root = null
+	if _shield <= 0:
+		return
+	_shield_root = Node3D.new()
+	_shield_root.position.y = 1.2
+	add_child(_shield_root)
+	_shield_orbits.clear()
+	# La misma moneda 3D del juego (CoinKit), cinco veces más chica, con un leve brillo para que se vea de lejos.
+	var mesh := CoinKit.mesh()
+	var mat := CoinKit.material().duplicate() as StandardMaterial3D
+	mat.emission_enabled = true
+	mat.emission = Color(0.8, 0.5, 0.25)
+	mat.emission_energy_multiplier = 0.3
+	# Como el escudo de maná del mago: cada moneda recorre su propia órbita inclinada alrededor del cuerpo, con
+	# otro plano, otra velocidad y otro sentido, así que se cruzan en tres dimensiones (como un átomo).
+	for i in _shield:
+		var pivot := Node3D.new()
+		# Planos repartidos por todo el cuerpo: giro en vertical (golden angle) e inclinación entre 25° y 85°.
+		var yaw := TAU * fposmod(i * 0.381966, 1.0)
+		var tilt := deg_to_rad(25.0 + 60.0 * fposmod(i * 0.618034, 1.0))
+		pivot.rotation = Vector3(tilt, yaw, 0.0)
+		_shield_root.add_child(pivot)
+		var coin := MeshInstance3D.new()
+		coin.mesh = mesh
+		coin.material_override = mat
+		coin.position = Vector3(SHIELD_RADIUS * (0.85 + 0.12 * (i % 3)), 0.0, 0.0)
+		coin.rotation = Vector3(0.0, 0.0, PI / 2.0)  # la cara mira hacia afuera
+		coin.scale = Vector3.ONE * 0.2
+		coin.add_child(_shield_trail())
+		pivot.add_child(coin)
+		pivot.rotate_object_local(Vector3.UP, TAU * i / _shield)  # cada una empieza en otro punto de su órbita
+		var speed := (2.2 + 0.5 * (i % 3)) * (1.0 if i % 2 == 0 else -1.0)
+		_shield_orbits.append({"pivot": pivot, "speed": speed})
+
+
+## Estela dorada y difuminada que deja cada moneda del escudo al pasar (partículas suaves que quedan en el mundo y se
+## desvanecen despacio).
+func _shield_trail() -> GPUParticles3D:
+	var trail := GPUParticles3D.new()
+	trail.amount = 10
+	trail.lifetime = 0.4
+	trail.local_coords = false
+	trail.visibility_aabb = AABB(Vector3(-6, -6, -6), Vector3(12, 12, 12))
+	var pm := ParticleProcessMaterial.new()
+	pm.gravity = Vector3.ZERO
+	pm.initial_velocity_min = 0.0
+	pm.initial_velocity_max = 0.0
+	pm.color_ramp = Fx.fade_ramp()
+	trail.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.16, 0.16)  # una estela apenas insinuada: suave y casi transparente
+	quad.material = Fx.particle_material(Color(1.0, 0.82, 0.4, 0.035), true)
+	trail.draw_pass_1 = quad
+	return trail
+
+
+func _update_shield(rd: float) -> void:
+	if _shield > 0 and Time.get_ticks_msec() > _shield_until_ms:
+		_dismiss_shield()  # se agota solo: las monedas vuelven al monedero
+		notice.emit("Escudo agotado")
+		return
+	for orbit in _shield_orbits:
+		var node: Variant = orbit["pivot"]
+		if is_instance_valid(node):
+			(node as Node3D).rotate_object_local(Vector3.UP, float(orbit["speed"]) * rd)
+
+
+## Lanza de acero (acero 20): gasta 5 monedas en un solo proyectil muy rápido y pesado que atraviesa hasta 4 enemigos,
+## con mucho daño y empuje. Recarga SkillTree.SPEAR_COOLDOWN.
+var _spear_ready_ms := 0
+
+
+func fire_steel_spear(aim := Vector3.INF) -> void:
+	if dead or not _check_coins():
+		return
+	var now := Time.get_ticks_msec()
+	if now < _spear_ready_ms:
+		notice.emit("Lanza de acero recargando (%d s)" % ceili((_spear_ready_ms - now) / 1000.0))
+		return
+	if coins_held < SkillTree.SPEAR_COST:
+		notice.emit("La lanza necesita %d monedas" % SkillTree.SPEAR_COST)
+		return
+	_spear_ready_ms = now + int(SkillTree.SPEAR_COOLDOWN * 1000.0)
+	coins_held -= SkillTree.SPEAR_COST - 1  # _spawn_coin descuenta la quinta
+	var dir := _burst_aim(aim)
+	var spear := _spawn_coin(chest_position() + dir * 0.6) as Coin
+	spear.gravity_scale = 0.0
+	spear.mass = 0.5
+	spear.linear_damp = 0.0
+	spear.pierce_left = 4
+	spear.hit_power = 2.0
+	spear.linear_velocity = dir * SkillTree.SPEAR_SPEED
+	visual.rotation.y = atan2(-dir.x, -dir.z)
+	rig.play_throw()
+	get_tree().create_timer(3.0).timeout.connect(spear.queue_free)
+
+
+## Campo magnético (acero 12): durante unos segundos las monedas y proyectiles metálicos que se acercan a ti se
+## desvían y vuelven hacia quien los lanzó, con el mismo daño.
+var _field_until_ms := 0
+var _field_ready_ms := 0
+var _field_shell: MeshInstance3D
+
+
+func activate_magnetic_field() -> void:
+	if dead:
+		return
+	var now := Time.get_ticks_msec()
+	if now < _field_ready_ms:
+		notice.emit("Campo magnético recargando (%d s)" % ceili((_field_ready_ms - now) / 1000.0))
+		return
+	_field_until_ms = now + int(SkillTree.FIELD_DURATION * 1000.0)
+	_field_ready_ms = now + int(SkillTree.FIELD_COOLDOWN * 1000.0)
+	if _field_shell == null:
+		_field_shell = MeshInstance3D.new()
+		var sphere := SphereMesh.new()
+		sphere.radius = SkillTree.FIELD_RADIUS
+		sphere.height = SkillTree.FIELD_RADIUS * 2.0
+		_field_shell.mesh = sphere
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.albedo_color = Color(0.45, 0.65, 1.0, 0.05)  # apenas visible: no llena la pantalla de ruido
+		_field_shell.material_override = mat
+		_field_shell.position.y = 1.2
+		add_child(_field_shell)
+	_field_shell.visible = true
+
+
+func _update_field() -> void:
+	if _field_shell == null or not _field_shell.visible:
+		return
+	if dead or Time.get_ticks_msec() > _field_until_ms:
+		_field_shell.visible = false
+		return
+	var center := chest_position()
+	for n in get_tree().get_nodes_in_group(&"coin"):
+		var coin := n as Coin
+		if coin == null or coin.puppet or coin.shooter == self or coin.freeze:
+			continue
+		var to_me := center - coin.global_position
+		var dist := to_me.length()
+		var speed := coin.linear_velocity.length()
+		if dist > SkillTree.FIELD_RADIUS or speed < 8.0 or coin.linear_velocity.dot(to_me) <= 0.0:
+			continue
+		# Vuelve hacia quien la lanzó (o hacia donde vino) y desde ahora es tuya: hiere a los demás.
+		var back := -coin.linear_velocity.normalized()
+		if is_instance_valid(coin.shooter):
+			back = (Metals.center_of(coin.shooter) - coin.global_position).normalized()
+		coin.linear_velocity = back * speed * 1.1
+		coin.gravity_scale = 0.0
+		coin.shooter = self
+
+
+## Dirección hacia donde apunta el ratón desde el pecho (la mandó el cliente en red, o se calcula aquí).
+func _burst_aim(aim: Vector3) -> Vector3:
+	if aim.is_finite() and aim.length() > 0.5:
+		return aim.normalized()
+	var start := chest_position()
+	var look := aim_direction().normalized()
+	var hit := aim_point()
+	# Un punto detrás de ti (la cámara pegada a un muro): usa uno lejano en la dirección de la mira.
+	if (hit - start).dot(look) < 0.5:
+		hit = camera.global_position + look * 150.0
+	return (hit - start).normalized()
+
+
+## Imán de monedas (con hierro encendido): las monedas sueltas del abanico vuelan hacia ti y se guardan al tocarte.
+func start_gather(aim := Vector3.INF) -> void:
 	if dead or not has_bag():
 		return
 	if allomancy.strength(&"iron") <= 0.0:
-		notice.emit("Alt+E: con acero (1) lanza monedas en círculo, con hierro (2) las atrae")
+		notice.emit("Sin hierro encendido no se pueden atraer monedas")
 		return
 	_stop_gather()
 	var chest := chest_position()
+	# Imán de monedas: las más cercanas dentro del abanico hacia adelante (nivel de hierro + 1; todas si es radial).
+	var level := metal_level(&"iron")
+	var angle := SkillTree.fan_angle(level)
+	var base := _burst_aim(aim)  # el abanico apunta hacia donde apunta el ratón
+	var front := Vector3(base.x, 0.0, base.z)
+	front = front.normalized() if front.length() > 0.1 else -visual.global_basis.z
+	var found := []
 	for n in get_tree().get_nodes_in_group(&"coin"):
 		var coin := n as Coin
-		if coin != null and not coin.puppet and coin != steel_iron.auto_push \
-				and coin.global_position.distance_to(chest) <= GATHER_RADIUS:
-			_gathering.append(coin)
+		if coin == null or coin.puppet or coin == steel_iron.auto_push:
+			continue
+		var to := coin.global_position - chest
+		var dist := to.length()
+		if dist > GATHER_RADIUS:
+			continue
+		to.y = 0.0
+		if angle < TAU and to.length() > 0.5 and front.angle_to(to) > angle * 0.5:
+			continue
+		found.append([dist, coin])
+	found.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	for entry in found.slice(0, found.size() if angle >= TAU else SkillTree.fan_count(level)):
+		var pulled: Coin = entry[1]
+		pulled.pull_owner = self
+		pulled.add_collision_exception_with(self)
+		_gathering.append(pulled)
 	_gather_until_ms = Time.get_ticks_msec() + GATHER_MS
 	if _gathering.is_empty():
 		notice.emit("No hay monedas cerca")

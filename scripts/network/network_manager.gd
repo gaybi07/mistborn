@@ -276,7 +276,7 @@ func _build_ui() -> void:
 	box.add_child(_peers)
 
 	var help := Label.new()
-	help.text = "1. Una persona pulsa Alojar.\n2. La otra escribe la IP del anfitrión y pulsa Unirse.\n3. Las dos van a la arena (F2), abren el menú (M) y entran al duelo en red."
+	help.text = "1. Una persona pulsa Alojar.\n2. La otra escribe la IP del anfitrión y pulsa Unirse.\n3. Las dos van a la arena (Ctrl+F2), abren el menú (M) y entran al duelo en red."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.modulate.a = 0.65
 	box.add_child(help)

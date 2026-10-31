@@ -1,7 +1,8 @@
 class_name Weather
 extends Node3D
 ## Hora, clima y niebla, aplicados en vivo (ciudad y arena).
-##   F3 hora: noche / día        F4 clima: despejado / lluvia / ceniza        F5 niebla: poca / mucha
+##   Ctrl+F3 hora: noche / día   Ctrl+F4 clima: despejado / lluvia / ceniza   Ctrl+F5 niebla: ninguna / poca / mucha
+## Todo se cambia también desde el menú (Esc, pestaña Mundo), con interruptores para la bruma, la ceniza y los relámpagos.
 ## Además de lo visual cambia la jugabilidad: Art.sight_range() (a qué distancia te ven los
 ## alománticos) depende de los tres, y de día aparecen menos alománticos.
 
@@ -9,6 +10,8 @@ extends Node3D
 signal lightning
 
 const WEATHERS := ["despejado", "lluvia", "ceniza"]
+const FOGS := ["ninguna", "poca", "mucha"]
+const FOG_NAMES := {"ninguna": "Sin", "poca": "Poca", "mucha": "Mucha"}
 const WEATHER_NAMES := {"despejado": "Despejado", "lluvia": "Lluvia", "ceniza": "Lluvia de ceniza"}
 
 var env: Environment
@@ -33,7 +36,8 @@ var _dark_mist: FogVolume
 
 func _ready() -> void:
 	add_to_group(&"weather")
-	_rain = _particles(5000, 1.0, Vector3(28, 1, 28), _rain_material(), Vector2(0.025, 0.7))
+	WorldSettings.load_settings()  # hora, clima y niebla guardados en el menú
+	_rain =_particles(5000, 1.0, Vector3(28, 1, 28), _rain_material(), Vector2(0.025, 0.7))
 	var rain_pm := _rain.process_material as ParticleProcessMaterial
 	rain_pm.direction = Vector3(0.08, -1, 0.04)
 	rain_pm.spread = 3.0
@@ -112,15 +116,15 @@ func _rain_material() -> StandardMaterial3D:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not (event is InputEventKey and event.pressed and not event.echo):
-		return
+	if not (event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed):
+		return  # Ctrl+F3 día/noche, Ctrl+F4 clima, Ctrl+F5 niebla (F1-F9 solos son los metales)
 	match event.keycode:
 		KEY_F3:
 			Art.lighting = "dia" if Art.lighting == "noche" else "noche"
 		KEY_F4:
 			Art.weather = WEATHERS[(WEATHERS.find(Art.weather) + 1) % WEATHERS.size()]
 		KEY_F5:
-			Art.fog = "poca" if Art.fog == "mucha" else "mucha"
+			Art.fog = FOGS[(FOGS.find(Art.fog) + 1) % FOGS.size()]
 		_:
 			return
 	apply()
@@ -133,7 +137,8 @@ func apply(show_label := true) -> void:
 	var day := Art.lighting == "dia"
 	var rain := Art.weather == "lluvia"
 	var ash := Art.weather == "ceniza"
-	var fog_mult := (0.45 if Art.fog == "poca" else 1.5) * fog_scale * (0.12 if sheltered else 1.0)
+	var no_fog := Art.fog == "ninguna"
+	var fog_mult := (0.0 if no_fog else (0.45 if Art.fog == "poca" else 1.5)) * fog_scale * (0.12 if sheltered else 1.0)
 
 	# --- Hora
 	# Cielo: [arriba, horizonte, suelo, nubes, borde de nubes, cobertura, estrellas, disco, tamaño del disco]
@@ -188,7 +193,7 @@ func apply(show_label := true) -> void:
 		_moon_energy *= 0.7
 	# La bruma se acumula con la distancia: lo que ves acaba donde acaba Art.sight_range() (lo que
 	# ven los alománticos). A esa distancia queda ~45 % de nitidez de noche; el estaño la aparta.
-	env.fog_density = (0.4 if day else 1.0) / Art.sight_range() * fog_scale * (0.12 if sheltered else 1.0)
+	env.fog_density = 0.0 if no_fog else (0.4 if day else 1.0) / Art.sight_range() * fog_scale * (0.12 if sheltered else 1.0)
 	moon.light_energy = _moon_energy
 	moon.light_volumetric_fog_energy = 1.0 if day else 0.5
 	var params := [&"top_color", &"horizon_color", &"ground_color", &"cloud_color", &"cloud_light",
@@ -198,7 +203,7 @@ func apply(show_label := true) -> void:
 	# El disco: la luna nítida y brillante; el sol, una brasa roja que la bruma apenas deja pasar.
 	sky_mat.set_shader_parameter(&"disc_energy", 3.0 if day else 5.0)
 	env.fog_sky_affect = 0.25 if day else 0.4  # que la niebla no borre la luna ni el sol
-	sky_mat.set_shader_parameter(&"haze", clampf((0.35 if Art.fog == "poca" else 0.7) + (0.15 if rain or ash else 0.0), 0.0, 1.0))
+	sky_mat.set_shader_parameter(&"haze", clampf((0.05 if no_fog else (0.35 if Art.fog == "poca" else 0.7)) + (0.15 if rain or ash else 0.0), 0.0, 1.0))
 
 	# --- Suelo y paredes
 	var mats := WorldKit.materials()
@@ -209,16 +214,19 @@ func apply(show_label := true) -> void:
 
 	# --- La bruma: nubes negras irregulares (de día, pardas y más ralas).
 	var dark: ShaderMaterial = mats["dark_mist"]
-	var mist_density := (0.04 if day else 0.11) * fog_mult * (1.25 if rain or ash else 1.0)
+	# La bruma negra tiene su propio interruptor (Art.mist), aparte de la niebla.
+	var mist_density := (0.04 if day else 0.11) * (1.0 if no_fog else fog_mult) * (1.25 if rain or ash else 1.0)
+	if not Art.mist:
+		mist_density = 0.0
 	dark.set_shader_parameter(&"density", mist_density)
 	dark.set_shader_parameter(&"albedo", Color(0.05, 0.035, 0.03) if day else Color(0.015, 0.015, 0.02))
-	_dark_mist.visible = not indoor
+	_dark_mist.visible = not indoor and Art.mist
 
 	# --- Exterior: bruma densa fuera de la muralla y lejanía de los montes de ceniza.
 	var thick := Art.fog == "mucha"
 	var bad_weather := rain or ash
 	var ext_fog: FogMaterial = mats["exterior_fog"]
-	ext_fog.density = (0.012 if day else 0.045) * (1.5 if thick else 0.6) * (1.2 if bad_weather else 1.0)
+	ext_fog.density = (0.012 if day else 0.045) * (0.0 if no_fog else (1.5 if thick else 0.6)) * (1.2 if bad_weather else 1.0)
 	ext_fog.albedo = env.fog_light_color.lerp(Color(0.85, 0.88, 0.94), 0.5)
 	# --- Luces: de día, faroles y ventanas apagados.
 	var glass: StandardMaterial3D = mats["lamp_glass"]
@@ -241,7 +249,7 @@ func apply(show_label := true) -> void:
 	citadel_fog.emission = Color.BLACK if day else env.fog_light_color * 0.06
 	var haze := (0.28 if day else 0.72) + (0.2 if thick else 0.0) + (0.12 if rain else 0.0) + (0.15 if ash else 0.0)
 	var mountain: ShaderMaterial = mats["mountain"]
-	mountain.set_shader_parameter(&"haze", clampf(haze, 0.0, 0.97))
+	mountain.set_shader_parameter(&"haze", clampf(haze * (0.3 if no_fog else 1.0), 0.0, 0.97))
 	mountain.set_shader_parameter(&"haze_color", env.fog_light_color)
 	mountain.set_shader_parameter(&"haze_brightness", 0.9 if day else 0.12)  # de noche, siluetas oscuras
 	(mats["citadel_glass_lit"] as ShaderMaterial).set_shader_parameter(&"glow_energy", 0.0 if day else 4.0)
@@ -249,7 +257,7 @@ func apply(show_label := true) -> void:
 		var m: ShaderMaterial = mats[key]
 		m.set_shader_parameter(&"haze_color", Color(0.04, 0.04, 0.05) if day else env.fog_light_color)
 		m.set_shader_parameter(&"haze_brightness", 1.0 if day else 0.6)  # de noche, un velo gris sobre el cielo negro
-		m.set_shader_parameter(&"haze_density", 0.007 * (1.5 if thick else 1.0) * (1.2 if bad_weather else 1.0))
+		m.set_shader_parameter(&"haze_density", 0.007 * (0.0 if no_fog else (1.5 if thick else 1.0)) * (1.2 if bad_weather else 1.0))
 		m.set_shader_parameter(&"haze_max", 0.92)
 		# Siempre envuelto: la bruma sube hasta media aguja. La roca no (si no, el pie del cordón
 		# de picos se ve como un muro liso).
@@ -260,14 +268,15 @@ func apply(show_label := true) -> void:
 	_ash.emitting = ash and not (indoor or sheltered)
 	var world_fx := get_tree().get_first_node_in_group(&"world_fx") as WorldFx
 	if world_fx:
-		var mist := 0.07 * (0.5 if Art.fog == "poca" else 1.4)
+		var mist := 0.07 * (1.4 if Art.fog == "mucha" else 0.5)
 		if day:
 			mist *= 0.3  # la bruma es cosa de la noche
-		world_fx.set_base_alpha(mist)
+		world_fx.set_base_alpha(mist if Art.mist else 0.0)
+		world_fx.set_ash_enabled(Art.ash_fall)
 
 	Art.env_version += 1
 	_label.text = "%s · %s · %s niebla\nVisibilidad: %d m" % ["Día" if day else "Noche", WEATHER_NAMES[Art.weather],
-			"Poca" if Art.fog == "poca" else "Mucha", int(Art.sight_range())]
+			FOG_NAMES[Art.fog], int(Art.sight_range())]
 	if show_label:
 		_label_time = 3.0
 
@@ -287,7 +296,7 @@ func _process(delta: float) -> void:
 
 ## Relámpagos durante la lluvia: dos destellos seguidos de la luz principal.
 func _update_lightning(rd: float) -> void:
-	if Art.weather != "lluvia":
+	if Art.weather != "lluvia" or not Art.lightning:
 		return
 	_next_lightning -= rd
 	if _next_lightning <= 0.0:

@@ -1,6 +1,6 @@
 class_name MetalGlyph
 ## Símbolos de los metales dibujados con líneas (se ven nítidos a cualquier tamaño).
-## Los usan la barra del HUD y la rueda de metales.
+## Los usa la barra del HUD.
 ##   Acero: flecha hacia fuera (empujar)       Hierro: flecha hacia dentro (tirar)
 ##   Peltre: escudo con el puño del guerrero    Atium: reloj de arena dentro de un anillo
 ##   Cinc: llama (enardecer)                   Cobre: nube que te oculta

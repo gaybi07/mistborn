@@ -24,6 +24,11 @@ class Grip:
 	var consume := false
 	## Segundos con el agarre activo: la fuerza sube en los primeros instantes (ver ramp), no de golpe.
 	var held := 0.0
+	## Partida individual: la ranura con la habilidad de este agarre está pulsada (input_just: solo este paso).
+	var input_held := false
+	var input_just := false
+	## Ya se avisó que el objetivo no se puede agarrar (hasta soltar la tecla).
+	var warned := false
 
 	func ramp() -> float:
 		return lerpf(0.35, 1.0, clampf(held / 0.12, 0.0, 1.0))
@@ -76,9 +81,6 @@ const DOTS_BURN := 6
 const DOTS_FLARE := 14
 ## Tras elegir con la rueda, se mantiene esa elección este tiempo (ms).
 const MANUAL_HOLD_MS := 2000
-## Auto-selección sin objetivo a la vista: puntaje mínimo y masa mínima (solo anclas y cosas pesadas).
-const AUTO_MIN_SCORE := 0.2
-const AUTO_MIN_MASS := 50.0
 
 
 func _ready() -> void:
@@ -142,29 +144,43 @@ func _physics_process(delta: float) -> void:
 		if g.active:
 			holding = true
 			g.held += delta
-			var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp(), g.dir_sign, delta, _reach, base_force)
+			if _steer_pulled(g, delta):
+				applying_force = true
+				continue
+			var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp() * level_boost(g), g.dir_sign, delta, _reach, base_force, power_mass(g))
 			player.add_allomantic_acceleration(accel, player.real_delta(delta))
 			applying_force = true
 
 	if Input.is_action_just_pressed(&"anchor"):
 		anchor_pressed()
+	for g in grips():
+		g.input_just = false
 
 
-## Si se pulsa el clic de este agarre. Con un solo metal encendido sirven los dos clics.
+## Si se pulsa la ranura con la habilidad de este agarre (tirón básico o empuje ligero; ver Player._skill_key).
 func _grip_input(g: Grip, just: bool) -> bool:
-	if player.ui_open or Input.is_key_pressed(KEY_ALT):
-		return false  # Alt+E es juntar monedas, no tirar
-	var other: Grip = pull_grip if g == push_grip else push_grip
-	var actions: Array[StringName] = [g.action]
-	if not player.allomancy.is_burning(other.metal):
-		actions.append(other.action)
-	# Donde hay algo que usar con E (puerta, armario), E abre y no tira.
-	if player.interactable != null and player.interactable.prompt != "":
-		actions.erase(&"pull")
-	for a in actions:
-		if Input.is_action_just_pressed(a) if just else Input.is_action_pressed(a):
-			return true
-	return false
+	if player.ui_open:
+		return false
+	return g.input_just if just else g.input_held
+
+
+## La fuerza del empuje y del tirón crece con el nivel de su metal (+3 % por nivel) y con sus hitos de nivel.
+func level_boost(g: Grip) -> float:
+	var boost := 1.0 + 0.03 * maxi(player.metal_level(g.metal) - 1, 0)
+	# Hitos del tirón de hierro: Tirón ligero (+10 %) y Tirón de masa (+25 %).
+	if g == pull_grip:
+		if player.skill_unlocked(&"iron_light_pull"):
+			boost *= 1.1
+		if player.skill_unlocked(&"iron_mass_pull"):
+			boost *= 1.25
+	return boost
+
+
+## Poder de este agarre: hasta qué masa (kg) mueves tú lo que empujas o tiras en vez de que te mueva a ti.
+## Con tu peso al nivel 1; sube con el nivel de su metal (ver SkillTree.power_mass) y te deja mover cosas más pesadas que
+## tú. Lo que pesa más que este poder, o no se mueve (farolas, rejas), te empuja o te acerca a ti (ver Metals.push_pull).
+func power_mass(g: Grip) -> float:
+	return SkillTree.power_mass(player.metal_level(g.metal), player.body_mass)
 
 
 func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
@@ -174,8 +190,6 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		if g.target != auto_push:
 			g.target = auto_push
 			g.active = true
-			Fx.sparks(get_tree().current_scene, center_of(auto_push), g.color)
-			Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(auto_push), 0.25, g.color)
 		return
 	var pressed := _grip_input(g, false)
 	if _grip_input(g, true) and g.latched:
@@ -183,6 +197,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.consume = true
 	if not pressed:
 		g.consume = false
+		g.warned = false
 	var wanted := strength > 0.0 and ((pressed and not g.consume) or g.latched)
 	if not wanted:
 		_release(g)
@@ -191,17 +206,32 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		_release(g)  # el objetivo se fue de alcance: se pierde el agarre (y el anclaje)
 		return
 	if not g.active:
-		# Lo que miras (o, sin nada a la vista, lo de los pies o lo que más ayuda a moverte).
+		# Con la tecla pulsada, al terminar un agarre pasa al siguiente metal que esté dentro del círculo de la mira;
+		# si no hay ninguno, no agarra nada.
 		var t := click_target(g == push_grip, origin)
 		if t == null:
 			return  # sigue pulsado: se agarrará en cuanto haya algo que agarrar
 		g.target = t
 		g.active = true
-		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
-		Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(t), 0.25, g.color)
+
+
+## Tirón sobre una moneda u objeto suelto: va hacia ti siguiendo tu posición (también si te mueves) en vez de
+## empujarlo con fuerza, y no te tira a ti. Devuelve true si lo manejó. Las anclas y la gente siguen con push_pull.
+func _steer_pulled(g: Grip, delta: float) -> bool:
+	if g != pull_grip or not is_instance_valid(g.target):
+		return false
+	var body := g.target as RigidBody3D
+	var mass := Metals.movable_mass(body) if body != null else 0.0
+	if body == null or body.freeze or mass <= 0.0 or mass > power_mass(g):
+		return false  # lo que pesa más que tu poder no viene: tira de ti (ver Metals.push_pull)
+	player.steer_pulled(body, delta)
+	return true
 
 
 func _release(g: Grip) -> void:
+	# Al soltar la tecla, lo que venías tirando cae con la física de siempre.
+	if g == pull_grip and is_instance_valid(g.target) and g.target is RigidBody3D:
+		(g.target as RigidBody3D).gravity_scale = 1.0
 	g.active = false
 	g.latched = false
 	g.target = null
@@ -249,7 +279,6 @@ func _net_physics(delta: float) -> void:
 			push_grip.target = auto_push
 			push_grip.active = true
 			push_grip.latched = false
-			Fx.sparks(get_tree().current_scene, center_of(auto_push), push_grip.color)
 		_net_auto_grip = true
 	elif _net_auto_grip:
 		_net_auto_grip = false
@@ -263,7 +292,10 @@ func _net_physics(delta: float) -> void:
 			continue
 		holding = true
 		g.held += delta
-		var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp(), g.dir_sign, delta, _reach, base_force)
+		if _steer_pulled(g, delta):
+			applying_force = true
+			continue
+		var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp() * level_boost(g), g.dir_sign, delta, _reach, base_force, power_mass(g))
 		player.add_allomantic_acceleration(accel, player.real_delta(delta))
 		applying_force = true
 	_net_publish()
@@ -326,7 +358,6 @@ func net_grip_request(is_push: bool, pressed: bool, id: int) -> void:
 	g.active = true
 	if g == push_grip:
 		_net_auto_grip = false
-	Fx.sparks(get_tree().current_scene, center_of(t), g.color)
 	_net_publish()
 
 
@@ -403,8 +434,8 @@ func _metals_in_range(origin: Vector3, reach: float) -> Array[Node3D]:
 	return out
 
 
-func _is_valid(t: Node3D, origin: Vector3) -> bool:
-	return is_instance_valid(t) and t.is_inside_tree() and center_of(t).distance_to(origin) <= _reach
+func _is_valid(t, origin: Vector3) -> bool:
+	return is_instance_valid(t) and t.is_inside_tree() and center_of(t).distance_to(origin) <= effective_reach(t)
 
 
 ## Elige el metal alcanzable más cercano a la mira (sin contar los ya agarrados) y deja en `_cands` todos
@@ -443,15 +474,9 @@ func _pick_target(origin: Vector3) -> Node3D:
 	return _cands[0] if not _cands.is_empty() else null
 
 
-## Qué agarrar al pulsar: lo que está bajo la mira; si no miras nada, el metal que tienes justo debajo
-## (la moneda de los pies) y, por último, uno elegido según hacia dónde te mueves.
-func click_target(is_push: bool, origin: Vector3) -> Node3D:
-	if target != null:
-		return target
-	var feet := _feet_target(origin)
-	if feet != null:
-		return feet
-	return _auto_target(is_push, origin)
+## Qué agarrar al pulsar: solo lo que está dentro del círculo de la mira (nada más, aunque haya metal cerca).
+func click_target(_is_push: bool, _origin: Vector3) -> Node3D:
+	return target
 
 
 ## Tecla R: ancla los agarres activos (siguen aunque se suelte el clic; volver a pulsar el clic los suelta).
@@ -462,41 +487,6 @@ func anchor_pressed() -> void:
 		for g in grips():
 			if g.active:
 				g.latched = true
-
-
-## Hacia dónde quieres ir (plano): lo que pulsas con WASD según la cámara, o hacia donde mira la cámara.
-func _wanted_direction() -> Vector3:
-	var input := player._move_vector()
-	var basis := player.yaw_pivot.global_basis
-	var dir := basis * Vector3(input.x, 0.0, input.y) if input != Vector2.ZERO else -basis.z
-	dir.y = 0.0
-	return dir.normalized()
-
-
-## Sin nada a la vista: el metal firme (ancla o cosa pesada) que más ayuda a moverte hacia donde quieres.
-## Tirar te acerca al objetivo, así que conviene el que está hacia donde vas y arriba; empujar te aleja,
-## así que conviene el del lado contrario y abajo. Prefiere los más cercanos.
-func _auto_target(is_push: bool, origin: Vector3) -> Node3D:
-	var want := _wanted_direction()
-	var best: Node3D = null
-	var best_score := AUTO_MIN_SCORE
-	for m in _metals:
-		if m == push_grip.target or m == pull_grip.target:
-			continue
-		var mass := Metals.movable_mass(m)
-		if mass > 0.0 and mass < AUTO_MIN_MASS:
-			continue
-		var to := center_of(m) - origin
-		var dist := to.length()
-		if dist < 2.0 or dist > effective_reach(m) or not _los_ok(m, origin):
-			continue
-		var dir := to / dist
-		var sign := -1.0 if is_push else 1.0
-		var score := 0.65 * dir.dot(want) * sign + 0.35 * dir.y * sign - dist * 0.004
-		if score > best_score:
-			best_score = score
-			best = m
-	return best
 
 
 ## Rueda del ratón con acero o hierro encendido: pasa al siguiente (o anterior) metal cerca de la mira.
@@ -524,20 +514,6 @@ func _los_ok(t: Node3D, origin: Vector3) -> bool:
 		entry = [now, _net_line_of_sight(origin, t)]
 		_los_cache[id] = entry
 	return entry[1]
-
-
-## Sin nada en la mira: el metal justo debajo (moneda soltada con G).
-func _feet_target(origin: Vector3) -> Node3D:
-	var best: Node3D = null
-	var best_dist := 3.0
-	for m in _metals:
-		if m == push_grip.target or m == pull_grip.target:
-			continue
-		var to := center_of(m) - origin
-		if to.length() < best_dist and to.normalized().dot(Vector3.DOWN) > 0.75:
-			best_dist = to.length()
-			best = m
-	return best
 
 
 ## Dibujo "de aurora": en reposo solo puntos suaves sobre lo que puedes usar (pocos si quemas, más si

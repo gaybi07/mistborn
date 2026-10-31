@@ -27,13 +27,13 @@ const ANIMS := {
 	# Colgado de un borde y subiendo. Si agregás animaciones propias (p. ej. de Mixamo), poné su
 	# nombre primero; mientras tanto se usa la pose de salto con las manos llevadas al borde.
 	"hang": ["Hanging_Idle", "Hang_Idle", "Jump_Idle"],
-	"climb": ["Climbing", "Climb_Up", "Jump_Start"],
+	"climb": ["Climbing", "Climb_Up", "Jump_Start", "jump_start"],
 	# Saltar desde un borde hacia abajo (Mixamo "Jumping Down"): todavía no la usa ningún estado.
-	"attack_air": ["2H_Melee_Attack_Spinning", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Punch"],
+	"attack_air": ["2H_Melee_Attack_Spinning", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Punch", "sword_attack"],
 	# Combos: golpe 1, 2... y remate (attack_X, attack_X_1, attack_X_2, attack_X_3).
-	"attack_fist": ["Punch", "Unarmed_Melee_Attack_Punch_A"],
-	"attack_fist_1": ["Unarmed_Melee_Attack_Punch_A", "Punch"],
-	"attack_fist_2": ["Unarmed_Melee_Attack_Kick", "Punch"],
+	"attack_fist": ["Punch", "Unarmed_Melee_Attack_Punch_A", "sword_regular_a"],
+	"attack_fist_1": ["Unarmed_Melee_Attack_Punch_A", "Punch", "sword_regular_b"],
+	"attack_fist_2": ["Unarmed_Melee_Attack_Kick", "Punch", "sword_regular_c"],
 	# Dagas: puñalada, tajo cruzado con las dos, revés y tajo doble descendente (remate).
 	"attack_daggers": ["sword_regular_a", "Dagger_Attack", "Dualwield_Melee_Attack_Slice", "1H_Melee_Attack_Stab", "Dagger_Attack2", "Punch"],
 	"attack_daggers_1": ["sword_regular_b", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Dagger_Attack"],

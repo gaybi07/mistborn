@@ -12,8 +12,13 @@ static var player_model := "mistborn"
 static var lighting := "noche"
 ## "despejado", "lluvia" o "ceniza". F4.
 static var weather := "despejado"
-## "poca" o "mucha". F5.
+## "ninguna", "poca" o "mucha". Ctrl+F5.
 static var fog := "mucha"
+## Bruma negra (nubes bajas y jirones a ras de suelo), ceniza que flota siempre en el aire y relámpagos con lluvia.
+## Se apagan desde el menú (Esc, pestaña Mundo); la lluvia y la ceniza de tormenta se apagan con el clima.
+static var mist := true
+static var ash_fall := true
+static var lightning := true
 ## Sube cada vez que cambia el ambiente (para que el estaño recalcule sus valores base).
 static var env_version := 0
 
@@ -48,7 +53,13 @@ static func save_suit(s: String) -> void:
 ## Es lo que usan los alománticos para detectarte; la niebla y el clima la recortan.
 static func sight_range() -> float:
 	var r := 16.0 if lighting == "noche" else 38.0
-	r *= 1.6 if fog == "poca" else 0.65
+	match fog:
+		"ninguna":
+			r *= 2.2
+		"poca":
+			r *= 1.6
+		_:
+			r *= 0.65
 	match weather:
 		"lluvia":
 			r *= 0.75
@@ -136,7 +147,19 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 	return _model(SETS[style]["player"], Color(1, 1, 1), [])
 
 
+## Todos los NPC usan el modelo del koloss (ver tools/koloss/make_koloss_glb.js). Su esqueleto copia el del
+## Mistborn, así que repite las animaciones del personaje principal (ver BoneTools.UE_TO_UE).
+const KOLOSS := "res://assets/koloss/Koloss.glb"
+const KOLOSS_ANIMS := "res://assets/mixamo/Mistborn.glb"
+## Alto (m) de los NPC: de este mínimo al máximo, con pocos gigantes (la curva favorece a los bajos).
+const NPC_MIN_HEIGHT := 1.5
+const NPC_MAX_HEIGHT := 3.0
+static var npc_use_koloss := true
+
+
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
+	if npc_use_koloss:
+		return koloss_rig()
 	if not SETS.has(style):
 		return _procedural(look)
 	var set: Dictionary = SETS[style]
@@ -149,6 +172,17 @@ static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
 		"noble":
 			return _model(set["nobles"].pick_random(), Color(0.9, 0.88, 0.9), [])
 	return _model(set["citizens"].pick_random(), CROWD_TINTS.pick_random(), [])
+
+
+static func koloss_rig() -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = KOLOSS
+	rig.flip = true  # mira hacia +Z como los demás glTF
+	rig.retarget_from = KOLOSS_ANIMS
+	rig.retarget_map = BoneTools.UE_TO_UE
+	rig.target_height = NPC_MIN_HEIGHT + (NPC_MAX_HEIGHT - NPC_MIN_HEIGHT) * pow(randf(), 1.4)
+	rig.tint = Color.WHITE.darkened(randf_range(0.0, 0.25))
+	return rig
 
 
 static func _procedural(look: Dictionary) -> HumanoidRig:

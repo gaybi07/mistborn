@@ -11,6 +11,8 @@ var player: Player
 var _root: Control
 var _restart_button: Button
 var _reset_button: Button
+var _tabs: TabContainer
+var _coins_button: Button
 
 
 func _ready() -> void:
@@ -58,6 +60,8 @@ func _ready() -> void:
 	tabs.add_child(_page("Controles", CONTROLS))
 	tabs.add_child(_metals_page())
 	tabs.add_child(_page("Combate", COMBAT))
+	_tabs = tabs
+	tabs.add_child(_world_page())
 	tabs.add_child(_options_page())
 
 	var buttons := HBoxContainer.new()
@@ -121,6 +125,91 @@ func _restart_all() -> void:
 	_restart_world()
 
 
+## Pestaña Mundo: hora, clima y niebla, y interruptores para la bruma, la ceniza y los relámpagos. Los cambios
+## se ven al instante y se guardan (ver GameSettings.load_world).
+func _world_page() -> Control:
+	var page := VBoxContainer.new()
+	page.name = "Mundo"
+	page.add_theme_constant_override("separation", 10)
+	page.add_child(HudKit.section_label("Hora, clima y niebla"))
+	page.add_child(_choice_row("Hora", [["noche", "Noche"], ["dia", "Día"]], Art.lighting,
+			func(v: String) -> void: Art.lighting = v))
+	page.add_child(_choice_row("Clima", [["despejado", "Despejado"], ["lluvia", "Lluvia"], ["ceniza", "Lluvia de ceniza"]],
+			Art.weather, func(v: String) -> void: Art.weather = v))
+	page.add_child(_choice_row("Niebla", [["ninguna", "Sin niebla"], ["poca", "Poca"], ["mucha", "Mucha"]],
+			Art.fog, func(v: String) -> void: Art.fog = v))
+	page.add_child(HudKit.section_label("Efectos (se pueden apagar)"))
+	page.add_child(_switch_row("Bruma negra: nubes bajas y jirones a ras de suelo", Art.mist,
+			func(on: bool) -> void: Art.mist = on))
+	page.add_child(_switch_row("Ceniza que flota siempre en el aire", Art.ash_fall,
+			func(on: bool) -> void: Art.ash_fall = on))
+	page.add_child(_switch_row("Relámpagos durante la lluvia", Art.lightning,
+			func(on: bool) -> void: Art.lightning = on))
+	var reset := _button("Restablecer", func() -> void:
+		Art.lighting = "noche"
+		Art.weather = "despejado"
+		Art.fog = "mucha"
+		Art.mist = true
+		Art.ash_fall = true
+		Art.lightning = true
+		_apply_world()
+		var index := page.get_index()
+		page.queue_free()
+		var fresh := _world_page()
+		_tabs.add_child(fresh)
+		_tabs.move_child(fresh, index)
+		_tabs.current_tab = index)
+	reset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	page.add_child(reset)
+	var note := Label.new()
+	note.text = "La lluvia y la ceniza de tormenta se apagan eligiendo «Despejado». Hora, clima y niebla también cambian la distancia a la que te ven los alománticos. Atajos: Ctrl+F3, Ctrl+F4 y Ctrl+F5."
+	note.modulate.a = 0.6
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(note)
+	return page
+
+
+## Fila "nombre — opciones": botones de los que solo uno está activo; elegir uno aplica y guarda el mundo.
+func _choice_row(label: String, options: Array, current: String, on_pick: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var name_label := Label.new()
+	name_label.text = label
+	name_label.custom_minimum_size.x = 210
+	row.add_child(name_label)
+	var group := ButtonGroup.new()
+	for option: Array in options:
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_group = group
+		b.text = option[1]
+		b.button_pressed = option[0] == current
+		var value: String = option[0]
+		b.pressed.connect(func() -> void:
+			on_pick.call(value)
+			_apply_world())
+		row.add_child(b)
+	return row
+
+
+func _switch_row(text: String, on: bool, on_toggle: Callable) -> Control:
+	var check := CheckButton.new()
+	check.text = text
+	check.button_pressed = on
+	check.toggled.connect(func(pressed: bool) -> void:
+		on_toggle.call(pressed)
+		_apply_world())
+	return check
+
+
+## Aplica Art.* al mundo (ver Weather.apply) y lo guarda.
+func _apply_world() -> void:
+	var weather := get_tree().get_first_node_in_group(&"weather") as Weather
+	if weather != null:
+		weather.apply(false)
+	WorldSettings.save()
+
+
 ## Pestaña de opciones: sensibilidad, campo de visión, tamaño del HUD, volumen y pantalla completa
 ## (se guardan solas), y atajos para cambiar de escenario.
 func _options_page() -> Control:
@@ -151,12 +240,32 @@ func _options_page() -> Control:
 		GameSettings.apply_global()
 		GameSettings.save())
 	page.add_child(full)
+	page.add_child(HudKit.section_label("Monedero"))
+	var coins_row := HBoxContainer.new()
+	coins_row.add_theme_constant_override("separation", 10)
+	var coins_label := Label.new()
+	coins_label.text = "Monedas"
+	coins_label.custom_minimum_size.x = 210
+	coins_row.add_child(coins_label)
+	var coins_spin := SpinBox.new()
+	coins_spin.min_value = 0
+	coins_spin.max_value = Player.COIN_MAX
+	coins_spin.step = 100
+	coins_spin.value = Player.COIN_START
+	coins_spin.custom_minimum_size.x = 140
+	coins_row.add_child(coins_spin)
+	_coins_button = _button("Poner monedas", func() -> void:
+		if not NetworkManager.is_online():
+			player.coins_held = int(coins_spin.value))
+	_coins_button.tooltip_text = "Deja el monedero con esa cantidad de monedas (1000 al empezar). No disponible en red."
+	coins_row.add_child(_coins_button)
+	page.add_child(coins_row)
 	page.add_child(HudKit.section_label("Ir a"))
 	var go := HBoxContainer.new()
 	go.add_theme_constant_override("separation", 10)
 	page.add_child(go)
-	go.add_child(_button("Ciudad (F1)", _go_to.bind("res://scenes/main.tscn")))
-	go.add_child(_button("Arena (F2)", _go_to.bind("res://scenes/arena.tscn")))
+	go.add_child(_button("Ciudad (Ctrl+F1)", _go_to.bind("res://scenes/main.tscn")))
+	go.add_child(_button("Arena (Ctrl+F2)", _go_to.bind("res://scenes/arena.tscn")))
 	var note := Label.new()
 	note.text = "Reiniciar el mundo, empezar de cero y cambiar de escenario no están disponibles mientras estás conectado en red."
 	note.modulate.a = 0.6
@@ -235,6 +344,7 @@ func open() -> void:
 	var online := NetworkManager.is_online()
 	_restart_button.disabled = online
 	_reset_button.disabled = online
+	_coins_button.disabled = online
 	player.ui_open = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -276,25 +386,23 @@ func _metals_page() -> Control:
 ## Guía rápida: qué hace cada control según el metal que estés quemando. Sin metales ni monedas
 ## solo valen los movimientos básicos; el resto se desbloquea al encender el metal.
 const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
-[b]1.[/b] Encendé un metal con su tecla (1 acero, 2 hierro, 3 peltre...). Tocar: encender o apagar. Doble toque y mantener: avivar.
-[b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (1) los empuja, hierro (2) tira de ellos.
-[b]3.[/b] Empujá con [b]G[/b], tirá con [b]E[/b] (o el clic derecho para tirar una moneda), anclá con [b]R[/b].
+[b]1.[/b] Encendé un metal con su tecla (F1 acero, F2 hierro, F3 peltre...), o clic en su icono con Tab sostenido. Tocar: encender o apagar. Doble toque y mantener: avivar.
+[b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (F1) los empuja, hierro (F2) tira de ellos.
+[b]3.[/b] Aprendé habilidades en el árbol ([b]K[/b]) y ponelas en una ranura (teclas 1 2 3 4 Q E R F Z X C V, que podés cambiar). Mantené la tecla de «Tirón básico» o «Empuje ligero» mirando un metal. El clic derecho tira una moneda; anclá con [b]Y[/b].
 [b]4.[/b] Combiná: con acero y monedas, [b]Espacio + WASD[/b] te lanza por el aire.
 
 [color=#f2dca8][b]SIN METALES[/b][/color]
 [b]Espacio, Espacio[/b] (en el aire): segundo salto, más alto y con empuje hacia donde pulsás. Uno por salto.
 [b]Shift[/b]: rodar · en el aire: dash. [b]Clic izquierdo[/b]: atacar. [b]Rueda[/b]: cambiar de arma.
 
-[color=#6b9bff][b]ACERO (1)[/b][/color]  empuja metales
+[color=#6b9bff][b]ACERO (F1)[/b][/color]  empuja metales
 [b]Clic derecho[/b]: moneda fuerte hacia la mira (mantené para seguir empujándola). Apuntá abajo para frenar una caída.
-[b]G[/b]: empujar el metal que miras · [b]R[/b]: anclar el agarre.
+Ranura «Empuje ligero» (acero 4): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Ráfaga de monedas» (acero 2): lanza nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; en el nivel 15 sale en círculo.
 [b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (mantené Espacio para seguir empujando).
 [b]Espacio, Espacio[/b]: salto de acero recto hacia arriba.
-[b]Alt + E[/b]: lluvia de 8 monedas en círculo a tu alrededor. Cada una cuesta una moneda.
 
-[color=#a0a8c0][b]HIERRO (2)[/b][/color]  tira de metales
-[b]E[/b]: tirar del metal que miras. Si es una moneda, viene a vos y se guarda al tocarte.
-[b]Alt + E[/b]: atrae todas las monedas cercanas y las guarda en el monedero.
+[color=#a0a8c0][b]HIERRO (F2)[/b][/color]  tira de metales
+Ranura «Tirón básico» (hierro 1): tirar del metal que mirás (una moneda viene a vos y se guarda al tocarte). «Imán de monedas» (hierro 2): atrae nivel + 1 monedas dentro de un abanico hacia adelante que se abre con cada nivel; en el nivel 15 atrae las de todo alrededor.
 Con un solo metal encendido (acero o hierro), E y G hacen lo mismo.
 
 [color=#f28c40][b]PELTRE (3)[/b][/color]  cuerpo reforzado
@@ -312,8 +420,8 @@ Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
 [color=#d9a65a][b]BRONCE (C)[/b][/color]  sentís a los alománticos que queman metales. [color=#d1dbb3][b]ESTAÑO (V)[/b][/color]  ves más lejos en la bruma y te recuperás antes de los golpes.
 
 [color=#f2dca8][b]TRUCOS[/b][/color]
-Sin la bolsa (F) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
-[b]Tab[/b] abre la rueda de metales (apuntá y soltá). [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
+Sin la bolsa (B) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
+[b]Tab[/b] (mantener) libera el ratón para clicar los iconos de los metales. [b]K[/b] árbol de habilidades. [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
 
 const CONTROLS := """[table=2]
 [cell][color=#f2dca8][b]MOVIMIENTO[/b][/color][/cell][cell][/cell]
@@ -327,17 +435,16 @@ const CONTROLS := """[table=2]
 [cell][b]Clic izquierdo[/b][/cell][cell]Atacar con el arma elegida (con puños, desenvaina las dagas sola si las tenés) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
 [cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
 [cell][color=#f2dca8][b]METALES[/b][/color][/cell][cell][/cell]
-[cell][b]1 2 3 4[/b][/cell][cell]Acero, hierro, peltre, atium (tocar: encender o apagar · doble toque y mantener: avivar)[/cell]
-[cell][b]Z X C V B[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón (igual que los anteriores)[/cell]
+[cell][b]F1 F2 F3 F4[/b][/cell][cell]Acero, hierro, peltre, atium (tocar: encender o apagar · doble toque y mantener: avivar)[/cell]
+[cell][b]F5 F6 F7 F8 F9[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón (igual que los anteriores)[/cell]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
-[cell][b]Tab[/b] (mantener)[/cell][cell]Rueda de metales: apuntá con el ratón y soltá Tab; clic = avivar[/cell]
+[cell][b]Tab[/b] (mantener)[/cell][cell]Ratón libre para clicar los iconos de los metales (clic: encender o apagar · doble clic y mantener: avivar)[/cell]
 [cell][b]Clic derecho[/b][/cell][cell]Lanza una moneda fuerte justo hacia la mira y la empuja con acero mientras mantengas el clic: pega con la moneda o, apuntando abajo, frena una caída[/cell]
-[cell][b]E[/b][/cell][cell]Tirar (hierro) del metal que miras; donde hay algo que usar (puerta, armario) abre en vez de tirar; una moneda viene a vos y se guarda al tocarte. Con un solo metal encendido, E o G lo usan. Sin nada a la vista, agarra el que más ayuda a moverte hacia donde vas[/cell]
-[cell][b]G[/b][/cell][cell]Empujar (acero) el metal que miras[/cell]
-[cell][b]Alt + E[/b][/cell][cell]Con acero encendido: lanza 8 monedas en círculo a tu alrededor. Con hierro (sin acero): atrae todas las monedas cercanas y las guarda en el monedero[/cell]
-[cell][b]R[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
+[cell][b]1 2 3 4 Q E R F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de una ráfaga o un imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
+[cell][b]K[/b][/cell][cell]Árbol de habilidades: subí metales, poné habilidades en las ranuras y cambiá sus teclas[/cell]
+[cell][b]Y[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
 [cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]
-[cell][b]F[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
+[cell][b]B[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
 [cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
@@ -346,8 +453,8 @@ const CONTROLS := """[table=2]
 [cell][b]Esc[/b][/cell][cell]Este menú[/cell]
 [cell][b]P[/b][/cell][cell]Elegir personaje: color del traje y la capucha (negro, blanco, rojo o azul)[/cell]
 [cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
-[cell][b]F1 / F2[/b][/cell][cell]Ciudad / arena[/cell]
-[cell][b]F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
+[cell][b]Ctrl+F1 / Ctrl+F2[/b][/cell][cell]Ciudad / arena[/cell]
+[cell][b]Ctrl+F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
 [/table]"""
 
 const COMBAT := """[b]Combos[/b] (clic izquierdo seguido, a tiempo):
@@ -364,7 +471,7 @@ const COMBAT := """[b]Combos[/b] (clic izquierdo seguido, a tiempo):
 
 [b]Atium[/b]: esquivás solo los golpes y monedas de quien no lo quema, y tus golpes llegan aunque se mueva.
 
-[b]Bolsa de monedas[/b]: los alománticos enemigos te empujan y tiran a través de ella. Soltala (F) para que no puedan; volvé a pasar por encima o pulsá F cerca para recogerla. Con hierro podés traerla de lejos.
+[b]Bolsa de monedas[/b]: los alománticos enemigos te empujan y tiran a través de ella. Soltala (B) para que no puedan; volvé a pasar por encima o pulsá B cerca para recogerla. Con hierro podés traerla de lejos.
 
 [b]Equipo y metal[/b]: la cota de malla, las botas con clavos, las armas de acero y los frascos con tapón de metal cuentan como metal: con cualquiera puesto te pueden empujar aunque sueltes la bolsa. Los alománticos derrotados a veces sueltan objetos.
 

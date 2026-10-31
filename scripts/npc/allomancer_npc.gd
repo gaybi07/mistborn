@@ -73,6 +73,7 @@ func _make_look() -> Dictionary:
 
 
 func _setup() -> void:
+	xp_reward = 120
 	loot_coins = Vector2i(3, 6)
 	loot_vial_chance = 0.5
 	add_to_group(&"allomancer")
@@ -112,7 +113,7 @@ func _setup() -> void:
 		_label.font_size = 40
 		_label.outline_size = 8
 		_label.pixel_size = 0.007
-		_label.position = Vector3(0, 2.15, 0)
+		_label.position = Vector3(0, head_y(), 0)
 		_label.modulate = TEAM_COLORS[clampi(team, 0, TEAM_COLORS.size() - 1)]
 		add_child(_label)
 
@@ -608,7 +609,7 @@ func _popup(text: String) -> void:
 	l.modulate = Metals.ATIUM_COLOR
 	l.top_level = true
 	add_child(l)
-	l.global_position = global_position + Vector3(0, 2.5, 0)
+	l.global_position = global_position + Vector3(0, head_y(0.7), 0)
 	var tw := l.create_tween()
 	tw.tween_property(l, "global_position:y", l.global_position.y + 0.8, 0.8)
 	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8)
