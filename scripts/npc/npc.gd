@@ -22,6 +22,8 @@ var loot_coins := Vector2i(1, 3)
 var loot_vial_chance := 0.05
 var loot_item_chance := 0.0
 var _looted := false
+## Experiencia que da derrotarlo (ver Progression).
+var xp_reward := 60
 ## Bando: -1 = gente que no pelea; 0 = el jugador y sus aliados; 1, 2... = otros bandos.
 var team := -1
 
@@ -268,6 +270,7 @@ func _drop_loot_common(player: Player) -> void:
 	if _looted:
 		return
 	_looted = true
+	player.grant_xp(xp_reward)
 	var scene := get_tree().current_scene
 	var origin := global_position + Vector3(0, 0.8, 0)
 	for i in randi_range(loot_coins.x, loot_coins.y):

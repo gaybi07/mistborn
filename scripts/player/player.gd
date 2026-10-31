@@ -314,6 +314,8 @@ func _ready() -> void:
 	_setup_network()
 	GameSettings.load_settings()
 	GameSettings.apply_to(self)
+	if is_local_player():
+		Progression.load_progress()
 
 
 ## Borra el inventario y equipo que pasan de un escenario a otro (empezar de cero).
@@ -454,6 +456,40 @@ func _look(event: InputEvent) -> bool:
 ## Este proceso es quien maneja a este jugador (siempre en partida individual).
 func is_local_player() -> bool:
 	return net_peer_id == 0 or (multiplayer.has_multiplayer_peer() and net_peer_id == multiplayer.get_unique_id())
+
+
+## Experiencia por usar metales ("práctica"): por segundo quemando algo y con tope por minuto, para no farmear.
+const XP_PRACTICE_RATE := 6.0
+const XP_PRACTICE_CAP_PER_MIN := 180
+var _practice_acc := 0.0
+var _practice_window_ms := 0
+var _practice_window_xp := 0
+
+
+## Suma experiencia del jugador local (por ahora solo en partida individual; la red llega con el servidor).
+func grant_xp(amount: int) -> void:
+	if net_peer_id != 0 or not is_local_player():
+		return
+	var gained := Progression.add_xp(amount)
+	if gained > 0:
+		notice.emit("Nivel %d  ·  +%d punto%s de alomancia" % [Progression.level, gained, "" if gained == 1 else "s"])
+
+
+func _update_practice_xp(rd: float) -> void:
+	if net_peer_id != 0 or not is_local_player() or dead or allomancy.burning_metals().is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if now - _practice_window_ms >= 60000:
+		_practice_window_ms = now
+		_practice_window_xp = 0
+	_practice_acc += XP_PRACTICE_RATE * rd
+	if _practice_acc < 5.0:
+		return
+	var give := mini(int(_practice_acc), XP_PRACTICE_CAP_PER_MIN - _practice_window_xp)
+	_practice_acc = 0.0
+	if give > 0:
+		_practice_window_xp += give
+		grant_xp(give)
 
 
 ## Este proceso simula la física de este jugador (siempre en partida individual).
@@ -1029,6 +1065,7 @@ func _physics_process(delta: float) -> void:
 			_net_move = Vector2.ZERO
 			_net_held.clear()
 	var rd := real_delta(delta)
+	_update_practice_xp(rd)
 	_update_pewter_drag(rd)
 	allomancy.flare_blocked = is_soothed()
 	var pewter := allomancy.strength(&"pewter")

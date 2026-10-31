@@ -73,6 +73,7 @@ func _make_look() -> Dictionary:
 
 
 func _setup() -> void:
+	xp_reward = 120
 	loot_coins = Vector2i(3, 6)
 	loot_vial_chance = 0.5
 	add_to_group(&"allomancer")
