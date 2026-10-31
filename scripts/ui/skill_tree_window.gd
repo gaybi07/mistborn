@@ -13,6 +13,9 @@ var player: Player
 var _root: Control
 var _title: Label
 var _grid: GridContainer
+var _slots_row: GridContainer
+## Ranura cuya tecla se está cambiando (la próxima tecla que pulses), o -1.
+var _rebinding := -1
 
 
 func _ready() -> void:
@@ -71,6 +74,16 @@ func _ready() -> void:
 	_grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(_grid)
 
+	var slots_title := Label.new()
+	slots_title.text = "RANURAS  ·  clic en la tecla para cambiarla, clic en la habilidad para vaciarla"
+	slots_title.add_theme_font_size_override("font_size", 13)
+	slots_title.modulate = DIM
+	col.add_child(slots_title)
+	_slots_row = GridContainer.new()
+	_slots_row.columns = Progression.SLOT_COUNT
+	_slots_row.add_theme_constant_override("h_separation", 6)
+	col.add_child(_slots_row)
+
 
 func _refresh() -> void:
 	var free := Progression.points_free()
@@ -81,6 +94,33 @@ func _refresh() -> void:
 		c.queue_free()
 	for metal: StringName in Allomancy.METALS:
 		_grid.add_child(_card(metal))
+	_refresh_slots()
+
+
+func _refresh_slots() -> void:
+	for c in _slots_row.get_children():
+		c.queue_free()
+	for i in Progression.SLOT_COUNT:
+		var cell := VBoxContainer.new()
+		cell.custom_minimum_size = Vector2(76, 0)
+		var key_button := Button.new()
+		key_button.focus_mode = Control.FOCUS_NONE
+		key_button.text = "…" if _rebinding == i else OS.get_keycode_string(Progression.slot_keys[i] as Key)
+		key_button.pressed.connect(func() -> void:
+			_rebinding = i
+			_refresh_slots())
+		cell.add_child(key_button)
+		var skill := Progression.slot_skills[i]
+		var skill_button := Button.new()
+		skill_button.focus_mode = Control.FOCUS_NONE
+		skill_button.clip_text = true
+		skill_button.disabled = skill == &""
+		skill_button.text = String(SkillTree.find(skill)["name"]) if skill != &"" else "—"
+		skill_button.pressed.connect(func() -> void:
+			Progression.clear_slot(i)
+			_refresh())
+		cell.add_child(skill_button)
+		_slots_row.add_child(cell)
 
 
 func _card(metal: StringName) -> Control:
@@ -124,12 +164,34 @@ func _card(metal: StringName) -> Control:
 		box.add_child(_line("Habilidades: próximamente.", DIM))
 		return card
 	for s: Dictionary in skills:
+		var id: StringName = s["id"]
 		var unlocked := lvl >= int(s["level"])
 		var tag := "  (activa)" if s["kind"] == SkillTree.Kind.ACTIVE else "  (pasiva)"
+		if id in SkillTree.FIXED_KEY:
+			tag = "  (clic derecho)"
 		var text := ("✓ " if unlocked else "· ") + String(s["name"]) + tag
 		if not unlocked:
 			text += "  — nivel %d" % int(s["level"])
-		box.add_child(_line(text, GOOD if unlocked else DIM))
+		elif id in SkillTree.PENDING:
+			text += "  — próximamente"
+		var row := HBoxContainer.new()
+		var label := _line(text, GOOD if unlocked and not id in SkillTree.PENDING else DIM)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		if unlocked and SkillTree.is_assignable(id):
+			var slot := Progression.slot_of(id)
+			var assign := Button.new()
+			assign.focus_mode = Control.FOCUS_NONE
+			assign.text = "Quitar" if slot >= 0 else "Poner en ranura"
+			assign.disabled = slot < 0 and not Progression.slot_skills.has(&"")
+			assign.pressed.connect(func() -> void:
+				if slot >= 0:
+					Progression.clear_slot(slot)
+				else:
+					Progression.assign_skill(id)
+				_refresh())
+			row.add_child(assign)
+		box.add_child(row)
 	return card
 
 
@@ -150,6 +212,17 @@ func _box(bg: Color, border: Color, margin: int) -> StyleBoxFlat:
 	s.set_corner_radius_all(8)
 	s.set_content_margin_all(margin)
 	return s
+
+
+## Cambiando la tecla de una ranura: la próxima tecla que pulses (Esc cancela).
+func _input(event: InputEvent) -> void:
+	if _rebinding < 0 or not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode != KEY_ESCAPE:
+		Progression.rebind_slot(_rebinding, event.physical_keycode)
+	_rebinding = -1
+	_refresh_slots()
+	get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:

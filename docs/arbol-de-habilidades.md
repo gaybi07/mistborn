@@ -46,21 +46,21 @@ A = activa (ocupa ranura). P = pasiva (automática).
 | Nivel | Habilidad |
 |---|---|
 | 1 | A · Moneda de combate: lanzar moneda con clic derecho y empujarla |
-| 4 | A · Empuje ligero: empujar objetos metálicos de hasta 1 kg |
+| 4 | A · Empuje ligero: empujar con una ranura objetos de hasta 1 kg |
 | 8 | A · Anillo de monedas: 8 monedas en círculo (hoy Alt+E con acero) |
 | 12 | A · Escudo metálico: desvía proyectiles metálicos |
-| 16 | A · Empuje pesado: objetos de hasta 100 kg |
-| 20 | A · Onda de acero: empuje en área que lanza a los enemigos |
+| 16 | P · Empuje pesado: objetos de hasta 100 kg |
+| 20 | P · Onda de acero: sin tope de masa (anclas) y empuje en área (pendiente) |
 
 ### Hierro
 | Nivel | Habilidad |
 |---|---|
 | 1 | A · Tirón básico |
-| 4 | A · Tirón ligero: traer a la mano objetos de hasta 1 kg |
-| 8 | P · Imán de monedas: recoger monedas en mayor radio (hoy Alt+E) |
+| 4 | P · Tirón ligero: mueve objetos de hasta 1 kg |
+| 8 | A · Imán de monedas: atrae las monedas cercanas al monedero |
 | 12 | A · Desarme: tirar del arma metálica de un enemigo |
-| 16 | A · Balanceo: colgarse de un ancla y columpiarse |
-| 20 | A · Tirón de masa: arrastrar enemigos con armadura |
+| 16 | P · Balanceo: permite tirar de anclas fijas |
+| 20 | P · Tirón de masa: sin tope de masa |
 
 ### Peltre
 | Nivel | Habilidad |
@@ -155,3 +155,11 @@ Total: 51 habilidades base + 36 combinadas = 87. Se propone implementarlas por f
 - Las habilidades listadas son un punto de partida; cada nombre y efecto se puede cambiar.
 - La habilidad de empuje ligero pasó de nivel 3 a nivel 4 para encajar en el patrón 1/4/8/12/16/20.
 - Habilidades que ya existen en el juego y quedarían asociadas al árbol (hoy están disponibles desde el inicio): peltre, estaño, cobre, bronce, atium, cinc y latón.
+
+## Estado de la fase 4
+
+- Funcionan: ranuras (12, teclas reasignables), Tirón básico, Empuje ligero, Anillo de monedas, Imán de monedas, la moneda de combate (clic derecho), los límites de masa por nivel y las pasivas de peltre (Resistencia, Salto, Golpe, Aterrizaje, Segundo aliento).
+- Pendientes (se ven como "próximamente"): Escudo metálico, Onda de acero (el empuje en área), Desarme y Furia.
+- Las anclas fijas pesan "infinito": el hierro solo tira de ellas desde el nivel 16 (Balanceo) y el acero las empuja desde el 20.
+- Teclas que cambiaron: anclar pasó a `Y` y la bolsa a `B`, porque `R` y `F` son ranuras por defecto.
+- En red siguen los gestos viejos (E tirar, G empujar, Alt+E monedas) hasta la fase 5.

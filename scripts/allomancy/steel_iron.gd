@@ -24,6 +24,11 @@ class Grip:
 	var consume := false
 	## Segundos con el agarre activo: la fuerza sube en los primeros instantes (ver ramp), no de golpe.
 	var held := 0.0
+	## Partida individual: la ranura con la habilidad de este agarre está pulsada (input_just: solo este paso).
+	var input_held := false
+	var input_just := false
+	## Ya se avisó que el objetivo no se puede agarrar (hasta soltar la tecla).
+	var warned := false
 
 	func ramp() -> float:
 		return lerpf(0.35, 1.0, clampf(held / 0.12, 0.0, 1.0))
@@ -148,22 +153,43 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_action_just_pressed(&"anchor"):
 		anchor_pressed()
+	for g in grips():
+		g.input_just = false
 
 
-## Si se pulsa el clic de este agarre. Con un solo metal encendido sirven los dos clics.
+## Si se pulsa la ranura con la habilidad de este agarre (tirón básico o empuje ligero; ver Player._skill_key).
 func _grip_input(g: Grip, just: bool) -> bool:
-	if player.ui_open or Input.is_key_pressed(KEY_ALT):
-		return false  # Alt+E es juntar monedas, no tirar
-	var other: Grip = pull_grip if g == push_grip else push_grip
-	var actions: Array[StringName] = [g.action]
-	if not player.allomancy.is_burning(other.metal):
-		actions.append(other.action)
-	# Donde hay algo que usar con E (puerta, armario), E abre y no tira.
-	if player.interactable != null and player.interactable.prompt != "":
-		actions.erase(&"pull")
-	for a in actions:
-		if Input.is_action_just_pressed(a) if just else Input.is_action_pressed(a):
-			return true
+	if player.ui_open:
+		return false
+	return g.input_just if just else g.input_held
+
+
+## Masa máxima (kg) que este agarre puede mover según el nivel de su metal. Lo que no se mueve (anclas) cuenta
+## como infinito: con hierro hace falta Balanceo (nivel 16) y con acero llegar al nivel 20.
+func mass_limit(g: Grip) -> float:
+	var level := Progression.metal_level(g.metal)
+	if g == pull_grip and level >= 16:
+		return INF
+	return SkillTree.push_mass_limit(level)
+
+
+## Si el agarre puede con ese objetivo; si no, avisa por qué.
+func _can_grip(g: Grip, t: Node3D) -> bool:
+	if player.net_peer_id != 0:
+		return true  # en red las habilidades llegan con el servidor
+	var mass := Metals.movable_mass(t)
+	var limit := mass_limit(g)
+	if mass <= 0.0:
+		mass = INF
+	if mass <= limit:
+		return true
+	if g.warned:
+		return false
+	g.warned = true
+	if mass == INF:
+		player.notice.emit("Esa ancla es demasiado firme: " + ("Balanceo (hierro 16)" if g == pull_grip else "acero nivel 20"))
+	else:
+		player.notice.emit("Pesa %.1f kg: tu %s solo mueve hasta %.1f kg" % [mass, "hierro" if g == pull_grip else "acero", limit])
 	return false
 
 
@@ -183,6 +209,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.consume = true
 	if not pressed:
 		g.consume = false
+		g.warned = false
 	var wanted := strength > 0.0 and ((pressed and not g.consume) or g.latched)
 	if not wanted:
 		_release(g)
@@ -195,6 +222,8 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		var t := click_target(g == push_grip, origin)
 		if t == null:
 			return  # sigue pulsado: se agarrará en cuanto haya algo que agarrar
+		if not _can_grip(g, t):
+			return
 		g.target = t
 		g.active = true
 		Fx.sparks(get_tree().current_scene, center_of(t), g.color)

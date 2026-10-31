@@ -26,8 +26,8 @@ func _enter_tree() -> void:
 	_key(&"move_right", KEY_D)
 	_key(&"jump", KEY_SPACE)
 	_key(&"stop_burning", KEY_N)
-	_key(&"anchor", KEY_R)
-	_key(&"drop_bag", KEY_F)
+	_key(&"anchor", KEY_Y)
+	_key(&"drop_bag", KEY_B)
 	_wheel(&"weapon_cycle")
 	_mouse(&"attack", MOUSE_BUTTON_LEFT)
 	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)
@@ -38,11 +38,10 @@ func _enter_tree() -> void:
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)
-	# Con acero y hierro encendidos: E tira, G empuja el metal que miras.
-	# Con uno solo, cualquiera de las dos teclas lo usa (ver SteelIron).
+	# Solo en red (hasta que el servidor use las ranuras): E tira, G empuja el metal que miras y Alt+E
+	# lanza o atrae monedas. En partida individual esas habilidades van en las ranuras (ver Progression).
 	_key(&"pull", KEY_E)
-	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, E no tira (ver SteelIron)
-	# Alt+E: atrae todas las monedas cercanas al monedero (E sola sigue siendo tirar).
+	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, la ranura en E no se activa
 	_ensure(&"gather_coins")
 	var gather := InputEventKey.new()
 	gather.physical_keycode = KEY_E

@@ -11,7 +11,7 @@ const ATIUM_UNLOCK_LEVELS := [1, 5, 10]
 const COMBO_TIERS := [5, 10, 15]
 ## Masa máxima (kg) que se puede empujar o tirar con acero/hierro, por nivel de metal. 0 = ninguna;
 ## el último escalón es "tu propio cuerpo" (sin tope por masa).
-const PUSH_MASS_BY_LEVEL := [[20, INF], [16, 100.0], [12, 25.0], [8, 5.0], [4, 1.0]]
+const PUSH_MASS_BY_LEVEL := [[20, INF], [16, 100.0], [12, 25.0], [8, 5.0], [4, 1.0], [1, 0.2]]
 
 ## id, metal, nivel de metal, tipo y nombre.
 const SKILLS := [
@@ -19,14 +19,14 @@ const SKILLS := [
 	{"id": &"steel_light_push", "metal": &"steel", "level": 4, "kind": Kind.ACTIVE, "name": "Empuje ligero"},
 	{"id": &"steel_coin_ring", "metal": &"steel", "level": 8, "kind": Kind.ACTIVE, "name": "Anillo de monedas"},
 	{"id": &"steel_shield", "metal": &"steel", "level": 12, "kind": Kind.ACTIVE, "name": "Escudo metálico"},
-	{"id": &"steel_heavy_push", "metal": &"steel", "level": 16, "kind": Kind.ACTIVE, "name": "Empuje pesado"},
-	{"id": &"steel_wave", "metal": &"steel", "level": 20, "kind": Kind.ACTIVE, "name": "Onda de acero"},
+	{"id": &"steel_heavy_push", "metal": &"steel", "level": 16, "kind": Kind.PASSIVE, "name": "Empuje pesado"},
+	{"id": &"steel_wave", "metal": &"steel", "level": 20, "kind": Kind.PASSIVE, "name": "Onda de acero"},
 	{"id": &"iron_pull", "metal": &"iron", "level": 1, "kind": Kind.ACTIVE, "name": "Tirón básico"},
-	{"id": &"iron_light_pull", "metal": &"iron", "level": 4, "kind": Kind.ACTIVE, "name": "Tirón ligero"},
-	{"id": &"iron_coin_magnet", "metal": &"iron", "level": 8, "kind": Kind.PASSIVE, "name": "Imán de monedas"},
+	{"id": &"iron_light_pull", "metal": &"iron", "level": 4, "kind": Kind.PASSIVE, "name": "Tirón ligero"},
+	{"id": &"iron_coin_magnet", "metal": &"iron", "level": 8, "kind": Kind.ACTIVE, "name": "Imán de monedas"},
 	{"id": &"iron_disarm", "metal": &"iron", "level": 12, "kind": Kind.ACTIVE, "name": "Desarme"},
-	{"id": &"iron_swing", "metal": &"iron", "level": 16, "kind": Kind.ACTIVE, "name": "Balanceo"},
-	{"id": &"iron_mass_pull", "metal": &"iron", "level": 20, "kind": Kind.ACTIVE, "name": "Tirón de masa"},
+	{"id": &"iron_swing", "metal": &"iron", "level": 16, "kind": Kind.PASSIVE, "name": "Balanceo"},
+	{"id": &"iron_mass_pull", "metal": &"iron", "level": 20, "kind": Kind.PASSIVE, "name": "Tirón de masa"},
 	{"id": &"pewter_endurance", "metal": &"pewter", "level": 1, "kind": Kind.PASSIVE, "name": "Resistencia"},
 	{"id": &"pewter_jump", "metal": &"pewter", "level": 4, "kind": Kind.PASSIVE, "name": "Salto reforzado"},
 	{"id": &"pewter_strike", "metal": &"pewter", "level": 8, "kind": Kind.PASSIVE, "name": "Golpe reforzado"},
@@ -34,6 +34,18 @@ const SKILLS := [
 	{"id": &"pewter_second_wind", "metal": &"pewter", "level": 16, "kind": Kind.PASSIVE, "name": "Segundo aliento"},
 	{"id": &"pewter_fury", "metal": &"pewter", "level": 20, "kind": Kind.ACTIVE, "name": "Furia"},
 ]
+
+
+## Habilidades que todavía no hacen nada (se ven en el árbol como "próximamente").
+const PENDING: Array[StringName] = [&"steel_shield", &"steel_wave", &"iron_disarm", &"pewter_fury"]
+## Activas con tecla propia fuera de las ranuras (la moneda de combate es el clic derecho).
+const FIXED_KEY: Array[StringName] = [&"steel_combat_coin"]
+
+
+## Si se puede poner en una ranura: activa, ya funciona y no tiene una tecla fija.
+static func is_assignable(id: StringName) -> bool:
+	var s := find(id)
+	return not s.is_empty() and s["kind"] == Kind.ACTIVE and not id in PENDING and not id in FIXED_KEY
 
 
 static func skills_of(metal: StringName) -> Array:

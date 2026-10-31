@@ -10,8 +10,15 @@ const MAX_ATIUM_LEVEL := 10
 ## Metales que se tienen en nivel 1 sin gastar puntos.
 const FREE_METALS: Array[StringName] = [&"steel", &"iron"]
 
+## Ranuras de habilidades activas: cada una tiene una tecla (reasignable) y la habilidad que el jugador puso.
+const SLOT_COUNT := 12
+const DEFAULT_SLOT_KEYS: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_Q, KEY_E, KEY_R, KEY_F, KEY_Z, KEY_X, KEY_C, KEY_V]
+
 static var level := 1
 static var xp := 0
+## Habilidad de cada ranura (&"" = vacía) y su tecla.
+static var slot_skills: Array[StringName] = []
+static var slot_keys: Array[int] = []
 ## Nivel de cada metal (0 = todavía no aprendido).
 static var metal_levels: Dictionary = {}
 static var _loaded := false
@@ -28,6 +35,11 @@ static func reset() -> void:
 	metal_levels.clear()
 	for m: StringName in Allomancy.METALS:
 		metal_levels[m] = 1 if m in FREE_METALS else 0
+	slot_skills.clear()
+	slot_keys.clear()
+	for i in SLOT_COUNT:
+		slot_skills.append(&"")
+		slot_keys.append(DEFAULT_SLOT_KEYS[i])
 
 
 static func metal_level(metal: StringName) -> int:
@@ -94,10 +106,57 @@ static func raise_metal(metal: StringName) -> bool:
 	return true
 
 
-## Devuelve todos los puntos (no se llama en combate: lo decide el menú). Acero y hierro quedan en 1.
+## Devuelve todos los puntos. Acero y hierro quedan en 1; las ranuras con habilidades perdidas se vacían.
 static func respec() -> void:
 	for m: StringName in metal_levels:
 		metal_levels[m] = 1 if m in FREE_METALS else 0
+	prune_slots()
+	save()
+
+
+## Vacía las ranuras cuya habilidad ya no está desbloqueada.
+static func prune_slots() -> void:
+	for i in SLOT_COUNT:
+		if slot_skills[i] != &"" and not SkillTree.is_unlocked(slot_skills[i]):
+			slot_skills[i] = &""
+
+
+## Ranura (o -1) que tiene esa habilidad.
+static func slot_of(skill: StringName) -> int:
+	return slot_skills.find(skill)
+
+
+## Ranura (o -1) cuya tecla es `key` y tiene una habilidad puesta.
+static func slot_for_key(key: int) -> int:
+	for i in SLOT_COUNT:
+		if slot_keys[i] == key and slot_skills[i] != &"":
+			return i
+	return -1
+
+
+## Pone la habilidad en la primera ranura libre. Devuelve false si ya estaba o no hay lugar.
+static func assign_skill(skill: StringName) -> bool:
+	if slot_of(skill) >= 0:
+		return false
+	var free := slot_skills.find(&"")
+	if free < 0:
+		return false
+	slot_skills[free] = skill
+	save()
+	return true
+
+
+static func clear_slot(index: int) -> void:
+	slot_skills[index] = &""
+	save()
+
+
+## Cambia la tecla de una ranura; si otra ranura la tenía, intercambian teclas.
+static func rebind_slot(index: int, key: int) -> void:
+	var other := slot_keys.find(key)
+	if other >= 0 and other != index:
+		slot_keys[other] = slot_keys[index]
+	slot_keys[index] = key
 	save()
 
 
@@ -116,6 +175,10 @@ static func load_progress() -> void:
 	# Un archivo editado a mano no puede dar más niveles de los que pagan los puntos.
 	if points_free() < 0:
 		respec()
+	for i in SLOT_COUNT:
+		slot_skills[i] = StringName(cfg.get_value("ranuras", "habilidad_%d" % i, ""))
+		slot_keys[i] = int(cfg.get_value("ranuras", "tecla_%d" % i, DEFAULT_SLOT_KEYS[i]))
+	prune_slots()
 
 
 static func save() -> void:
@@ -124,4 +187,7 @@ static func save() -> void:
 	cfg.set_value("jugador", "xp", xp)
 	for m: StringName in metal_levels:
 		cfg.set_value("metales", String(m), metal_levels[m])
+	for i in SLOT_COUNT:
+		cfg.set_value("ranuras", "habilidad_%d" % i, String(slot_skills[i]))
+		cfg.set_value("ranuras", "tecla_%d" % i, slot_keys[i])
 	cfg.save(PATH)

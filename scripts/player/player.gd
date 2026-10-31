@@ -398,6 +398,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"drink"):
 		drink_vial()
 		return
+	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _slot_key(event):
+		return
 	if _look(event):
 		if event is InputEventMouseButton:
 			return  # el clic que recaptura el ratón no ataca ni lanza
@@ -412,8 +414,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed(&"stop_burning"):
 		allomancy.stop_all()
-	elif event.is_action_pressed(&"gather_coins"):
-		coin_alt_action()
 	elif event.is_action_pressed(&"coin_shot"):
 		_start_coin_shot()
 	elif event.is_action_released(&"coin_shot"):
@@ -867,6 +867,15 @@ func is_rioted() -> bool:
 
 
 ## Segundos que le quedan al arrastre de peltre (0 si no lo tienes).
+## Fuerza del peltre para el efecto de una habilidad: si todavía no la tienes (según el nivel de peltre), 0.
+## En red vale todo hasta que el servidor use el árbol (fase 5).
+func pewter_for(skill: StringName) -> float:
+	var p := allomancy.strength(&"pewter")
+	if p <= 0.0 or net_peer_id != 0 or SkillTree.is_unlocked(skill):
+		return p
+	return 0.0
+
+
 func pewter_drag() -> float:
 	return maxf(_pewter_drag, 0.0)
 
@@ -877,7 +886,7 @@ func is_exhausted() -> bool:
 
 ## Peltre: gastas menos (×0,67 quemando, ×0,5 avivando) y recuperas más rápido; con arrastre, al revés.
 func _stamina_cost_mult() -> float:
-	return (1.0 / (1.0 + 0.5 * allomancy.strength(&"pewter"))) * (1.5 if _pewter_drag > 0.0 else 1.0)
+	return (1.0 / (1.0 + 0.5 * pewter_for(&"pewter_endurance"))) * (1.5 if _pewter_drag > 0.0 else 1.0)
 
 
 ## Quieto en el suelo recuperas; caminando gastas un poco; en el aire ni una cosa ni la otra
@@ -885,7 +894,7 @@ func _stamina_cost_mult() -> float:
 func _update_stamina(rd: float) -> void:
 	if dead or not is_on_floor():
 		return
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_endurance")
 	if _move_vector().length() < 0.1:
 		var regen := STAMINA_REGEN * (1.0 + 0.5 * pewter) * (0.5 if _pewter_drag > 0.0 else 1.0)
 		stamina += regen * rd
@@ -956,6 +965,90 @@ func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void
 		return
 	_coin_shot = true
 	_engage_coin_push(coin)
+
+
+# ---------------------------------------------------------------- Ranuras de habilidades
+
+## Cuánto queda encendido un metal que una habilidad de un toque (anillo, imán) encendió por su cuenta.
+const SKILL_TAP_BURN_MS := 1200
+## Metales que encendió una habilidad (no el jugador): se apagan solos al terminar.
+var _skill_started := {}
+var _skill_off_ms := {}
+
+
+## Tecla de una ranura: pulsarla activa su habilidad y soltarla la termina. Devuelve true si era de una ranura.
+## Donde hay algo que usar con E (puerta, armario), E abre y la ranura no se activa.
+func _slot_key(key: InputEventKey) -> bool:
+	var slot := Progression.slot_for_key(key.physical_keycode)
+	if slot < 0:
+		return false
+	var skill := Progression.slot_skills[slot]
+	if not key.pressed:
+		_skill_release(skill)
+		return true
+	if ui_open or dead:
+		return false
+	if key.physical_keycode == KEY_E and interactable != null and interactable.prompt != "":
+		return false
+	_skill_press(skill)
+	return true
+
+
+func _skill_press(skill: StringName) -> void:
+	match skill:
+		&"iron_pull":
+			_grip_skill(steel_iron.pull_grip, &"iron", true)
+		&"steel_light_push":
+			_grip_skill(steel_iron.push_grip, &"steel", true)
+		&"steel_coin_ring":
+			_tap_skill(&"steel", fire_coin_ring, SKILL_TAP_BURN_MS)
+		&"iron_coin_magnet":
+			_tap_skill(&"iron", start_gather, GATHER_MS + 200)
+
+
+func _skill_release(skill: StringName) -> void:
+	match skill:
+		&"iron_pull":
+			_grip_skill(steel_iron.pull_grip, &"iron", false)
+		&"steel_light_push":
+			_grip_skill(steel_iron.push_grip, &"steel", false)
+
+
+## Habilidad sostenida (tirón, empuje): enciende su metal mientras mantienes la tecla y suelta al terminar.
+func _grip_skill(g: SteelIron.Grip, metal: StringName, pressed: bool) -> void:
+	if pressed:
+		_skill_burn_on(metal)
+		g.input_held = true
+		g.input_just = true
+	else:
+		g.input_held = false
+		_skill_burn_off(metal)
+
+
+## Habilidad de un toque (anillo de monedas, imán): enciende su metal, actúa y lo apaga un momento después.
+func _tap_skill(metal: StringName, action: Callable, burn_ms: int) -> void:
+	_skill_burn_on(metal)
+	action.call()
+	_skill_off_ms[metal] = Time.get_ticks_msec() + burn_ms
+	get_tree().create_timer(burn_ms / 1000.0).timeout.connect(func() -> void:
+		if Time.get_ticks_msec() >= int(_skill_off_ms.get(metal, 0)):
+			_skill_burn_off(metal))
+
+
+func _skill_burn_on(metal: StringName) -> void:
+	if allomancy.is_burning(metal):
+		return
+	allomancy.set_state(metal, Allomancy.State.BURN)
+	if allomancy.is_burning(metal):
+		_skill_started[metal] = true
+
+
+## Apaga el metal solo si lo encendió una habilidad (uno encendido por el jugador no se toca).
+func _skill_burn_off(metal: StringName) -> void:
+	if not _skill_started.has(metal) or (metal == &"steel" and steel_iron.auto_push != null):
+		return
+	_skill_started.erase(metal)
+	allomancy.set_state(metal, Allomancy.State.OFF)
 
 
 ## Enciende el acero si hace falta y deja la moneda como objetivo del empuje automático.
@@ -1094,7 +1187,7 @@ func _physics_process(delta: float) -> void:
 	allomancy.flare_blocked = is_soothed()
 	var pewter := allomancy.strength(&"pewter")
 	var speed_mult := (1.0 + 0.6 * pewter) * gear_stat("speed")  # peltre: 1.6x quemando, 2.2x avivando
-	var jump_mult := 1.0 + 0.3 * pewter
+	var jump_mult := 1.0 + 0.3 * pewter_for(&"pewter_jump")
 	if _pewter_drag > 0.0:
 		speed_mult = 0.6
 		jump_mult = 0.7
@@ -1139,16 +1232,16 @@ func _physics_process(delta: float) -> void:
 			_jump_push = steel_iron.auto_push != null
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
 			# Acero + peltre en el doble Espacio: además del empuje de la moneda, el cuerpo reforzado da un impulso.
-			if double_tap and move == Vector2.ZERO and pewter > 0.0 and _jump_push:
-				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter
+			if double_tap and move == Vector2.ZERO and pewter_for(&"pewter_jump") > 0.0 and _jump_push:
+				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter_for(&"pewter_jump")
 				_air_jump_used = true
 		elif double_tap and not is_on_floor() and not _swimming and not _air_jump_used and _spend_stamina(JUMP_COST):
 			# Doble Espacio en el aire sin acero: segundo salto (el peltre lo hace mucho más fuerte).
 			_air_jump_used = true
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
-			velocity.y = jump_velocity * (AIR_JUMP_BOOST + AIR_JUMP_PEWTER * pewter)
+			velocity.y = jump_velocity * (AIR_JUMP_BOOST + AIR_JUMP_PEWTER * pewter_for(&"pewter_jump"))
 			var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
-			velocity += push.normalized() * AIR_JUMP_FORWARD * (1.0 + 0.5 * pewter)
+			velocity += push.normalized() * AIR_JUMP_FORWARD * (1.0 + 0.5 * pewter_for(&"pewter_jump"))
 			rig.play_jump()
 		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
 			velocity.y = jump_velocity * jump_mult
@@ -1388,7 +1481,7 @@ func _process(delta: float) -> void:
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():
-		health = minf(health + regen_rate * (1.0 + 2.0 * allomancy.strength(&"pewter")) * rd, max_health)
+		health = minf(health + regen_rate * (1.0 + 2.0 * pewter_for(&"pewter_second_wind")) * rd, max_health)
 	# El estaño (el dolor te despeja) te recupera antes de un golpe: avivado, el triple de rápido.
 	var recover := rd * 3.0 * (1.0 + allomancy.strength(&"tin"))
 	if rig is ModelRig:
@@ -1415,7 +1508,7 @@ func _process(delta: float) -> void:
 ## Daño que haría un impacto a esa velocidad. El peltre sube el umbral y reduce el daño
 ## (quemando: 20 m/s y la mitad; avivando: 28 m/s y un tercio); las botas suben el umbral.
 func impact_damage_for(impact_speed: float) -> float:
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_landing")
 	var safe := safe_impact_speed + 8.0 * pewter + gear_stat("impact", true)
 	return maxf(impact_speed - safe, 0.0) * impact_damage / (1.0 + pewter)
 
@@ -1592,7 +1685,7 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if _hanging or _climb_t >= 0.0:
 		_release_ledge(Vector3.ZERO)  # un golpe te suelta del borde
 	# El peltre endurece el cuerpo: menos daño y menos empujón (quemando ~40 %, avivando ~55 %).
-	var pewter := 0.0 if unblockable else allomancy.strength(&"pewter")
+	var pewter := 0.0 if unblockable else pewter_for(&"pewter_endurance")
 	impulse /= 1.0 + 0.5 * pewter
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
 	_shoved = 0.35
@@ -1644,7 +1737,7 @@ func attack() -> void:
 		weapon = HumanoidRig.Weapon.DAGGERS  # desenvaina sola
 		_auto_drawn = true
 		rig.set_weapon(weapon)
-	var pewter := allomancy.strength(&"pewter")
+	var pewter := pewter_for(&"pewter_strike")
 	var stats := weapon_stats(weapon)
 	if not is_on_floor() and not _air_attack_used:
 		_air_attack(stats, pewter)
@@ -1919,7 +2012,7 @@ func start_gather() -> void:
 	if dead or not has_bag():
 		return
 	if allomancy.strength(&"iron") <= 0.0:
-		notice.emit("Alt+E: con acero (1) lanza monedas en círculo, con hierro (2) las atrae")
+		notice.emit("Sin hierro encendido no se pueden atraer monedas")
 		return
 	_stop_gather()
 	var chest := chest_position()

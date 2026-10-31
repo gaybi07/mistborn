@@ -277,24 +277,22 @@ func _metals_page() -> Control:
 ## solo valen los movimientos básicos; el resto se desbloquea al encender el metal.
 const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
 [b]1.[/b] Encendé un metal con su tecla (F1 acero, F2 hierro, F3 peltre...), o clic en su icono con Tab sostenido. Tocar: encender o apagar. Doble toque y mantener: avivar.
-[b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (1) los empuja, hierro (2) tira de ellos.
-[b]3.[/b] Empujá con [b]G[/b], tirá con [b]E[/b] (o el clic derecho para tirar una moneda), anclá con [b]R[/b].
+[b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (F1) los empuja, hierro (F2) tira de ellos.
+[b]3.[/b] Aprendé habilidades en el árbol ([b]K[/b]) y ponelas en una ranura (teclas 1 2 3 4 Q E R F Z X C V, que podés cambiar). Mantené la tecla de «Tirón básico» o «Empuje ligero» mirando un metal. El clic derecho tira una moneda; anclá con [b]Y[/b].
 [b]4.[/b] Combiná: con acero y monedas, [b]Espacio + WASD[/b] te lanza por el aire.
 
 [color=#f2dca8][b]SIN METALES[/b][/color]
 [b]Espacio, Espacio[/b] (en el aire): segundo salto, más alto y con empuje hacia donde pulsás. Uno por salto.
 [b]Shift[/b]: rodar · en el aire: dash. [b]Clic izquierdo[/b]: atacar. [b]Rueda[/b]: cambiar de arma.
 
-[color=#6b9bff][b]ACERO (1)[/b][/color]  empuja metales
+[color=#6b9bff][b]ACERO (F1)[/b][/color]  empuja metales
 [b]Clic derecho[/b]: moneda fuerte hacia la mira (mantené para seguir empujándola). Apuntá abajo para frenar una caída.
-[b]G[/b]: empujar el metal que miras · [b]R[/b]: anclar el agarre.
+Ranura «Empuje ligero» (acero 4): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Anillo de monedas» (acero 8): 8 monedas en círculo.
 [b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (mantené Espacio para seguir empujando).
 [b]Espacio, Espacio[/b]: salto de acero recto hacia arriba.
-[b]Alt + E[/b]: lluvia de 8 monedas en círculo a tu alrededor. Cada una cuesta una moneda.
 
-[color=#a0a8c0][b]HIERRO (2)[/b][/color]  tira de metales
-[b]E[/b]: tirar del metal que miras. Si es una moneda, viene a vos y se guarda al tocarte.
-[b]Alt + E[/b]: atrae todas las monedas cercanas y las guarda en el monedero.
+[color=#a0a8c0][b]HIERRO (F2)[/b][/color]  tira de metales
+Ranura «Tirón básico» (hierro 1): tirar del metal que mirás (una moneda viene a vos y se guarda al tocarte). «Imán de monedas» (hierro 8): atrae las monedas cercanas.
 Con un solo metal encendido (acero o hierro), E y G hacen lo mismo.
 
 [color=#f28c40][b]PELTRE (3)[/b][/color]  cuerpo reforzado
@@ -312,7 +310,7 @@ Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
 [color=#d9a65a][b]BRONCE (C)[/b][/color]  sentís a los alománticos que queman metales. [color=#d1dbb3][b]ESTAÑO (V)[/b][/color]  ves más lejos en la bruma y te recuperás antes de los golpes.
 
 [color=#f2dca8][b]TRUCOS[/b][/color]
-Sin la bolsa (F) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
+Sin la bolsa (B) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
 [b]Tab[/b] (mantener) libera el ratón para clicar los iconos de los metales. [b]K[/b] árbol de habilidades. [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
 
 const CONTROLS := """[table=2]
@@ -332,12 +330,11 @@ const CONTROLS := """[table=2]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
 [cell][b]Tab[/b] (mantener)[/cell][cell]Ratón libre para clicar los iconos de los metales (clic: encender o apagar · doble clic y mantener: avivar)[/cell]
 [cell][b]Clic derecho[/b][/cell][cell]Lanza una moneda fuerte justo hacia la mira y la empuja con acero mientras mantengas el clic: pega con la moneda o, apuntando abajo, frena una caída[/cell]
-[cell][b]E[/b][/cell][cell]Tirar (hierro) del metal que miras; donde hay algo que usar (puerta, armario) abre en vez de tirar; una moneda viene a vos y se guarda al tocarte. Con un solo metal encendido, E o G lo usan. Sin nada a la vista, agarra el que más ayuda a moverte hacia donde vas[/cell]
-[cell][b]G[/b][/cell][cell]Empujar (acero) el metal que miras[/cell]
-[cell][b]Alt + E[/b][/cell][cell]Con acero encendido: lanza 8 monedas en círculo a tu alrededor. Con hierro (sin acero): atrae todas las monedas cercanas y las guarda en el monedero[/cell]
-[cell][b]R[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
+[cell][b]1 2 3 4 Q E R F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de un anillo o imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
+[cell][b]K[/b][/cell][cell]Árbol de habilidades: subí metales, poné habilidades en las ranuras y cambiá sus teclas[/cell]
+[cell][b]Y[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
 [cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]
-[cell][b]F[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
+[cell][b]B[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
 [cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
@@ -362,7 +359,7 @@ const COMBAT := """[b]Combos[/b] (clic izquierdo seguido, a tiempo):
 
 [b]Atium[/b]: esquivás solo los golpes y monedas de quien no lo quema, y tus golpes llegan aunque se mueva.
 
-[b]Bolsa de monedas[/b]: los alománticos enemigos te empujan y tiran a través de ella. Soltala (F) para que no puedan; volvé a pasar por encima o pulsá F cerca para recogerla. Con hierro podés traerla de lejos.
+[b]Bolsa de monedas[/b]: los alománticos enemigos te empujan y tiran a través de ella. Soltala (B) para que no puedan; volvé a pasar por encima o pulsá B cerca para recogerla. Con hierro podés traerla de lejos.
 
 [b]Equipo y metal[/b]: la cota de malla, las botas con clavos, las armas de acero y los frascos con tapón de metal cuentan como metal: con cualquiera puesto te pueden empujar aunque sueltes la bolsa. Los alománticos derrotados a veces sueltan objetos.
 
