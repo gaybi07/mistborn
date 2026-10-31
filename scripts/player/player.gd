@@ -578,6 +578,7 @@ func _net_slot_key(key: InputEventKey) -> bool:
 		return false
 	var skill := Progression.slot_skills[slot]
 	var id := 0
+	var aim := Vector3.ZERO
 	if key.pressed:
 		if ui_open or dead:
 			return false
@@ -585,21 +586,23 @@ func _net_slot_key(key: InputEventKey) -> bool:
 			return false
 		if skill == &"iron_pull" or skill == &"steel_light_push":
 			id = get_parent().target_id(steel_iron.click_target(skill == &"steel_light_push", chest_position()))
+		elif skill == &"steel_coin_burst" or skill == &"iron_coin_magnet" or skill == &"steel_spear":
+			aim = _burst_aim(Vector3.INF)
 	if multiplayer.is_server():
-		_net_skill_run(skill, key.pressed, id)
+		_net_skill_run(skill, key.pressed, id, aim)
 	else:
-		_net_skill.rpc_id(1, skill, key.pressed, id)
+		_net_skill.rpc_id(1, skill, key.pressed, id, aim)
 	return true
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _net_skill(skill: StringName, pressed: bool, target_id: int) -> void:
+func _net_skill(skill: StringName, pressed: bool, target_id: int, aim: Vector3) -> void:
 	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == net_peer_id:
-		_net_skill_run(skill, pressed, target_id)
+		_net_skill_run(skill, pressed, target_id, aim)
 
 
 ## Servidor: activa o termina una habilidad de ranura si ese jugador la tiene desbloqueada.
-func _net_skill_run(skill: StringName, pressed: bool, target_id: int) -> void:
+func _net_skill_run(skill: StringName, pressed: bool, target_id: int, aim := Vector3.INF) -> void:
 	if dead or not SkillTree.is_assignable(skill) or not skill_unlocked(skill):
 		if not pressed:
 			_net_release_skill(skill)
@@ -615,10 +618,16 @@ func _net_skill_run(skill: StringName, pressed: bool, target_id: int) -> void:
 				_net_release_skill(skill)
 		&"steel_coin_burst":
 			if pressed:
-				_tap_skill(&"steel", fire_coin_burst, SKILL_TAP_BURN_MS)
+				_tap_skill(&"steel", fire_coin_burst.bind(aim), SKILL_TAP_BURN_MS)
+		&"steel_spear":
+			if pressed:
+				_tap_skill(&"steel", fire_steel_spear.bind(aim), SKILL_TAP_BURN_MS)
+		&"steel_magnetic_field":
+			if pressed:
+				_tap_skill(&"steel", activate_magnetic_field, SKILL_TAP_BURN_MS)
 		&"iron_coin_magnet":
 			if pressed:
-				_tap_skill(&"iron", start_gather, GATHER_MS + 200)
+				_tap_skill(&"iron", start_gather.bind(aim), GATHER_MS + 200)
 
 
 func _net_release_skill(skill: StringName) -> void:
@@ -1086,6 +1095,12 @@ func _skill_press(skill: StringName) -> void:
 			_grip_skill(steel_iron.push_grip, &"steel", true)
 		&"steel_coin_burst":
 			_tap_skill(&"steel", fire_coin_burst, SKILL_TAP_BURN_MS)
+		&"steel_coin_shield":
+			_tap_skill(&"steel", toggle_coin_shield, SKILL_TAP_BURN_MS)
+		&"steel_spear":
+			_tap_skill(&"steel", fire_steel_spear, SKILL_TAP_BURN_MS)
+		&"steel_magnetic_field":
+			_tap_skill(&"steel", activate_magnetic_field, SKILL_TAP_BURN_MS)
 		&"iron_coin_magnet":
 			_tap_skill(&"iron", start_gather, GATHER_MS + 200)
 
@@ -1153,6 +1168,7 @@ func _can_steel_jump() -> bool:
 
 
 func _end_coin_push() -> void:
+	var was_shot := _coin_shot
 	_jump_push = false
 	_coin_shot = false
 	if steel_iron.auto_push == null:
@@ -1161,6 +1177,10 @@ func _end_coin_push() -> void:
 	if is_instance_valid(coin):
 		coin.set_deferred(&"freeze", false)  # vuelve a ser una moneda suelta
 		coin.gravity_scale = 1.0
+		if was_shot and not coin.freeze:
+			# Un clic corto: soltar el botón deja de empujar la moneda y casi se frena en el aire, en vez de seguir
+			# volando a toda velocidad lejos de ti.
+			coin.linear_velocity *= 0.2
 	steel_iron.auto_push = null
 	allomancy.set_state(&"steel", _coin_push_steel)
 
@@ -1315,6 +1335,8 @@ func _physics_process(delta: float) -> void:
 			_net_held.clear()
 	var rd := real_delta(delta)
 	_update_practice_xp(rd)
+	_update_shield(rd)
+	_update_field()
 	_update_pewter_drag(rd)
 	allomancy.flare_blocked = is_soothed()
 	var pewter := allomancy.strength(&"pewter")
@@ -1794,7 +1816,7 @@ func apply_allomantic_impulse(dv: Vector3) -> void:
 
 
 ## Golpe cuerpo a cuerpo o de una moneda.
-func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
+func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged := false) -> void:
 	if dead:
 		return
 	if attacker and Metals.atium_edge(self, attacker):
@@ -1810,6 +1832,9 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		return
 	# Con atium, el atacante ve el hueco: ni armadura ni peltre frenan el golpe.
 	var unblockable := attacker != null and Metals.atium_edge(attacker, self)
+	if _shield > 0 and not unblockable and not ranged and randf() < SkillTree.shield_block_chance(_shield):
+		_shield_block(attacker)  # el escudo de monedas desvía el golpe cuerpo a cuerpo
+		return
 	if is_rioted():
 		damage *= 1.25
 	if not unblockable:
@@ -1847,6 +1872,7 @@ func _die() -> void:
 	health = 0.0
 	dead = true
 	allomancy.stop_all()
+	_dismiss_shield()
 	died.emit()
 	get_tree().create_timer(2.5, true, false, true).timeout.connect(func() -> void:
 		respawn()
@@ -2113,36 +2139,258 @@ func _start_protection() -> void:
 ## Ráfaga de monedas: lanza nivel de acero + 1 monedas a ras del pecho en un abanico hacia donde mira el cuerpo.
 ## El abanico se abre con cada nivel (ver SkillTree.fan_angle) y desde el 15 es un círculo completo, repartido a
 ## partes iguales. Gastan una moneda cada una.
-func fire_coin_burst() -> void:
+## Ángulo (grados) entre la dirección apuntada y el anillo de monedas de la ráfaga radial.
+const RADIAL_BURST_TILT := 70.0
+
+
+func fire_coin_burst(aim := Vector3.INF) -> void:
 	if dead or not _check_coins():
 		return
 	var now := Time.get_ticks_msec()
 	if now < _net_coin_ready_ms:
 		return
 	_net_coin_ready_ms = now + COIN_BURST_COOLDOWN_MS
-	var front := -visual.global_basis.z
-	front.y = 0.0
-	front = front.normalized()
+	# Todo sale hacia donde apunta el ratón, también hacia arriba o abajo (no a la altura del cuerpo). El abanico se
+	# abre a izquierda y derecha de esa dirección, vista desde la cámara; el radial (nivel 15) es una moneda hacia
+	# donde apuntas y el resto en un anillo ancho alrededor de esa dirección.
+	var base := _burst_aim(aim)
+	var right := base.cross(Vector3.UP)
+	right = right.normalized() if right.length() > 0.05 else (camera.global_basis.x if camera != null else Vector3.RIGHT)
+	var view_up := right.cross(base).normalized()
 	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
 	var start := chest_position()
 	var level := metal_level(&"steel")
 	var count := mini(SkillTree.fan_count(level), coins_held)
 	var angle := SkillTree.fan_angle(level)
 	for i in count:
-		var turn := 0.0
+		var dir := base
 		if angle >= TAU:
-			turn = TAU * i / count
+			if i > 0:
+				var around := TAU * (i - 1) / maxi(count - 1, 1)
+				var toward := right * cos(around) + view_up * sin(around)
+				dir = base.rotated(base.cross(toward).normalized(), deg_to_rad(RADIAL_BURST_TILT))
 		elif count > 1:
-			turn = -angle * 0.5 + angle * i / (count - 1)
-		var dir := front.rotated(Vector3.UP, turn)
+			dir = base.rotated(view_up, -angle * 0.5 + angle * i / (count - 1))
 		var coin := _spawn_coin(start + dir * 0.5)
-		coin.gravity_scale = 0.25  # casi a ras: cae despacio, no queda flotando
+		coin.gravity_scale = 0.25  # cae despacio: no queda flotando
 		coin.linear_velocity = dir * speed
 	rig.play_throw()
 
 
+## Escudo de monedas (acero 8): monedas del monedero que giran a tu alrededor y dan una probabilidad de desviar cada golpe
+## cuerpo a cuerpo (más monedas, más probabilidad; ver SkillTree.shield_block_chance). Dura SkillTree.SHIELD_DURATION s y
+## se retira solo (o pulsando otra vez): las monedas no se gastan, vuelven al monedero. Los proyectiles los para el Campo magnético. Solo en partida individual.
+const SHIELD_RADIUS := 0.95
+var _shield := 0
+var _shield_until_ms := 0
+var _shield_root: Node3D
+var _shield_orbits: Array[Dictionary] = []
+
+
+func toggle_coin_shield() -> void:
+	if net_peer_id != 0:
+		return
+	if _shield > 0:
+		_dismiss_shield()
+		notice.emit("Escudo de monedas guardado")
+		return
+	if not _check_coins():
+		return
+	_shield = mini(SkillTree.shield_count(metal_level(&"steel")), coins_held)
+	coins_held -= _shield
+	_shield_until_ms = Time.get_ticks_msec() + int(SkillTree.SHIELD_DURATION * 1000.0)
+	_rebuild_shield()
+
+
+## Guarda de nuevo en el monedero las monedas que quedan en el escudo.
+func _dismiss_shield() -> void:
+	coins_held += _shield
+	_shield = 0
+	_rebuild_shield()
+
+
+## El escudo desvía un golpe cuerpo a cuerpo: no hace daño ni empuja. Las monedas siguen girando.
+func _shield_block(attacker: Node3D) -> void:
+	mark_combat()
+	if attacker != null and attacker.has_method(&"mark_combat"):
+		attacker.mark_combat()
+	notice.emit("¡Bloqueado!")
+
+
+func _rebuild_shield() -> void:
+	_shield_orbits.clear()  # antes de liberar las monedas: si no, quedan referencias a nodos liberados
+	if _shield_root != null:
+		_shield_root.queue_free()
+		_shield_root = null
+	if _shield <= 0:
+		return
+	_shield_root = Node3D.new()
+	_shield_root.position.y = 1.2
+	add_child(_shield_root)
+	_shield_orbits.clear()
+	# La misma moneda 3D del juego (CoinKit), cinco veces más chica, con un leve brillo para que se vea de lejos.
+	var mesh := CoinKit.mesh()
+	var mat := CoinKit.material().duplicate() as StandardMaterial3D
+	mat.emission_enabled = true
+	mat.emission = Color(0.8, 0.5, 0.25)
+	mat.emission_energy_multiplier = 0.3
+	# Como el escudo de maná del mago: cada moneda recorre su propia órbita inclinada alrededor del cuerpo, con
+	# otro plano, otra velocidad y otro sentido, así que se cruzan en tres dimensiones (como un átomo).
+	for i in _shield:
+		var pivot := Node3D.new()
+		# Planos repartidos por todo el cuerpo: giro en vertical (golden angle) e inclinación entre 25° y 85°.
+		var yaw := TAU * fposmod(i * 0.381966, 1.0)
+		var tilt := deg_to_rad(25.0 + 60.0 * fposmod(i * 0.618034, 1.0))
+		pivot.rotation = Vector3(tilt, yaw, 0.0)
+		_shield_root.add_child(pivot)
+		var coin := MeshInstance3D.new()
+		coin.mesh = mesh
+		coin.material_override = mat
+		coin.position = Vector3(SHIELD_RADIUS * (0.85 + 0.12 * (i % 3)), 0.0, 0.0)
+		coin.rotation = Vector3(0.0, 0.0, PI / 2.0)  # la cara mira hacia afuera
+		coin.scale = Vector3.ONE * 0.2
+		coin.add_child(_shield_trail())
+		pivot.add_child(coin)
+		pivot.rotate_object_local(Vector3.UP, TAU * i / _shield)  # cada una empieza en otro punto de su órbita
+		var speed := (2.2 + 0.5 * (i % 3)) * (1.0 if i % 2 == 0 else -1.0)
+		_shield_orbits.append({"pivot": pivot, "speed": speed})
+
+
+## Estela dorada y difuminada que deja cada moneda del escudo al pasar (partículas suaves que quedan en el mundo y se
+## desvanecen despacio).
+func _shield_trail() -> GPUParticles3D:
+	var trail := GPUParticles3D.new()
+	trail.amount = 10
+	trail.lifetime = 0.4
+	trail.local_coords = false
+	trail.visibility_aabb = AABB(Vector3(-6, -6, -6), Vector3(12, 12, 12))
+	var pm := ParticleProcessMaterial.new()
+	pm.gravity = Vector3.ZERO
+	pm.initial_velocity_min = 0.0
+	pm.initial_velocity_max = 0.0
+	pm.color_ramp = Fx.fade_ramp()
+	trail.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.16, 0.16)  # una estela apenas insinuada: suave y casi transparente
+	quad.material = Fx.particle_material(Color(1.0, 0.82, 0.4, 0.035), true)
+	trail.draw_pass_1 = quad
+	return trail
+
+
+func _update_shield(rd: float) -> void:
+	if _shield > 0 and Time.get_ticks_msec() > _shield_until_ms:
+		_dismiss_shield()  # se agota solo: las monedas vuelven al monedero
+		notice.emit("Escudo agotado")
+		return
+	for orbit in _shield_orbits:
+		var node: Variant = orbit["pivot"]
+		if is_instance_valid(node):
+			(node as Node3D).rotate_object_local(Vector3.UP, float(orbit["speed"]) * rd)
+
+
+## Lanza de acero (acero 20): gasta 5 monedas en un solo proyectil muy rápido y pesado que atraviesa hasta 4 enemigos,
+## con mucho daño y empuje. Recarga SkillTree.SPEAR_COOLDOWN.
+var _spear_ready_ms := 0
+
+
+func fire_steel_spear(aim := Vector3.INF) -> void:
+	if dead or not _check_coins():
+		return
+	var now := Time.get_ticks_msec()
+	if now < _spear_ready_ms:
+		notice.emit("Lanza de acero recargando (%d s)" % ceili((_spear_ready_ms - now) / 1000.0))
+		return
+	if coins_held < SkillTree.SPEAR_COST:
+		notice.emit("La lanza necesita %d monedas" % SkillTree.SPEAR_COST)
+		return
+	_spear_ready_ms = now + int(SkillTree.SPEAR_COOLDOWN * 1000.0)
+	coins_held -= SkillTree.SPEAR_COST - 1  # _spawn_coin descuenta la quinta
+	var dir := _burst_aim(aim)
+	var spear := _spawn_coin(chest_position() + dir * 0.6) as Coin
+	spear.gravity_scale = 0.0
+	spear.mass = 0.5
+	spear.linear_damp = 0.0
+	spear.pierce_left = 4
+	spear.hit_power = 2.0
+	spear.linear_velocity = dir * SkillTree.SPEAR_SPEED
+	visual.rotation.y = atan2(-dir.x, -dir.z)
+	rig.play_throw()
+	get_tree().create_timer(3.0).timeout.connect(spear.queue_free)
+
+
+## Campo magnético (acero 12): durante unos segundos las monedas y proyectiles metálicos que se acercan a ti se
+## desvían y vuelven hacia quien los lanzó, con el mismo daño.
+var _field_until_ms := 0
+var _field_ready_ms := 0
+var _field_shell: MeshInstance3D
+
+
+func activate_magnetic_field() -> void:
+	if dead:
+		return
+	var now := Time.get_ticks_msec()
+	if now < _field_ready_ms:
+		notice.emit("Campo magnético recargando (%d s)" % ceili((_field_ready_ms - now) / 1000.0))
+		return
+	_field_until_ms = now + int(SkillTree.FIELD_DURATION * 1000.0)
+	_field_ready_ms = now + int(SkillTree.FIELD_COOLDOWN * 1000.0)
+	if _field_shell == null:
+		_field_shell = MeshInstance3D.new()
+		var sphere := SphereMesh.new()
+		sphere.radius = SkillTree.FIELD_RADIUS
+		sphere.height = SkillTree.FIELD_RADIUS * 2.0
+		_field_shell.mesh = sphere
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.albedo_color = Color(0.45, 0.65, 1.0, 0.05)  # apenas visible: no llena la pantalla de ruido
+		_field_shell.material_override = mat
+		_field_shell.position.y = 1.2
+		add_child(_field_shell)
+	_field_shell.visible = true
+
+
+func _update_field() -> void:
+	if _field_shell == null or not _field_shell.visible:
+		return
+	if dead or Time.get_ticks_msec() > _field_until_ms:
+		_field_shell.visible = false
+		return
+	var center := chest_position()
+	for n in get_tree().get_nodes_in_group(&"coin"):
+		var coin := n as Coin
+		if coin == null or coin.puppet or coin.shooter == self or coin.freeze:
+			continue
+		var to_me := center - coin.global_position
+		var dist := to_me.length()
+		var speed := coin.linear_velocity.length()
+		if dist > SkillTree.FIELD_RADIUS or speed < 8.0 or coin.linear_velocity.dot(to_me) <= 0.0:
+			continue
+		# Vuelve hacia quien la lanzó (o hacia donde vino) y desde ahora es tuya: hiere a los demás.
+		var back := -coin.linear_velocity.normalized()
+		if is_instance_valid(coin.shooter):
+			back = (Metals.center_of(coin.shooter) - coin.global_position).normalized()
+		coin.linear_velocity = back * speed * 1.1
+		coin.gravity_scale = 0.0
+		coin.shooter = self
+
+
+## Dirección hacia donde apunta el ratón desde el pecho (la mandó el cliente en red, o se calcula aquí).
+func _burst_aim(aim: Vector3) -> Vector3:
+	if aim.is_finite() and aim.length() > 0.5:
+		return aim.normalized()
+	var start := chest_position()
+	var look := aim_direction().normalized()
+	var hit := aim_point()
+	# Un punto detrás de ti (la cámara pegada a un muro): usa uno lejano en la dirección de la mira.
+	if (hit - start).dot(look) < 0.5:
+		hit = camera.global_position + look * 150.0
+	return (hit - start).normalized()
+
+
 ## Imán de monedas (con hierro encendido): las monedas sueltas del abanico vuelan hacia ti y se guardan al tocarte.
-func start_gather() -> void:
+func start_gather(aim := Vector3.INF) -> void:
 	if dead or not has_bag():
 		return
 	if allomancy.strength(&"iron") <= 0.0:
@@ -2153,9 +2401,9 @@ func start_gather() -> void:
 	# Imán de monedas: las más cercanas dentro del abanico hacia adelante (nivel de hierro + 1; todas si es radial).
 	var level := metal_level(&"iron")
 	var angle := SkillTree.fan_angle(level)
-	var front := -visual.global_basis.z
-	front.y = 0.0
-	front = front.normalized()
+	var base := _burst_aim(aim)  # el abanico apunta hacia donde apunta el ratón
+	var front := Vector3(base.x, 0.0, base.z)
+	front = front.normalized() if front.length() > 0.1 else -visual.global_basis.z
 	var found := []
 	for n in get_tree().get_nodes_in_group(&"coin"):
 		var coin := n as Coin

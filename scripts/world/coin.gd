@@ -14,6 +14,9 @@ const HOMING_RANGE := 70.0
 var shooter: Node3D = null
 ## Quien la tiró hacia sí con hierro o el imán: no le hace daño aunque llegue rápido.
 var pull_owner: Node3D = null
+## Lanza de acero: cuántos cuerpos más atraviesa y cuánto pega de más (1 = una moneda normal).
+var pierce_left := 0
+var hit_power := 1.0
 ## Red: id de la moneda (el mismo en todos los procesos; 0 = no es de red) y si es una copia que solo
 ## muestra lo que manda el servidor (sin física ni daño).
 var net_id := 0
@@ -101,13 +104,24 @@ func _on_body_entered(body: Node) -> void:
 		return
 	var damage := clampf((speed - 10.0) * 1.1, 3.0, 25.0)
 	var impulse := _last_velocity.normalized() * speed * 0.06
+	if hit_power > 1.0:
+		damage = 45.0
+		impulse = _last_velocity.normalized() * 30.0
 	if body.has_method(&"_receive_net_hit") and body.net_peer_id != 0:
 		# Jugador de red: solo el servidor (único que simula monedas) decide el impacto.
 		if body.dead or body.net_protected:
 			return
 		body._receive_net_hit(impulse, damage, shooter.net_peer_id if shooter != null and shooter.get(&"net_peer_id") != null else 0)
+	elif body.is_in_group(&"player"):
+		body.take_hit(impulse, damage, shooter, true)  # proyectil: el escudo de monedas no lo para
 	else:
 		body.take_hit(impulse, damage, shooter)
 	Fx.sparks(get_tree().current_scene, global_position, Color(1.0, 0.75, 0.45))
 	Fx.effect(get_tree().current_scene, "ef_fire01", global_position, 0.2)
+	if pierce_left > 0:
+		# La lanza sigue de largo: no vuelve a chocar con quien atravesó y conserva su velocidad.
+		pierce_left -= 1
+		add_collision_exception_with(body)
+		linear_velocity = _last_velocity
+		return
 	_last_velocity = Vector3.ZERO

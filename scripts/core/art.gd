@@ -12,8 +12,13 @@ static var player_model := "mistborn"
 static var lighting := "noche"
 ## "despejado", "lluvia" o "ceniza". F4.
 static var weather := "despejado"
-## "poca" o "mucha". F5.
+## "ninguna", "poca" o "mucha". Ctrl+F5.
 static var fog := "mucha"
+## Bruma negra (nubes bajas y jirones a ras de suelo), ceniza que flota siempre en el aire y relámpagos con lluvia.
+## Se apagan desde el menú (Esc, pestaña Mundo); la lluvia y la ceniza de tormenta se apagan con el clima.
+static var mist := true
+static var ash_fall := true
+static var lightning := true
 ## Sube cada vez que cambia el ambiente (para que el estaño recalcule sus valores base).
 static var env_version := 0
 
@@ -22,7 +27,13 @@ static var env_version := 0
 ## Es lo que usan los alománticos para detectarte; la niebla y el clima la recortan.
 static func sight_range() -> float:
 	var r := 16.0 if lighting == "noche" else 38.0
-	r *= 1.6 if fog == "poca" else 0.65
+	match fog:
+		"ninguna":
+			r *= 2.2
+		"poca":
+			r *= 1.6
+		_:
+			r *= 0.65
 	match weather:
 		"lluvia":
 			r *= 0.75

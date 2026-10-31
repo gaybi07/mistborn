@@ -11,6 +11,8 @@ var player: Player
 var _root: Control
 var _restart_button: Button
 var _reset_button: Button
+var _tabs: TabContainer
+var _coins_button: Button
 
 
 func _ready() -> void:
@@ -58,6 +60,8 @@ func _ready() -> void:
 	tabs.add_child(_page("Controles", CONTROLS))
 	tabs.add_child(_metals_page())
 	tabs.add_child(_page("Combate", COMBAT))
+	_tabs = tabs
+	tabs.add_child(_world_page())
 	tabs.add_child(_options_page())
 
 	var buttons := HBoxContainer.new()
@@ -121,6 +125,91 @@ func _restart_all() -> void:
 	_restart_world()
 
 
+## Pestaña Mundo: hora, clima y niebla, y interruptores para la bruma, la ceniza y los relámpagos. Los cambios
+## se ven al instante y se guardan (ver GameSettings.load_world).
+func _world_page() -> Control:
+	var page := VBoxContainer.new()
+	page.name = "Mundo"
+	page.add_theme_constant_override("separation", 10)
+	page.add_child(HudKit.section_label("Hora, clima y niebla"))
+	page.add_child(_choice_row("Hora", [["noche", "Noche"], ["dia", "Día"]], Art.lighting,
+			func(v: String) -> void: Art.lighting = v))
+	page.add_child(_choice_row("Clima", [["despejado", "Despejado"], ["lluvia", "Lluvia"], ["ceniza", "Lluvia de ceniza"]],
+			Art.weather, func(v: String) -> void: Art.weather = v))
+	page.add_child(_choice_row("Niebla", [["ninguna", "Sin niebla"], ["poca", "Poca"], ["mucha", "Mucha"]],
+			Art.fog, func(v: String) -> void: Art.fog = v))
+	page.add_child(HudKit.section_label("Efectos (se pueden apagar)"))
+	page.add_child(_switch_row("Bruma negra: nubes bajas y jirones a ras de suelo", Art.mist,
+			func(on: bool) -> void: Art.mist = on))
+	page.add_child(_switch_row("Ceniza que flota siempre en el aire", Art.ash_fall,
+			func(on: bool) -> void: Art.ash_fall = on))
+	page.add_child(_switch_row("Relámpagos durante la lluvia", Art.lightning,
+			func(on: bool) -> void: Art.lightning = on))
+	var reset := _button("Restablecer", func() -> void:
+		Art.lighting = "noche"
+		Art.weather = "despejado"
+		Art.fog = "mucha"
+		Art.mist = true
+		Art.ash_fall = true
+		Art.lightning = true
+		_apply_world()
+		var index := page.get_index()
+		page.queue_free()
+		var fresh := _world_page()
+		_tabs.add_child(fresh)
+		_tabs.move_child(fresh, index)
+		_tabs.current_tab = index)
+	reset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	page.add_child(reset)
+	var note := Label.new()
+	note.text = "La lluvia y la ceniza de tormenta se apagan eligiendo «Despejado». Hora, clima y niebla también cambian la distancia a la que te ven los alománticos. Atajos: Ctrl+F3, Ctrl+F4 y Ctrl+F5."
+	note.modulate.a = 0.6
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(note)
+	return page
+
+
+## Fila "nombre — opciones": botones de los que solo uno está activo; elegir uno aplica y guarda el mundo.
+func _choice_row(label: String, options: Array, current: String, on_pick: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var name_label := Label.new()
+	name_label.text = label
+	name_label.custom_minimum_size.x = 210
+	row.add_child(name_label)
+	var group := ButtonGroup.new()
+	for option: Array in options:
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_group = group
+		b.text = option[1]
+		b.button_pressed = option[0] == current
+		var value: String = option[0]
+		b.pressed.connect(func() -> void:
+			on_pick.call(value)
+			_apply_world())
+		row.add_child(b)
+	return row
+
+
+func _switch_row(text: String, on: bool, on_toggle: Callable) -> Control:
+	var check := CheckButton.new()
+	check.text = text
+	check.button_pressed = on
+	check.toggled.connect(func(pressed: bool) -> void:
+		on_toggle.call(pressed)
+		_apply_world())
+	return check
+
+
+## Aplica Art.* al mundo (ver Weather.apply) y lo guarda.
+func _apply_world() -> void:
+	var weather := get_tree().get_first_node_in_group(&"weather") as Weather
+	if weather != null:
+		weather.apply(false)
+	WorldSettings.save()
+
+
 ## Pestaña de opciones: sensibilidad, campo de visión, tamaño del HUD, volumen y pantalla completa
 ## (se guardan solas), y atajos para cambiar de escenario.
 func _options_page() -> Control:
@@ -151,6 +240,26 @@ func _options_page() -> Control:
 		GameSettings.apply_global()
 		GameSettings.save())
 	page.add_child(full)
+	page.add_child(HudKit.section_label("Monedero"))
+	var coins_row := HBoxContainer.new()
+	coins_row.add_theme_constant_override("separation", 10)
+	var coins_label := Label.new()
+	coins_label.text = "Monedas"
+	coins_label.custom_minimum_size.x = 210
+	coins_row.add_child(coins_label)
+	var coins_spin := SpinBox.new()
+	coins_spin.min_value = 0
+	coins_spin.max_value = Player.COIN_MAX
+	coins_spin.step = 100
+	coins_spin.value = Player.COIN_START
+	coins_spin.custom_minimum_size.x = 140
+	coins_row.add_child(coins_spin)
+	_coins_button = _button("Poner monedas", func() -> void:
+		if not NetworkManager.is_online():
+			player.coins_held = int(coins_spin.value))
+	_coins_button.tooltip_text = "Deja el monedero con esa cantidad de monedas (1000 al empezar). No disponible en red."
+	coins_row.add_child(_coins_button)
+	page.add_child(coins_row)
 	page.add_child(HudKit.section_label("Ir a"))
 	var go := HBoxContainer.new()
 	go.add_theme_constant_override("separation", 10)
@@ -235,6 +344,7 @@ func open() -> void:
 	var online := NetworkManager.is_online()
 	_restart_button.disabled = online
 	_reset_button.disabled = online
+	_coins_button.disabled = online
 	player.ui_open = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

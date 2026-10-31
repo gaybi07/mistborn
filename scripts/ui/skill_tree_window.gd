@@ -175,7 +175,14 @@ func _card(metal: StringName) -> Control:
 		elif id in SkillTree.PENDING:
 			text += "  — próximamente"
 		var row := HBoxContainer.new()
-		var label := _line(text, GOOD if unlocked and not id in SkillTree.PENDING else DIM)
+		# Al pasar el ratón: tarjeta con qué hace y cómo mejora con los niveles (ver SkillRowLabel).
+		var label := SkillRowLabel.new()
+		label.skill_id = id
+		label.metal_level = lvl
+		label.text = text
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_font_size_override("font_size", 14)
+		label.modulate = GOOD if unlocked and not id in SkillTree.PENDING else DIM
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 		if unlocked and SkillTree.is_assignable(id):

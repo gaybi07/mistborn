@@ -65,6 +65,11 @@ func _make_particles(amount: int, life: float, extents: Vector3, size: float, ma
 	return p
 
 
+## La ceniza que flota siempre en el aire (se apaga desde el menú, ver Art.ash_fall).
+func set_ash_enabled(on: bool) -> void:
+	_ash.emitting = on
+
+
 ## 1 = bruma normal; el estaño la reduce.
 func set_mist_strength(strength: float) -> void:
 	var c := _mist_mat.albedo_color
