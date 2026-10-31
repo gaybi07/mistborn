@@ -50,6 +50,7 @@ var auto_push: Node3D = null
 
 var _bolts: BoltMesh
 var _markers := {}  # "hover"/Grip -> MeshInstance3D
+var _hum: AudioStreamPlayer
 var _metals: Array[Node3D] = []
 var _reach := 0.0
 
@@ -60,6 +61,13 @@ func _ready() -> void:
 	_markers["hover"] = _make_marker(Color(0.45, 0.75, 1.0, 0.55))
 	_markers[push_grip] = _make_marker(push_grip.color)
 	_markers[pull_grip] = _make_marker(pull_grip.color)
+	# Zumbido mientras empujás o tirás.
+	_hum = AudioStreamPlayer.new()
+	_hum.stream = Sfx.stream("steel_hum_loop")
+	_hum.bus = "SFX"
+	_hum.volume_db = -80.0
+	add_child(_hum)
+	_hum.play()
 
 
 func _make_marker(color: Color) -> MeshInstance3D:
@@ -88,6 +96,7 @@ func grips() -> Array:
 
 
 func _physics_process(delta: float) -> void:
+	_hum.volume_db = move_toward(_hum.volume_db, -16.0 if applying_force else -80.0, 4.0)  # (el cuadro anterior)
 	applying_force = false
 	holding = false
 	var a := player.allomancy
@@ -140,6 +149,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		if g.target != auto_push:
 			g.target = auto_push
 			g.active = true
+			Sfx.play("steel_push", player.chest_position())
 			Fx.sparks(get_tree().current_scene, center_of(auto_push), g.color)
 			Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(auto_push), 0.25, g.color)
 		return
@@ -162,6 +172,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 			return  # sigue pulsado: se agarrará en cuanto haya algo en la mira
 		g.target = t
 		g.active = true
+		Sfx.play("steel_push" if g == push_grip else "iron_pull", player.chest_position())
 		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
 		Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(t), 0.25, g.color)
 

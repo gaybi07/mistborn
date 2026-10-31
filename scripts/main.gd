@@ -41,6 +41,10 @@ func _ready() -> void:
 	WorldKit.add_environment(self)
 	CityGround.build(self, _m)
 	_batch = ModelBatcher.new()
+	_batch.on_ground = true
+	# Zonas chicas que dejan de dibujarse lejos (donde la niebla ya tapó todo).
+	_batch.draw_chunk = 64.0
+	_batch.draw_far = Art.DRAW_FAR
 	add_child(_batch)
 	_build_wall()
 	_build_kredik_shaw()
@@ -53,6 +57,11 @@ func _ready() -> void:
 	_build_plaza_details()
 	_batch.finalize()
 	_build_ironwork()
+	_settle()
+	for name: String in _poly:
+		var xfs: Array = _poly[name]
+		for i in xfs.size():
+			xfs[i] = (xfs[i] as Transform3D).translated(Vector3(0, _ground(xfs[i].origin), 0))
 	PolyProps.spawn(self, _poly)
 	add_child(Exterior.new())
 	_spawn_people()
@@ -60,7 +69,7 @@ func _ready() -> void:
 	add_child(WorldFx.new())
 	var player := Player.new()
 	player.name = "Player"
-	player.position = Portal.take_arrival(Vector3(0, 1, 10))
+	player.position = Portal.take_arrival(Vector3(0, 1 + _ground(Vector3(0, 0, 10)), 10))
 	add_child(player)
 	var hud := Hud.new()
 	hud.player = player
@@ -88,8 +97,28 @@ func _place_loot() -> void:
 		var p: Vector2 = spots.pop_at(r.randi() % spots.size())
 		var pickup := ItemPickup.new()
 		pickup.item_id = id
-		pickup.position = Vector3(p.x, 0.05, p.y)
+		pickup.position = Vector3(p.x, 0.05 + CityPlan.ground(p), p.y)
 		add_child(pickup)
+
+
+## La ciudad se arma en el plano (y = 0); al final se apoya en el suelo (CityPlan.ground): cada nodo
+## sube lo que mide el suelo bajo su origen, y los lotes de herrajes, pieza por pieza. Las piezas
+## de ModelBatcher ya se apoyan al agregarlas (on_ground).
+func _settle() -> void:
+	for n in get_children():
+		if n == _batch or n is Terrain3D or n.is_in_group(&"water") or n.has_meta(&"on_ground") or not n is Node3D:
+			continue
+		if n is MultiMeshInstance3D:
+			var mm: MultiMesh = n.multimesh
+			for i in mm.instance_count:
+				var t := mm.get_instance_transform(i)
+				mm.set_instance_transform(i, t.translated(Vector3(0, _ground(t.origin), 0)))
+		else:
+			n.position.y += _ground(n.position)
+
+
+func _ground(p: Vector3) -> float:
+	return CityPlan.ground(Vector2(p.x, p.z))
 
 
 ## Posición en el mundo de un punto dado en coordenadas locales de algo girado (yaw) en origin.
@@ -881,6 +910,7 @@ func _spawn_people() -> void:
 		var home := Vector3(_rng.randf_range(-30, 30), 0, _rng.randf_range(-30, 30))
 		if home.distance_to(Vector3(0, 0, -2)) < 9.0:
 			home.x += 12.0
+		home.y = _ground(home)
 		c.home = home
 		c.roam_radius = 18.0
 		c.position = home + Vector3(0, 0.1, 0)
@@ -889,6 +919,7 @@ func _spawn_people() -> void:
 		var g := Guard.new()
 		var ang := TAU * i / 6.0
 		g.home = Vector3(cos(ang) * 22.0, 0, sin(ang) * 22.0)
+		g.home.y = _ground(g.home)
 		g.roam_radius = 10.0
 		g.position = g.home + Vector3(0, 0.1, 0)
 		add_child(g)
@@ -897,7 +928,7 @@ func _spawn_people() -> void:
 		for side in [-1.0, 1.0]:
 			var p: Vector2 = gate[1] - gate[2] * 12.0 + gate[3] * side * 4.0
 			var g := Guard.new()
-			g.home = Vector3(p.x, 0, p.y)
+			g.home = Vector3(p.x, CityPlan.ground(p), p.y)
 			g.roam_radius = 3.0
 			g.stay_in_plaza = false
 			g.position = g.home + Vector3(0, 0.1, 0)

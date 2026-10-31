@@ -1,6 +1,6 @@
 class_name ModelBatcher
 extends Node3D
-## Junta las instancias de cada modelo en MultiMesh por zonas de DRAW_CHUNK m (una llamada de
+## Junta las instancias de cada modelo en MultiMesh por zonas de draw_chunk m (una llamada de
 ## dibujo por parte de modelo y zona en lugar de una por casa, y las zonas fuera de cámara no se
 ## dibujan) y crea su colisión en cuerpos estáticos por zonas de CHUNK m (con Jolt, un cuerpo
 ## con miles de formas tarda muchísimo en armarse).
@@ -8,13 +8,20 @@ extends Node3D
 
 var _items := {}  # [ruta, zona] -> Array[[Transform3D, Color]]
 var _bodies := {}  # Vector2i -> StaticBody3D, fuera del árbol hasta finalize()
+## Apoya cada pieza en el suelo de la ciudad (CityPlan.ground), un poco hundida para que no flote
+## en la pendiente.
+var on_ground := false
 const CHUNK := 64.0
-const DRAW_CHUNK := 128.0
+## Lado de las zonas de dibujo y distancia a la que una zona deja de dibujarse (0: siempre).
+var draw_chunk := 128.0
+var draw_far := 0.0
 
 
 ## yaw: giro sobre el eje vertical (el +Z del modelo mira hacia (sin yaw, cos yaw) en XZ).
 func add(model_path: String, pos: Vector3, yaw: float, scale: float, color := Color.WHITE, collide := true) -> void:
-	var zone := [model_path, Vector2i(floori(pos.x / DRAW_CHUNK), floori(pos.z / DRAW_CHUNK))]
+	if on_ground:
+		pos.y += CityPlan.ground(Vector2(pos.x, pos.z)) - 0.15
+	var zone := [model_path, Vector2i(floori(pos.x / draw_chunk), floori(pos.z / draw_chunk))]
 	if not _items.has(zone):
 		_items[zone] = []
 	var rot := Basis(Vector3.UP, yaw)
@@ -49,5 +56,8 @@ func finalize() -> void:
 				mm.set_instance_color(i, items[i][1])
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
+			if draw_far > 0.0:
+				mmi.visibility_range_end = draw_far
+				mmi.visibility_range_end_margin = 20.0
 			add_child(mmi)
 	_items.clear()

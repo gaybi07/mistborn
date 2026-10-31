@@ -43,6 +43,7 @@ var _rng := RandomNumberGenerator.new()
 var _anchors: Array[Vector3] = []
 var _props := {}  # modelos de Poly Haven (ver PolyProps)
 var _clouds: Node3D
+var _bell_in := 20.0  # la campana de la aguja toca cada tanto
 
 
 ## Hacia dónde mira la Gran Entrada (hacia la ciudad), en el plano.
@@ -104,7 +105,10 @@ static func _raw_ground(p: Vector2) -> float:
 	var hi := Vector2(HALF.x + 7.0, TOP_SOUTH)
 	var dx := maxf(maxf(lo.x - p.x, p.x - hi.x), 0.0)
 	var dz := maxf(maxf(lo.y - p.y, p.y - hi.y), 0.0)
-	var d := Vector2(dx, dz).length() + n * 3.0
+	# Dentro de la meseta el suelo es llano: el ruido del borde solo empieza al salir de ella (antes
+	# levantaba lomas de roca en los patios).
+	var out := Vector2(dx, dz).length()
+	var d := out + n * 3.0 * smoothstep(0.0, 6.0, out)
 	var h := PLINTH
 	if d > 0.0:
 		# El pie del cordón avanza y retrocede (estribaciones y valles), no sigue el rectángulo.
@@ -207,6 +211,10 @@ func _add_clouds(mat: Material) -> void:
 
 func _process(delta: float) -> void:
 	_clouds.rotation.y += delta * 0.006
+	_bell_in -= delta
+	if _bell_in <= 0.0:
+		_bell_in = randf_range(90.0, 180.0)
+		Sfx.play("bell", to_global(Vector3(0, KredikPlan.FLOOR["l5"] + KredikPlan.LH + 20.0, -44.0)), 6.0, 900.0)
 
 
 func _generate() -> void:
@@ -214,6 +222,7 @@ func _generate() -> void:
 	var rock := MeshBuilder.new()
 	_plateau(rock)
 	_outer_wall()
+	_precinct_wall()
 	_crowns()
 	var rock_mesh := rock.commit()
 	var mesh := _b.commit()
@@ -254,7 +263,7 @@ func _plateau(b: MeshBuilder) -> void:
 				open = open or hole.intersects(quad)
 			if not open:
 				b.quad("rock", pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], below)
-	# Agujas de roca y peñascos sueltos por el cordón (como en la ilustración).
+	# Agujas de roca por el cordón (como en la ilustración).
 	for k in 260:
 		var side := _rng.randi() % 4
 		var p := Vector2.ZERO
@@ -275,9 +284,6 @@ func _plateau(b: MeshBuilder) -> void:
 			var hh := _rng.randf_range(8.0, 22.0)
 			b.frustum("rock", Vector3(p.x, ground(p) - 2.0, p.y), _rng.randf_range(2.0, 4.0), _rng.randf_range(0.2, 0.8), hh, 5, _rng.randf() * TAU)
 			continue
-		var s := _rng.randf_range(2.0, 6.5)
-		var basis := Basis.from_euler(Vector3(_rng.randf_range(-0.4, 0.4), _rng.randf() * TAU, _rng.randf_range(-0.4, 0.4)))
-		b.cube("rock", Transform3D(basis, Vector3(p.x, ground(p) + s * 0.2, p.y)), Vector3(s * 1.4, s, s * 1.1))
 	# Peñascos (boulder_01) al pie del cordón y por el desfiladero.
 	var placed := 0
 	while placed < 90:
@@ -421,9 +427,8 @@ func _round_tower(c2: Vector2, r: float, h: float, cone := 0.0, lit := 0.08, y0 
 
 
 ## Torre cuadrada con almenas y garitas en las esquinas.
-func _square_tower(c2: Vector2, half: float, h: float, spire := 0.0, lit := 0.08) -> void:
+func _square_tower(c2: Vector2, half: float, h: float, spire := 0.0, lit := 0.08, y0 := PLINTH - 2.0) -> void:
 	var r := Rect2(c2 - Vector2(half, half), Vector2(half, half) * 2.0)
-	var y0 := PLINTH - 2.0
 	_b.abox("wall", Vector3(c2.x, y0 + h / 2.0, c2.y), Vector3(half * 2.0, h, half * 2.0), false)
 	_facades(r, y0, h, true, lit, 7.0, half)
 	var top := y0 + h
@@ -469,7 +474,7 @@ func _spire(base: Vector3, radius: float, shaft: float, needle: float, sides := 
 
 ## Lienzo de muralla de a a c: cuerpo con talud, contrafuertes hacia afuera, troneras, matacán y
 ## almenas a los dos lados del adarve. out: el lado de afuera. gaps: huecos [desde, hasta] (m).
-func _curtain(a: Vector2, c: Vector2, h: float, t: float, out: Vector2, gaps := []) -> void:
+func _curtain(a: Vector2, c: Vector2, h: float, t: float, out: Vector2, gaps := [], base := PLINTH) -> void:
 	var length := a.distance_to(c)
 	var u2 := (c - a) / length
 	var u := Vector3(u2.x, 0, u2.y)
@@ -487,13 +492,13 @@ func _curtain(a: Vector2, c: Vector2, h: float, t: float, out: Vector2, gaps := 
 			continue
 		var seg := s1 - s0
 		var pc := Vector3(a.x, 0, a.y) + u * (s0 + s1) / 2.0
-		_b.cube("wall", Transform3D(basis, pc + Vector3(0, PLINTH + h / 2.0 - 1.0, 0)), Vector3(seg, h + 2.0, t), false)
-		_b.cube("wall", Transform3D(basis, pc + Vector3(0, PLINTH + 1.0, 0) + n * 0.6), Vector3(seg, 4.0, t + 1.2), false)
-		var y := Vector3(0, PLINTH + h, 0)
+		_b.cube("wall", Transform3D(basis, pc + Vector3(0, base + h / 2.0 - 1.0, 0)), Vector3(seg, h + 2.0, t), false)
+		_b.cube("wall", Transform3D(basis, pc + Vector3(0, base + 1.0, 0) + n * 0.6), Vector3(seg, 4.0, t + 1.2), false)
+		var y := Vector3(0, base + h, 0)
 		for sgn: float in [1.0, -1.0]:
 			var off := n * sgn * (t / 2.0 - 0.3)
 			_merlons(pc - u * seg / 2.0 + y + off, pc + u * seg / 2.0 + y + off, 0.6)
-		var o := Vector3(a.x, PLINTH, a.y) + u * s0 + n * (t / 2.0)
+		var o := Vector3(a.x, base, a.y) + u * s0 + n * (t / 2.0)
 		# Matacán corrido bajo el parapeto.
 		_pbox(_d, "trim", o, u, n, seg / 2.0, h - 0.6, 0.35, seg, 0.7, 0.8)
 		var nc := int(seg / 1.3)
@@ -592,6 +597,63 @@ func _rose(c: Vector3, radius: float) -> void:
 		var a := TAU * k / 12.0
 		_pbox(_d, "trim", o, u, n, cos(a) * radius * 0.5, c.y + sin(a) * radius * 0.5, 0.06, radius, 0.14, 0.2, a)
 	_pbox(_d, "trim", o, u, n, 0.0, c.y, 0.1, 1.2, 1.2, 0.4, PI / 4.0)
+
+
+## Muralla del recinto: rodea el pie del cordón de picos, a ras de la ciudad, y cierra la rampa con
+## un portón de rastrillo bajado: no se llega a pie hasta la Gran Entrada. Se entra volando por
+## encima (sus torres y el rastrillo son de metal para el acero) o por los túneles de los
+## subniveles, que salen por un postigo abierto en el tajo del oeste.
+const PRECINCT_H := 12.0
+const PRECINCT_GATE := 7.0  ## medio ancho del portón
+
+
+func _precinct_wall() -> void:
+	var a := CityPlan.HILL_HALF.x
+	var b := CityPlan.HILL_HALF.y
+	var pts: Array[Vector2] = []
+	for i in 40:
+		var t := TAU * i / 40.0
+		pts.append(Vector2(a * signf(cos(t)) * pow(absf(cos(t)), 0.4), b * signf(sin(t)) * pow(absf(sin(t)), 0.4)))
+	var in_gap := func(q: Vector2) -> bool:
+		return (q.y > 0.0 and absf(q.x) < PRECINCT_GATE) or (q.x < 0.0 and q.y > CUT_Z.x - 1.0 and q.y < CUT_Z.y + 1.0)
+	for i in 40:
+		var p0 := pts[i]
+		var p1 := pts[(i + 1) % 40]
+		var seg := p1 - p0
+		var nrm := Vector2(seg.y, -seg.x).normalized()
+		if nrm.dot((p0 + p1) / 2.0) < 0.0:
+			nrm = -nrm
+		# Huecos del portón y del postigo: tramos del segmento que caen dentro.
+		var gaps := []
+		var length := seg.length()
+		var start := -1.0
+		var s := 0.0
+		while s <= length:
+			var open: bool = in_gap.call(p0 + seg * (s / length))
+			if open and start < 0.0:
+				start = s
+			elif not open and start >= 0.0:
+				gaps.append(Vector2(start, s))
+				start = -1.0
+			s += 0.5
+		if start >= 0.0:
+			gaps.append(Vector2(start, length))
+		_curtain(p0, p1, PRECINCT_H, 2.5, nrm, gaps, -1.0)
+		if i % 4 == 2 and not in_gap.call(p0):
+			_square_tower(p0, 3.0, PRECINCT_H + 6.0, 0.0, 0.04, -1.0)
+	# Portón: dos torres, el dintel y el rastrillo de hierro bajado.
+	for sgn: float in [-1.0, 1.0]:
+		_square_tower(Vector2(sgn * (PRECINCT_GATE + 3.0), b), 3.0, PRECINCT_H + 8.0, 0.0, 0.05, -1.0)
+	_b.abox("wall", Vector3(0, PRECINCT_H - 1.5, b), Vector3(PRECINCT_GATE * 2.0, 5.0, 3.0))
+	for k in 12:
+		_b.abox("iron", Vector3(-PRECINCT_GATE + (k + 0.5) * PRECINCT_GATE * 2.0 / 12.0, (PRECINCT_H - 4.0) / 2.0, b), Vector3(0.22, PRECINCT_H - 4.0, 0.22))
+	for y: float in [1.5, 4.0, 6.5]:
+		_b.abox("iron", Vector3(0, y, b), Vector3(PRECINCT_GATE * 2.0, 0.22, 0.26))
+	_anchors.append(Vector3(0, 4.0, b))
+	_banner(Vector3(-(PRECINCT_GATE + 3.0), -1.0, b + 3.1), Basis(), PRECINCT_H + 4.0, 9.0)
+	_banner(Vector3(PRECINCT_GATE + 3.0, -1.0, b + 3.1), Basis(), PRECINCT_H + 4.0, 9.0)
+	# Postigo del oeste: un arco sobre el tajo.
+	_b.abox("wall", Vector3(-a, PRECINCT_H - 1.5, (CUT_Z.x + CUT_Z.y) / 2.0), Vector3(3.0, 5.0, CUT_Z.y - CUT_Z.x + 2.0))
 
 
 ## Lo que asoma por encima de los niveles (todos terminan en el techo del Nivel 5).

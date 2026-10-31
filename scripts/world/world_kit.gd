@@ -18,7 +18,8 @@ uniform float haze_density = 0.005;
 uniform float haze_max = 0.85;
 uniform vec3 haze_color : source_color = vec3(0.4, 0.42, 0.5);
 uniform float haze_brightness = 0.12;
-uniform float haze_height = 40.0;""")
+uniform float haze_height = 40.0;
+uniform float mist_ring = 600.0;""")
 	var end := code.rfind("}")
 	# Más bruma cerca del suelo (la base se pierde y las agujas asoman); sin lejanía en la vista
 	# ortogonal del mapa (PROJECTION_MATRIX[3][3] = 1).
@@ -27,6 +28,12 @@ uniform float haze_height = 40.0;""")
 	// Jirones que suben y se mueven despacio: la bruma envuelve, no es un velo parejo.
 	float wisp = 0.5 + 0.5 * sin(wpos.y * 0.09 + 2.0 * sin(wpos.x * 0.045 + TIME * 0.12) + wpos.z * 0.035 - TIME * 0.2);
 	hz = max(hz, haze_max * wisp * (1.0 - smoothstep(haze_height * 0.6, haze_height * 1.5, wpos.y)) * smoothstep(30.0, 120.0, distance(wpos, CAMERA_POSITION_WORLD)));
+	// Anillo de bruma alrededor de la cámara: hacia mist_ring m se cala hasta no verse (como los montes).
+	// (Calado punto por punto: sin transparencia, que en esta malla tan grande se ordenaría mal.)
+	float ring = smoothstep(mist_ring * 0.55, mist_ring, distance(wpos, CAMERA_POSITION_WORLD)) * (1.0 - PROJECTION_MATRIX[3][3]);
+	if (ring > fract(sin(dot(floor(FRAGCOORD.xy), vec2(12.9898, 78.233))) * 43758.5453)) {
+		discard;
+	}
 	hz *= 1.0 - PROJECTION_MATRIX[3][3];
 	ALBEDO = mix(ALBEDO, vec3(0.0), hz);
 	EMISSION = EMISSION * (1.0 - hz * 0.5) + haze_color * hz * haze_brightness;
@@ -45,6 +52,8 @@ static func pbr(name: String, tint: Color, scale: float, hazed := false) -> Shad
 	m.set_shader_parameter(&"albedo_tex", load(dir + "diff.jpg"))
 	m.set_shader_parameter(&"normal_tex", load(dir + "nor.jpg"))
 	m.set_shader_parameter(&"arm_tex", load(dir + "arm.jpg"))
+	if ResourceLoader.exists(dir + "disp.jpg"):
+		m.set_shader_parameter(&"height_tex", load(dir + "disp.jpg"))  # para el parallax (parallax_depth)
 	m.set_shader_parameter(&"tint", tint)
 	m.set_shader_parameter(&"scale", scale)
 	return m
@@ -208,6 +217,10 @@ static func add_environment(parent: Node, fog_scale := 1.0, probe_size := Vector
 	moon.light_energy = 0.55
 	moon.light_volumetric_fog_energy = 0.5
 	moon.shadow_enabled = true
+	# Sombras solo cerca (la niebla no deja ver lejos): dibujarlas hasta 100 m en 4 cortes costaba
+	# diez millones de triángulos por cuadro.
+	moon.directional_shadow_max_distance = 60.0
+	moon.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	parent.add_child(moon)
 
 	# Hora, clima y niebla (los aplica en vivo; F3/F4/F5 los cambian).

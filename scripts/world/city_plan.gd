@@ -293,6 +293,50 @@ static func nearest_street_point(p: Vector2) -> Vector2:
 	return out
 
 
+## Altura del suelo (sin el cauce: ver river_bed). Lo bajo y llano es la orilla del río; de ahí la
+## ciudad sube despacio hacia el norte (NORTH_RISE hasta Kredik Shaw) y un poco al alejarse del río
+## (BANK_RISE). Los terrenos de los edificios grandes, las plazas y la colina quedan llanos (_flats).
+## La ciudad se arma en el plano y después se apoya en este suelo (ver main.gd: _settle).
+const NORTH_RISE := 14.0
+const BANK_RISE := 3.0
+static var _flats: Array = []  # [centro, medio tamaño, ángulo, margen de transición, altura]
+
+
+static func ground(p: Vector2) -> float:
+	if _flats.is_empty():
+		_flats = _make_flats()
+	var h := _raw_ground(p)
+	for f: Array in _flats:
+		var l: Vector2 = (p - f[0]).rotated(-f[2])
+		var out := Vector2(maxf(absf(l.x) - f[1].x, 0.0), maxf(absf(l.y) - f[1].y, 0.0)).length()
+		h = lerpf(h, f[4], 1.0 - smoothstep(0.0, f[3], out))
+	return h
+
+
+## Nivel del agua del río en p (baja con el río hacia el sur).
+static func water_level(p: Vector2) -> float:
+	return ground(p) + WATER_LEVEL
+
+
+static func _raw_ground(p: Vector2) -> float:
+	return NORTH_RISE * (1.0 - smoothstep(-460.0, 420.0, p.y)) + BANK_RISE * smoothstep(20.0, 140.0, dist_to_river(p))
+
+
+static func _make_flats() -> Array:
+	var out := []
+	var add := func(c: Vector2, half: Vector2, angle := 0.0, margin := 20.0) -> void:
+		out.append([c, half, angle, margin, _raw_ground(c)])
+	add.call(HILL, HILL_HALF + Vector2(12, 12), 0.0, 40.0)
+	add.call(Vector2.ZERO, Vector2(PLAZA_HALF + 6.0, PLAZA_HALF + 6.0))
+	add.call(MARKET, Vector2(MARKET_RADIUS + 6.0, MARKET_RADIUS + 6.0))
+	add.call(ASSEMBLY + Vector2(0, -8), Vector2(30, 30))
+	add.call(MINISTRY, Vector2(14, 14))
+	add.call(Workshop.POS, Vector2(14, 18))
+	for e: Array in ESTATES + BARRACKS + [VENTURE]:
+		add.call(e[0], Vector2(e[1] / 2.0 + 5.0, e[2] / 2.0 + 5.0), e[3])
+	return out
+
+
 ## Hundimiento del terreno por el cauce del río (0 fuera, -RIVER_DEPTH en el centro).
 static func river_bed(p: Vector2) -> float:
 	var d := dist_to_river(p)

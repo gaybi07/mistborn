@@ -3,11 +3,14 @@ shader_type spatial;
 // lava cerca del cráter. No recibe la niebla del motor: aplica su propia "lejanía" (haze), así
 // se ven por encima de la muralla de día o con poca niebla, y de noche o con niebla densa quedan
 // como siluetas en las que solo brilla la lava.
-render_mode fog_disabled;
+render_mode fog_disabled, blend_mix;
 
 uniform float haze : hint_range(0.0, 1.0) = 0.6;
 uniform vec3 haze_color : source_color = vec3(0.4, 0.42, 0.5);
 uniform float haze_brightness = 1.0;
+/// Anillo de bruma alrededor de la cámara: hacia esta distancia (m) el monte se vuelve transparente
+/// y ya no se ve nada, salvo la lava.
+uniform float mist_ring = 600.0;
 uniform vec3 lava_color : source_color = vec3(1.0, 0.32, 0.08);
 /// Altura (m) desde la que aparecen las grietas de lava; muy alta = volcán dormido.
 instance uniform float lava_level = 10000.0;
@@ -41,7 +44,10 @@ void fragment() {
 	float above = smoothstep(lava_level, lava_level + 40.0, wpos.y);
 	float veins = smoothstep(0.62, 0.7, noise(vec2(atan(wpos.z, wpos.x) * 40.0, wpos.y * 0.04)));
 	float lava = above * veins * (0.6 + 0.4 * sin(TIME * 0.8 + wpos.y * 0.05));
+	float ring = smoothstep(mist_ring * 0.55, mist_ring, distance(wpos, CAMERA_POSITION_WORLD));
 	ALBEDO = mix(col, vec3(0.0), haze);
 	ROUGHNESS = 0.95;
 	EMISSION = haze_color * haze * haze_brightness + lava_color * lava * 3.0 * (1.0 - 0.6 * haze);
+	// La lava brilla a través de la bruma, como una luz lejana.
+	ALPHA = clamp(max(1.0 - ring, lava * 0.8), 0.0, 1.0);
 }

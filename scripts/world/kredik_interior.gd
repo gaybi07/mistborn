@@ -6,12 +6,21 @@ extends Node3D
 ## volando a los patios y terrazas; las escaleras son de verdad.
 ## Arriba a la izquierda, el nivel y la sala donde está el jugador; bajo techo casi no hay bruma.
 ## Por los niveles hay monedas y frascos, y buen equipo (casi todo de metal) en el Salón del Trono.
+## De lejos solo se dibuja una cáscara con la misma silueta (_proxy): los volúmenes de cada nivel y la
+## torre. Al acercarse al recinto (NEAR m) aparece todo. La colisión está siempre.
 
 ## Orden en que se arman: cada nivel de arriba se apoya en el de abajo (KredikLevel._prune).
 const ORDER := ["ground", "l2", "l3", "l4", "l5", "sub1", "sub2", "sub3"]
 const LIFT := 0.05  # el suelo de la planta baja, apenas sobre la roca de la meseta
 
 static var _parapets: Array = []  # [malla, forma] del pretil de los tejados (se arma una vez)
+static var _proxy_mesh: ArrayMesh
+## Distancia (m) de la cámara al borde del recinto a partir de la cual se ve solo la cáscara.
+const NEAR := 40.0
+
+var _detail: Array[Node3D] = []  # lo que se oculta de lejos
+var _proxy: MeshInstance3D
+var _near := true
 
 var _label: Label
 var _sheltered := false
@@ -23,13 +32,26 @@ func _ready() -> void:
 		node.level = lvl
 		node.position.y = KredikPlan.FLOOR[lvl] + LIFT
 		add_child(node)
+		_detail.append(node)
 	var t := KredikPlan.m(KredikPlan.TOWER_PX)
 	var tower := KredikLevel.new()
 	tower.level = "tower"
 	tower.position = Vector3(t.x, KredikPlan.FLOOR["l3"] + LIFT, t.y)
 	add_child(tower)
+	_detail.append(tower)
 	_add_parapets()
-	_scatter()
+	var loot := Node3D.new()
+	add_child(loot)
+	_detail.append(loot)
+	_scatter(loot)
+	_proxy = MeshInstance3D.new()
+	_proxy.mesh = _build_proxy()
+	var mats := KredikLevel.materials()
+	for i in _proxy.mesh.get_surface_count():
+		_proxy.set_surface_override_material(i, mats[_proxy.mesh.surface_get_name(i)])
+	_fade_at_ring(_proxy)
+	add_child(_proxy)
+	_set_near(false)
 	var layer := CanvasLayer.new()
 	layer.layer = 11
 	add_child(layer)
@@ -98,6 +120,7 @@ func _add_parapets() -> void:
 	var mats := KredikLevel.materials()
 	for s in mi.mesh.get_surface_count():
 		mi.set_surface_override_material(s, mats[mi.mesh.surface_get_name(s)])
+	_fade_at_ring(mi)
 	body.add_child(mi)
 	add_child(body)
 
@@ -131,7 +154,84 @@ static func where(p: Vector3) -> Array:
 	return ["", "", false]
 
 
+## La cáscara de lejos: por nivel, los rectángulos de celdas techadas (salas, muros, el hueco de las
+## de doble altura) como cajas de piso a techo, el suelo de las terrazas y la torre como un cilindro.
+static func _build_proxy() -> ArrayMesh:
+	if _proxy_mesh:
+		return _proxy_mesh
+	var mb := MeshBuilder.new()
+	for lvl: String in ["ground", "l2", "l3", "l4", "l5"]:
+		var c := KredikLevel.cached(lvl)
+		var grid: PackedInt32Array = c["grid"]
+		var rooms: Array = c["rooms"]
+		var y0: float = KredikPlan.FLOOR[lvl] + LIFT
+		var solid := func(id: int) -> bool:
+			return id == KredikLevel.SOLID or id == KredikLevel.ROUND or id == KredikLevel.HOLE or (id >= 0 and not rooms[id]["open"])
+		var open := func(id: int) -> bool:
+			return id >= 0 and rooms[id]["open"]
+		for rc: Rect2 in _greedy(grid, solid):
+			mb.abox("ks_wall", Vector3(rc.get_center().x, y0 + KredikPlan.LH / 2.0 - 0.1, rc.get_center().y), Vector3(rc.size.x, KredikPlan.LH - 0.1, rc.size.y))
+		for rc: Rect2 in _greedy(grid, open):
+			mb.abox("ks_court", Vector3(rc.get_center().x, y0 - 0.5, rc.get_center().y), Vector3(rc.size.x, 1.0, rc.size.y))
+	var t := KredikPlan.m(KredikPlan.TOWER_PX)
+	var floors := KredikLevel.TOWER_NAMES.size()
+	mb.frustum("ks_wall", Vector3(t.x, KredikPlan.FLOOR["l3"], t.y), KredikLevel.TOWER_R + 1.2, KredikLevel.TOWER_R + 1.2, KredikLevel.TOWER_FLOOR * (floors - 1) + 2.6, 24)
+	_proxy_mesh = mb.commit()
+	return _proxy_mesh
+
+
+## Rectángulos que cubren las celdas que cumplen `pred` (fusión voraz, como KredikLevel._greedy).
+static func _greedy(grid: PackedInt32Array, pred: Callable) -> Array[Rect2]:
+	var nx := KredikLevel.NX
+	var nz := KredikLevel.NZ
+	var used := PackedByteArray()
+	used.resize(nx * nz)
+	var out: Array[Rect2] = []
+	for j in nz:
+		for i in nx:
+			if used[j * nx + i] or not pred.call(grid[j * nx + i]):
+				continue
+			var w := 1
+			while i + w < nx and not used[j * nx + i + w] and pred.call(grid[j * nx + i + w]):
+				w += 1
+			var d := 1
+			var grow := true
+			while grow and j + d < nz:
+				for k in w:
+					if used[(j + d) * nx + i + k] or not pred.call(grid[(j + d) * nx + i + k]):
+						grow = false
+						break
+				if grow:
+					d += 1
+			for dz in d:
+				for k in w:
+					used[(j + dz) * nx + i + k] = 1
+			out.append(Rect2(KredikLevel.X0 + i, KredikLevel.Z0 + j, w, d))
+	return out
+
+
+## Más allá del anillo de bruma (Art.MIST_RING) no se dibuja: desaparece como el resto de Kredik Shaw.
+static func _fade_at_ring(g: GeometryInstance3D) -> void:
+	g.visibility_range_end = Art.MIST_RING
+	g.visibility_range_end_margin = 150.0
+	g.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+
+func _set_near(near: bool) -> void:
+	_near = near
+	for n in _detail:
+		n.visible = near
+	_proxy.visible = not near
+
+
 func _process(_delta: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam:
+		var l := to_local(cam.global_position)
+		var half := CityPlan.HILL_HALF + Vector2(NEAR, NEAR)
+		var near := absf(l.x) < half.x and absf(l.z) < half.y
+		if near != _near:
+			_set_near(near)
 	var player := get_tree().get_first_node_in_group(&"player") as Node3D
 	if player == null:
 		return
@@ -145,7 +245,7 @@ func _process(_delta: float) -> void:
 			weather.apply(false)
 
 
-func _scatter() -> void:
+func _scatter(parent: Node3D) -> void:
 	for lvl: String in ORDER:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash(lvl) + 7
@@ -164,12 +264,12 @@ func _scatter() -> void:
 			if k % 3 == 0:
 				var v := Vial.new()
 				v.position = spots[k] + Vector3(0, 0.7, 0)
-				add_child(v)
+				parent.add_child(v)
 			else:
 				for c in 4:
 					var coin := Props.coin()
 					coin.position = spots[k] + Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1))
-					add_child(coin)
+					parent.add_child(coin)
 	var throne := KredikPlan.rect([612, 28, 798, 160])
 	var c := throne.get_center()
 	var y0: float = KredikPlan.FLOOR["ground"] + LIFT
@@ -179,4 +279,4 @@ func _scatter() -> void:
 		var pickup := ItemPickup.new()
 		pickup.item_id = id
 		pickup.position = loot[id]
-		add_child(pickup)
+		parent.add_child(pickup)

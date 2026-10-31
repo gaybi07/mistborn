@@ -7,6 +7,9 @@ uniform vec3 wood_color : source_color = vec3(0.32, 0.22, 0.14);
 uniform float plank_width = 0.22;
 uniform float along_x = 0.0;
 uniform float ash_amount : hint_range(0.0, 1.0) = 0.0;
+/// Profundidad (m) de las juntas por parallax, solo cerca (0: plano).
+uniform float parallax_depth = 0.0;
+uniform float parallax_far = 18.0;
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -35,6 +38,24 @@ void fragment() {
 		uv = along_x > 0.5 ? wpos.zx : wpos.xz;
 	} else {
 		uv = vec2(abs(wnrm.x) > 0.5 ? wpos.z : wpos.x, wpos.y);
+	}
+	// Parallax: las juntas entre tablas se hunden (el rayo de la vista avanza hasta tocar madera).
+	float dist = distance(CAMERA_POSITION_WORLD, wpos);
+	if (parallax_depth > 0.0 && dist < parallax_far) {
+		vec3 tu = abs(wnrm.y) > 0.5 ? (along_x > 0.5 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0)) : (abs(wnrm.x) > 0.5 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0));
+		vec3 tv = abs(wnrm.y) > 0.5 ? (along_x > 0.5 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0)) : vec3(0.0, 1.0, 0.0);
+		vec3 v = normalize(CAMERA_POSITION_WORLD - wpos);
+		vec3 vt = vec3(dot(v, tu), dot(v, tv), max(abs(dot(v, wnrm)), 0.08));
+		float depth = parallax_depth * (1.0 - smoothstep(parallax_far * 0.6, parallax_far, dist));
+		vec2 delta = vt.xy / vt.z * depth / 8.0;
+		for (int i = 0; i < 8; i++) {
+			float ff = fract(uv.x / plank_width);
+			float groove = 1.0 - smoothstep(0.0, 0.05, ff) * smoothstep(1.0, 0.95, ff);
+			if (groove * 1.0 <= float(i) / 8.0) {
+				break;
+			}
+			uv -= delta;
+		}
 	}
 	float id = floor(uv.x / plank_width);
 	float f = fract(uv.x / plank_width);

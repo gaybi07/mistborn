@@ -146,6 +146,12 @@ var _land := 0.0
 var _dash := 0.0
 var _climb := 0.0
 var _pickup := 0.0
+## Animación más espaciada lejos de la cámara (salvo el jugador, use_real_time): el tiempo que no se
+## anima se junta y se aplica en el siguiente cuadro que sí.
+var _pending_dt := 0.0
+var _frame := 0
+const NEAR_ANIM := 20.0
+const FAR_ANIM := 60.0
 ## Capa de bruma y frascos del inventario: siguen a los huesos del cuello y la cadera.
 var _cloak_anchor: Node3D
 var _vial_anchor: Node3D
@@ -167,6 +173,9 @@ func _build() -> void:
 		if _items.is_empty():
 			_attach_weapons()
 	_resolve_animations()
+	if not use_real_time:
+		for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
+			mi.visibility_range_end = Art.DRAW_FAR
 	set_weapon(weapon)
 	_play("idle", 0.0)
 
@@ -498,7 +507,19 @@ func _current_length() -> float:
 
 
 func _process(delta: float) -> void:
-	var dt := minf(delta / Engine.time_scale if use_real_time else delta, 0.05)
+	if not use_real_time:
+		var cam := get_viewport().get_camera_3d()
+		var every := 1
+		if cam:
+			var d := cam.global_position.distance_to(global_position)
+			every = 1 if d < NEAR_ANIM else (3 if d < FAR_ANIM else 8)
+		_frame += 1
+		if _frame % every != 0:
+			_pending_dt += delta
+			return
+		delta += _pending_dt
+		_pending_dt = 0.0
+	var dt := minf(delta / Engine.time_scale if use_real_time else delta, 0.25 if not use_real_time else 0.05)
 	_t += dt
 	_attack -= dt
 	_roll -= dt

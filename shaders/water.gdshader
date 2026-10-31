@@ -1,16 +1,16 @@
 shader_type spatial;
-// Agua del río Kredres: oscura, turbia de ceniza, con ondas que corren río abajo.
+render_mode blend_mix, depth_draw_opaque, cull_back;
+// Agua del río Kredres: turbia de ceniza pero visible. El color depende de cuánta agua hay debajo
+// (se ve el fondo cerca de la orilla, oscura en el centro), espuma donde toca la orilla y los
+// pilares, ondas que corren río abajo y un brillo del cielo en ángulo rasante (también de noche).
 
-uniform vec3 deep : source_color = vec3(0.06, 0.08, 0.1);
-uniform vec3 shallow : source_color = vec3(0.16, 0.18, 0.19);
+uniform vec3 deep : source_color = vec3(0.09, 0.14, 0.15);
+uniform vec3 shallow : source_color = vec3(0.32, 0.36, 0.33);
+uniform vec3 foam_color : source_color = vec3(0.72, 0.7, 0.66);
+uniform vec3 sky_tint : source_color = vec3(0.55, 0.6, 0.7);
 uniform float ash_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float wetness : hint_range(0.0, 1.0) = 0.0;  // lluvia: más rizado
-
-varying vec3 wpos;
-
-void vertex() {
-	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-}
+uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -28,12 +28,27 @@ void fragment() {
 	// UV.x = metros a lo largo del río, UV.y = 0..1 a lo ancho.
 	vec2 flow = vec2(UV.x * 0.25 - TIME * 0.35, UV.y * 4.0);
 	float n = noise(flow * 2.0) * 0.6 + noise(flow * 6.0 + TIME * 0.2) * 0.4;
-	float edge = smoothstep(0.0, 0.25, UV.y) * smoothstep(1.0, 0.75, UV.y);
-	vec3 col = mix(shallow, deep, edge);
-	col = mix(col, vec3(0.3, 0.29, 0.28), ash_amount * 0.35 * n);
+
+	// Cuánta agua hay entre la superficie y lo que está detrás (fondo, orilla, pilares).
+	float d = texture(depth_tex, SCREEN_UV).r;
+	vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
+	behind.xyz /= behind.w;
+	float thick = max(VERTEX.z - behind.z, 0.0);
+	float murk = smoothstep(0.0, 2.5, thick);
+
+	vec3 col = mix(shallow, deep, murk);
+	col = mix(col, vec3(0.34, 0.33, 0.31), ash_amount * 0.35 * n);
+	// Espuma: una franja que tiembla donde el agua toca algo.
+	float foam = (1.0 - smoothstep(0.0, 0.45 + n * 0.35, thick)) * (0.6 + 0.4 * n);
+	col = mix(col, foam_color, foam * 0.8);
+
+	// Brillo del cielo en ángulo rasante (un reflejo barato que se ve también de noche).
+	float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
 	ALBEDO = col * (0.85 + 0.3 * n);
-	ROUGHNESS = mix(0.08, 0.25, wetness) + n * 0.08;
-	SPECULAR = 0.7;
+	EMISSION = sky_tint * fresnel * 0.18 + foam_color * foam * 0.05;
+	ALPHA = mix(0.55, 0.94, murk) + foam * 0.3;
+	ROUGHNESS = mix(0.06, 0.22, wetness) + n * 0.06;
+	SPECULAR = 0.75;
 	// Ondas: inclina la normal según el ruido.
 	float dx = noise(flow * 3.0 + vec2(0.1, 0.0)) - noise(flow * 3.0 - vec2(0.1, 0.0));
 	float dz = noise(flow * 3.0 + vec2(0.0, 0.1)) - noise(flow * 3.0 - vec2(0.0, 0.1));

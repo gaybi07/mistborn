@@ -110,7 +110,11 @@ func _ready() -> void:
 # ---------------------------------------------------------------- Materiales
 
 func _venture_materials() -> void:
-	var dark: ShaderMaterial = (_m["wall"] as ShaderMaterial).duplicate()
+	# Piedra con relieve por parallax de cerca (solo en la mansión: copia propia).
+	var wall: ShaderMaterial = (_m["wall"] as ShaderMaterial).duplicate()
+	wall.set_shader_parameter(&"parallax_depth", 0.08)
+	_m["wall"] = wall
+	var dark: ShaderMaterial = wall.duplicate()
 	dark.set_shader_parameter(&"tint", Color(0.5, 0.48, 0.52))
 	dark.set_shader_parameter(&"ash_amount", 0.35)
 	_m["dark_stone"] = dark
@@ -121,6 +125,7 @@ func _venture_materials() -> void:
 	_m["carpet"] = Props.material(Color(0.3, 0.035, 0.03), 0.0, 1.0)
 	_m["gold"] = Props.material(Color(0.62, 0.46, 0.2), 0.8, 0.35)
 	_m["oak"] = _planks(Color(0.2, 0.11, 0.07), 0.5)
+	(_m["oak"] as ShaderMaterial).set_shader_parameter(&"parallax_depth", 0.02)
 	for k in 4:
 		_stained.append(_tex_mat(_stained_tex(k), 0.45))
 	# Mármol en damero: losas de 1,2 m.

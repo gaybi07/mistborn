@@ -112,15 +112,17 @@ func _build_shell() -> void:
 	while z < iz:
 		_box(Vector3(ix * 2.0, 0.24, 0.2), Vector3(0, H - 0.12, z), _m["beam"])
 		z += 1.6
-	# Relleno del suelo de la ciudad alrededor (el hueco va de celda en celda de 3 m).
+	# Relleno del suelo de la ciudad alrededor: el terreno quita una celda de 2 m más allá del hueco,
+	# así que el relleno sobra GAP por cada lado (apenas por debajo del terreno, para no pisarse).
 	var ground: Material = _m["ground"]
-	var gx := GROUND_HOLE.size.x / 2.0  # el hueco está centrado en x; con YAW = PI, z local = POS.y - z
-	var gz0 := POS.y - GROUND_HOLE.end.y
-	var gz1 := POS.y - GROUND_HOLE.position.y
+	var gap := 2.5
+	var gx := GROUND_HOLE.size.x / 2.0 + gap  # el hueco está centrado en x; con YAW = PI, z local = POS.y - z
+	var gz0 := POS.y - GROUND_HOLE.end.y - gap
+	var gz1 := POS.y - GROUND_HOLE.position.y + gap
 	for s in [-1.0, 1.0]:
-		_span(Vector3(minf(s * hx, s * gx), -0.5, gz0), Vector3(maxf(s * hx, s * gx), 0, gz1), ground, true)
-	_span(Vector3(-hx, -0.5, hz), Vector3(hx, 0, gz1), ground, true)
-	_span(Vector3(-hx, -0.5, gz0), Vector3(hx, 0, -hz), ground, true)
+		_span(Vector3(minf(s * hx, s * gx), -0.5, gz0), Vector3(maxf(s * hx, s * gx), -0.03, gz1), ground, true)
+	_span(Vector3(-hx, -0.5, hz), Vector3(hx, -0.03, gz1), ground, true)
+	_span(Vector3(-hx, -0.5, gz0), Vector3(hx, -0.03, -hz), ground, true)
 
 
 func _build_upper_floor() -> void:

@@ -74,11 +74,11 @@ func _weighted_kind() -> int:
 func _spawn_point(near: Vector3) -> Vector3:
 	var options: Array[Vector3] = []
 	for s in CityPlan.street_points():
-		var p := Vector3(s.x, 0, s.y)
-		var d := p.distance_to(Vector3(near.x, 0, near.z))
+		var p := Vector3(s.x, CityPlan.ground(s), s.y)
+		var d := s.distance_to(Vector2(near.x, near.z))
 		if d > 25.0 and d < 45.0:
 			options.append(p)
-	return options.pick_random() if not options.is_empty() else Vector3(0, 0, 45)
+	return options.pick_random() if not options.is_empty() else Vector3(0, CityPlan.ground(Vector2(0, 45)), 45)
 
 
 func _retire_fallen() -> void:

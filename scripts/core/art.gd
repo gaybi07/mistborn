@@ -44,6 +44,21 @@ static func save_suit(s: String) -> void:
 	cfg.save(SUIT_FILE)
 
 
+## Más lejos que esto no se dibuja lo chico (casas, árboles, gente, muebles): por zonas, para que
+## cada cuadro dibuje menos. La niebla tiene que tapar todo antes (ver fog_floor): nunca se ve dónde
+## termina lo dibujado. Los montes, la muralla de Kredik Shaw y su silueta no se recortan.
+const DRAW_FAR := 250.0
+## Anillo de bruma alrededor de la cámara: más lejos no se ve nada, ni los montes ni Kredik Shaw
+## (solo la lava de los volcanes). Los sombreadores de montes y de Kredik Shaw usan el mismo valor
+## (mist_ring).
+const MIST_RING := 600.0
+
+
+## Densidad mínima de la niebla de distancia para que a DRAW_FAR ya no se vea nada (≈2 % de luz).
+static func fog_floor() -> float:
+	return 3.9 / DRAW_FAR
+
+
 ## Distancia (m) a la que alguien ve a otra persona a simple vista, sin estaño.
 ## Es lo que usan los alománticos para detectarte; la niebla y el clima la recortan.
 static func sight_range() -> float:

@@ -36,9 +36,11 @@ func _ready() -> void:
 	# Suelo exterior alrededor del terreno de la ciudad (CityGround cubre el centro, con el río).
 	var h := CityGround.HALF
 	var span := WORLD - h
+	# (A la altura del borde del terreno, que sigue la pendiente de la ciudad: CityPlan.ground.)
 	for s in [-1.0, 1.0]:
-		add_child(Props.static_box(Vector3(WORLD * 2.0, 2, span), Vector3(0, -1, s * (h + span / 2.0)), m["terrain"]))
-		add_child(Props.static_box(Vector3(span, 2, h * 2.0), Vector3(s * (h + span / 2.0), -1, 0), m["terrain"]))
+		var z: float = s * (h + span / 2.0)
+		add_child(Props.static_box(Vector3(WORLD * 2.0, 2, span), Vector3(0, CityPlan.ground(Vector2(0, s * h)) - 1.0, z), m["terrain"]))
+		add_child(Props.static_box(Vector3(span, 2, h * 2.0), Vector3(s * (h + span / 2.0), CityPlan.ground(Vector2(s * h, 0)) - 1.0, 0), m["terrain"]))
 	_build_roads(m["road"])
 	_plan_forest()
 	_plan_road_trees()
@@ -48,6 +50,9 @@ func _ready() -> void:
 	_build_hills(m["terrain"])
 	_build_mountains(m["mountain"], m["terrain"])
 	_build_mist(m["exterior_fog"])
+	# Fuera de la muralla nada proyecta sombra (las sombras solo llegan a 60 m del jugador).
+	for g: GeometryInstance3D in find_children("*", "GeometryInstance3D", true, false):
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 # ---------------------------------------------------------------- Caminos
@@ -81,16 +86,22 @@ func _build_roads(mat: Material) -> void:
 			var a: Vector2 = road[i]
 			var b: Vector2 = road[i + 1]
 			_segments.append([a, b])
-			var mid := (a + b) / 2.0
-			var mi := MeshInstance3D.new()
-			var mesh := BoxMesh.new()
-			mesh.size = Vector3(7.0, 0.06, a.distance_to(b) + 7.0)  # +7: los tramos se solapan en las curvas
-			mi.mesh = mesh
-			mi.material_override = mat
-			mi.position = Vector3(mid.x, 0.0, mid.y)
-			mi.rotation.y = atan2(b.x - a.x, b.y - a.y)
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(mi)
+			# En trozos de unos 20 m, cada uno inclinado según el suelo (CityPlan.ground).
+			var n := maxi(1, int(a.distance_to(b) / 20.0))
+			for k in n:
+				var a2 := a.lerp(b, float(k) / n)
+				var b2 := a.lerp(b, float(k + 1) / n)
+				var pa := Vector3(a2.x, CityPlan.ground(a2), a2.y)
+				var pb := Vector3(b2.x, CityPlan.ground(b2), b2.y)
+				var mi := MeshInstance3D.new()
+				var mesh := BoxMesh.new()
+				mesh.size = Vector3(7.0, 0.06, pa.distance_to(pb) + (7.0 if k == 0 or k == n - 1 else 0.6))  # se solapan en las curvas
+				mi.mesh = mesh
+				mi.material_override = mat
+				mi.position = (pa + pb) / 2.0
+				mi.basis = Basis.looking_at(pb - pa, Vector3.UP, true)
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(mi)
 
 
 func _dist_to_roads(p: Vector2) -> float:
@@ -162,7 +173,7 @@ func _build_logs_and_rocks() -> void:
 	for t: Array in _trees:
 		if _rng.randf() < 0.15:
 			var p: Vector2 = t[0] + Vector2.from_angle(_rng.randf() * TAU) * _rng.randf_range(2.0, 4.0)
-			PolyProps.add(props, "dead_tree_trunk_02", PolyProps.at("dead_tree_trunk_02", Vector3(p.x, -0.1, p.y), _rng.randf() * TAU, _rng.randf_range(0.8, 1.3)))
+			PolyProps.add(props, "dead_tree_trunk_02", PolyProps.at("dead_tree_trunk_02", Vector3(p.x, CityPlan.ground(p) - 0.1, p.y), _rng.randf() * TAU, _rng.randf_range(0.8, 1.3)))
 	var placed := 0
 	var tries := 0
 	while placed < 80 and tries < 3000:
@@ -170,9 +181,9 @@ func _build_logs_and_rocks() -> void:
 		var p := Vector2(_rng.randf_range(-900, 900), _rng.randf_range(MOUNTAIN_LINE, 900))
 		if _in_city(p, 25.0) or _dist_to_roads(p) < 6.0:
 			continue
-		PolyProps.add(props, "boulder_01", PolyProps.at("boulder_01", Vector3(p.x, -0.3, p.y), _rng.randf() * TAU, _rng.randf_range(1.0, 3.5)))
+		PolyProps.add(props, "boulder_01", PolyProps.at("boulder_01", Vector3(p.x, CityPlan.ground(p) - 0.3, p.y), _rng.randf() * TAU, _rng.randf_range(1.0, 3.5)))
 		placed += 1
-	PolyProps.spawn(self, props)
+	PolyProps.spawn(self, props, TILE, FAR)
 
 
 const TREE_VARIANTS := 4
@@ -216,7 +227,7 @@ func _build_trees() -> void:
 		var p: Vector2 = t[0]
 		var kind: int = t[1]
 		var s: float = t[2]
-		var base := Vector3(p.x, -0.05, p.y)
+		var base := Vector3(p.x, CityPlan.ground(p) - 0.05, p.y)
 		# Madera gris parda, más o menos descolorida.
 		var tone := Color(1, 1, 1) * _rng.randf_range(0.75, 1.2)
 		if kind == 2:
@@ -232,12 +243,13 @@ func _build_trees() -> void:
 		# Matas secas al pie.
 		for k in _rng.randi_range(0, 3):
 			var off := Vector2.from_angle(_rng.randf() * TAU) * _rng.randf_range(1.5, 5.0)
-			_add_bush(bush_items, base + Vector3(off.x, 0, off.y), _rng.randf_range(0.6, 1.2))
+			var q := p + off
+			_add_bush(bush_items, Vector3(q.x, CityPlan.ground(q) - 0.05, q.y), _rng.randf_range(0.6, 1.2))
 
 	for i in TREE_VARIANTS:
-		add_child(_multimesh(trees[i], wood, tree_items[i], true))
+		_tiled(trees[i], wood, tree_items[i])
 	for i in BUSH_VARIANTS:
-		add_child(_multimesh(bushes[i], brush, bush_items[i], true))
+		_tiled(bushes[i], brush, bush_items[i])
 
 
 func _add_bush(items: Array, pos: Vector3, s: float) -> void:
@@ -330,6 +342,27 @@ func _limb(st: SurfaceTool, a: Vector3, b: Vector3, ra: float, rb: float, sides:
 			st.add_vertex(v[0])
 
 
+## Árboles y matas por parcelas de TILE m que dejan de dibujarse a FAR m, donde la niebla ya los
+## tapó (eran miles por cuadro).
+const TILE := 128.0
+const FAR := Art.DRAW_FAR
+
+
+func _tiled(mesh: Mesh, mat: Material, items: Array) -> void:
+	var groups := {}
+	for it: Array in items:
+		var o: Vector3 = (it[0] as Transform3D).origin
+		var key := Vector2i(floori(o.x / TILE), floori(o.z / TILE))
+		if not groups.has(key):
+			groups[key] = []
+		groups[key].append(it)
+	for group: Array in groups.values():
+		var mmi := _multimesh(mesh, mat, group, true)
+		mmi.visibility_range_end = FAR
+		mmi.visibility_range_end_margin = 20.0
+		add_child(mmi)
+
+
 func _multimesh(mesh: Mesh, mat: Material, items: Array, colors: bool) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -363,7 +396,7 @@ func _build_hills(mat: Material) -> void:
 		if p.distance_to(FOREST_CENTER) < FOREST_RADIUS * 0.7:
 			continue  # dentro del bosque el suelo es llano
 		var mesh := TerrainGen.mound(radius, _rng.randf_range(6.0, 24.0), _rng.randi(), 0.0, 1.3, 16, 32)
-		add_child(TerrainGen.body(mesh, Vector3(p.x, 0, p.y), mat))
+		add_child(TerrainGen.body(mesh, Vector3(p.x, CityPlan.ground(p) - 1.0, p.y), mat))
 		placed += 1
 
 
@@ -372,19 +405,19 @@ func _build_mountains(mountain_mat: Material, terrain_mat: Material) -> void:
 	for i in 12:
 		var p := Vector2(_rng.randf_range(-700, 700), _rng.randf_range(-740, -650))
 		var mesh := TerrainGen.mound(_rng.randf_range(70.0, 130.0), _rng.randf_range(25.0, 60.0), _rng.randi(), 0.0, 1.3, 18, 36)
-		add_child(TerrainGen.body(mesh, Vector3(p.x, 0, p.y), terrain_mat))
+		add_child(TerrainGen.body(mesh, Vector3(p.x, CityPlan.ground(p) - 1.0, p.y), terrain_mat))
 	for spec in MOUNTAINS:
 		var p: Vector2 = spec[0]
 		var radius: float = spec[1]
 		var height: float = spec[2]
 		var active: bool = spec[3]
 		var mesh := TerrainGen.mound(radius, height, _rng.randi(), radius * 0.1, 1.9, 36, 72)
-		var b := TerrainGen.body(mesh, Vector3(p.x, 0, p.y), mountain_mat)
+		var b := TerrainGen.body(mesh, Vector3(p.x, CityPlan.ground(p) - 1.0, p.y), mountain_mat)
 		add_child(b)
 		var mi: MeshInstance3D = b.get_child(1)
 		mi.set_instance_shader_parameter(&"lava_level", height * 0.72 if active else 10000.0)
 		if active:
-			_volcano_smoke(Vector3(p.x, height * 0.93, p.y))
+			_volcano_smoke(Vector3(p.x, CityPlan.ground(p) + height * 0.93, p.y))
 
 
 ## Columna de humo y ceniza saliendo del cráter, y un resplandor rojo.
