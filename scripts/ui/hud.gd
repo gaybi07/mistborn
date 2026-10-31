@@ -43,9 +43,6 @@ func _ready() -> void:
 	var skill_tree := SkillTreeWindow.new()
 	skill_tree.player = player
 	add_child(skill_tree)
-	var wheel := MetalWheel.new()
-	wheel.player = player
-	add_child(wheel)
 	var bar := MetalBar.new()
 	bar.player = player
 	add_child(bar)

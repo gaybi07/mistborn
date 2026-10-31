@@ -2,7 +2,7 @@ extends Node3D
 ## Arena cerrada para ver o pelear combates entre alománticos.
 ## Un patio amurallado con anclas de metal (pilares, farolas, verjas), cajas, monedas en el suelo
 ## y plataformas para moverse en vertical.
-##   M: menú de combates (y Esc mirando).   R: repetir el combate.   F1: volver a la ciudad.
+##   M: menú de combates (y Esc mirando).   R: repetir el combate.   Ctrl+F1: volver a la ciudad.
 ## Modo espectador: nombre, vida y líneas de acero/hierro de cada luchador a la vista.
 ## Modo pelea: entras tú, sin ayudas: solo ves lo que tus sentidos alománticos te dejan ver.
 
@@ -175,7 +175,7 @@ func _process(_delta: float) -> void:
 		_over = true
 		var winner: int = standing.keys()[0] if standing.size() == 1 else -1
 		_banner.text = ("Gana el equipo %s" % TEAM_NAMES[winner] if winner >= 0 else "Empate") + \
-				"\nR: repetir   ·   M: elegir otro combate   ·   F1: volver a la ciudad"
+				"\nR: repetir   ·   M: elegir otro combate   ·   Ctrl+F1: volver a la ciudad"
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -255,7 +255,7 @@ func _build_menu() -> void:
 	duel.pressed.connect(_net.join)
 	list.add_child(duel)
 	var help := Label.new()
-	help.text = "Espectador: WASD mover · Q/E bajar/subir · clic derecho mirar · Tab seguir luchador · rueda acercar\nR repetir · M menú · F1 volver a la ciudad · F3 día/noche · F4 clima · F5 niebla"
+	help.text = "Espectador: WASD mover · Q/E bajar/subir · clic derecho mirar · Tab seguir luchador · rueda acercar\nR repetir · M menú · Ctrl+F1 volver a la ciudad · Ctrl+F3 día/noche · F4 clima · F5 niebla"
 	help.modulate.a = 0.65
 	box.add_child(help)
 

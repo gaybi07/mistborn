@@ -155,8 +155,8 @@ func _options_page() -> Control:
 	var go := HBoxContainer.new()
 	go.add_theme_constant_override("separation", 10)
 	page.add_child(go)
-	go.add_child(_button("Ciudad (F1)", _go_to.bind("res://scenes/main.tscn")))
-	go.add_child(_button("Arena (F2)", _go_to.bind("res://scenes/arena.tscn")))
+	go.add_child(_button("Ciudad (Ctrl+F1)", _go_to.bind("res://scenes/main.tscn")))
+	go.add_child(_button("Arena (Ctrl+F2)", _go_to.bind("res://scenes/arena.tscn")))
 	var note := Label.new()
 	note.text = "Reiniciar el mundo, empezar de cero y cambiar de escenario no están disponibles mientras estás conectado en red."
 	note.modulate.a = 0.6
@@ -276,7 +276,7 @@ func _metals_page() -> Control:
 ## Guía rápida: qué hace cada control según el metal que estés quemando. Sin metales ni monedas
 ## solo valen los movimientos básicos; el resto se desbloquea al encender el metal.
 const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
-[b]1.[/b] Encendé un metal con su tecla (1 acero, 2 hierro, 3 peltre...). Tocar: encender o apagar. Doble toque y mantener: avivar.
+[b]1.[/b] Encendé un metal con su tecla (F1 acero, F2 hierro, F3 peltre...), o clic en su icono con Tab sostenido. Tocar: encender o apagar. Doble toque y mantener: avivar.
 [b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (1) los empuja, hierro (2) tira de ellos.
 [b]3.[/b] Empujá con [b]G[/b], tirá con [b]E[/b] (o el clic derecho para tirar una moneda), anclá con [b]R[/b].
 [b]4.[/b] Combiná: con acero y monedas, [b]Espacio + WASD[/b] te lanza por el aire.
@@ -313,7 +313,7 @@ Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
 
 [color=#f2dca8][b]TRUCOS[/b][/color]
 Sin la bolsa (F) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
-[b]Tab[/b] abre la rueda de metales (apuntá y soltá). [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
+[b]Tab[/b] (mantener) libera el ratón para clicar los iconos de los metales. [b]K[/b] árbol de habilidades. [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
 
 const CONTROLS := """[table=2]
 [cell][color=#f2dca8][b]MOVIMIENTO[/b][/color][/cell][cell][/cell]
@@ -327,10 +327,10 @@ const CONTROLS := """[table=2]
 [cell][b]Clic izquierdo[/b][/cell][cell]Atacar con el arma elegida (con puños, desenvaina las dagas sola si las tenés) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
 [cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
 [cell][color=#f2dca8][b]METALES[/b][/color][/cell][cell][/cell]
-[cell][b]1 2 3 4[/b][/cell][cell]Acero, hierro, peltre, atium (tocar: encender o apagar · doble toque y mantener: avivar)[/cell]
-[cell][b]Z X C V B[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón (igual que los anteriores)[/cell]
+[cell][b]F1 F2 F3 F4[/b][/cell][cell]Acero, hierro, peltre, atium (tocar: encender o apagar · doble toque y mantener: avivar)[/cell]
+[cell][b]F5 F6 F7 F8 F9[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón (igual que los anteriores)[/cell]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
-[cell][b]Tab[/b] (mantener)[/cell][cell]Rueda de metales: apuntá con el ratón y soltá Tab; clic = avivar[/cell]
+[cell][b]Tab[/b] (mantener)[/cell][cell]Ratón libre para clicar los iconos de los metales (clic: encender o apagar · doble clic y mantener: avivar)[/cell]
 [cell][b]Clic derecho[/b][/cell][cell]Lanza una moneda fuerte justo hacia la mira y la empuja con acero mientras mantengas el clic: pega con la moneda o, apuntando abajo, frena una caída[/cell]
 [cell][b]E[/b][/cell][cell]Tirar (hierro) del metal que miras; donde hay algo que usar (puerta, armario) abre en vez de tirar; una moneda viene a vos y se guarda al tocarte. Con un solo metal encendido, E o G lo usan. Sin nada a la vista, agarra el que más ayuda a moverte hacia donde vas[/cell]
 [cell][b]G[/b][/cell][cell]Empujar (acero) el metal que miras[/cell]
@@ -344,8 +344,8 @@ const CONTROLS := """[table=2]
 [cell][b]I[/b][/cell][cell]Inventario: capa, ropa, botas, dagas, espada y frascos. Doble clic para equipar o quitar[/cell]
 [cell][color=#f2dca8][b]JUEGO[/b][/color][/cell][cell][/cell]
 [cell][b]Esc[/b][/cell][cell]Este menú[/cell]
-[cell][b]F1 / F2[/b][/cell][cell]Ciudad / arena[/cell]
-[cell][b]F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
+[cell][b]Ctrl+F1 / Ctrl+F2[/b][/cell][cell]Ciudad / arena[/cell]
+[cell][b]Ctrl+F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
 [/table]"""
 
 const COMBAT := """[b]Combos[/b] (clic izquierdo seguido, a tiempo):

@@ -112,8 +112,8 @@ func _rain_material() -> StandardMaterial3D:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not (event is InputEventKey and event.pressed and not event.echo):
-		return
+	if not (event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed):
+		return  # Ctrl+F3 día/noche, Ctrl+F4 clima, Ctrl+F5 niebla (F1-F9 solos son los metales)
 	match event.keycode:
 		KEY_F3:
 			Art.lighting = "dia" if Art.lighting == "noche" else "noche"

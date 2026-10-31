@@ -278,6 +278,10 @@ func _ready() -> void:
 	allomancy = Allomancy.new()
 	allomancy.name = "Allomancy"
 	add_child(allomancy)
+	if net_peer_id == 0:  # en red el árbol llega con el servidor (fase 5)
+		allomancy.can_burn = func(metal: StringName) -> bool: return Progression.metal_level(metal) > 0
+		allomancy.blocked.connect(func(metal: StringName) -> void:
+			notice.emit("%s bloqueado: gasta un punto en el árbol (K)" % Allomancy.METALS[metal]["label"]))
 	steel_iron = SteelIron.new()
 	steel_iron.name = "SteelIron"
 	steel_iron.player = self
@@ -400,7 +404,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and not event.echo:
 		var key := event as InputEventKey
 		var group := Allomancy.metals_for_key(key.physical_keycode)
-		if not group.is_empty():
+		if not group.is_empty() and not key.ctrl_pressed:  # Ctrl+F1..F5 son de depuración (escenas, clima)
 			if key.pressed:
 				_metal_key_down(key.physical_keycode, group)
 			else:
@@ -706,6 +710,8 @@ func _net_roll() -> void:
 
 ## Metales que funcionan en red por ahora: acero (1), hierro (2) y peltre (3).
 func _is_net_metal_key(event: InputEventKey) -> bool:
+	if event.ctrl_pressed:
+		return false
 	var group := Allomancy.metals_for_key(event.physical_keycode)
 	return group.size() == 1 and NET_METALS.has(group[0])
 
@@ -809,6 +815,24 @@ func _metal_key_down(key: Key, group: Array[StringName]) -> void:
 		if m == &"pewter" and _pewter_drag > 0.0:
 			continue  # con arrastre de peltre no puedes volver a quemarlo
 		allomancy.set_state(m, Allomancy.State.OFF if any_on else Allomancy.State.BURN)
+
+
+## Clic sobre el icono de un metal en el HUD: igual que apretar o soltar su tecla (doble clic y mantener: avivar).
+func click_metal(metal: StringName, pressed: bool) -> void:
+	if dead:
+		return
+	var code: Key = Allomancy.METALS[metal]["key"]
+	var group: Array[StringName] = [metal]
+	if net_peer_id == 0:
+		if pressed:
+			_metal_key_down(code, group)
+		else:
+			_metal_key_up(code)
+	elif NET_METALS.has(metal):
+		if multiplayer.is_server():
+			_net_metal_key(code, pressed)
+		else:
+			_net_metal.rpc_id(1, code, pressed)
 
 
 func _metal_key_up(key: Key) -> void:

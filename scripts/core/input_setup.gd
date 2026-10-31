@@ -1,13 +1,15 @@
 extends Node
 ## Registra las acciones de entrada por código (así no hace falta tocar el Mapa de Entrada)
-## y cambia de escenario: F1 ciudad, F2 arena.
-## Las teclas de metales (1-4 y Z X C V B) se leen directamente en player.gd.
+## y cambia de escenario: Ctrl+F1 ciudad, Ctrl+F2 arena.
+## Las teclas de metales (F1 a F9) se leen directamente en player.gd.
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var scene := ""
+	if not event.ctrl_pressed:
+		return  # F1-F9 son los metales (ver Allomancy)
 	if event.keycode == KEY_F1:
 		scene = "res://scenes/main.tscn"
 	elif event.keycode == KEY_F2:

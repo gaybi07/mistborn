@@ -1,8 +1,9 @@
 class_name MetalBar
 extends Control
 ## Barra central inferior: los metales (símbolo, reserva alrededor, nombre y tecla) y debajo un marco
-## único con la vida y la resistencia a los lados de una brújula. 1-4 acero, hierro, peltre y atium;
-## Z X C V B cinc, cobre, bronce, estaño y latón. Quemando: el metal brilla. Avivando: halo pulsante.
+## único con la vida y la resistencia a los lados de una brújula. F1 a F9: acero, hierro, peltre, atium,
+## cinc, cobre, bronce, estaño y latón (o clic en el icono con Tab sostenido). Quemando: el metal brilla.
+## Avivando: halo pulsante. Con un candado: todavía no se aprendió (ver el árbol de habilidades, K).
 ## El anillo de color es la reserva. La bolsa, los frascos y las monedas están en HudCorner.
 ## Todo se dibuja por código (degradados, brillos y aros metálicos) y se reduce con la ventana.
 
@@ -21,6 +22,9 @@ var player: Player
 
 var _metals: Array = []
 var _trail := 100.0  # vida "fantasma" que baja despacio tras un golpe
+## Tab sostenido: el ratón está libre para clicar los iconos; _held_metal es el que se está pulsando.
+var _free_mouse := false
+var _held_metal: StringName = &""
 var _metal_rect: Rect2
 var _frame_rect := Rect2(20, 150, 800, 34)
 var _compass_c := Vector2(420, 167)
@@ -48,6 +52,43 @@ func _process(delta: float) -> void:
 	var s := HudKit.ui_scale(self)
 	scale = Vector2(s, s)
 	queue_redraw()
+
+
+## Mantener Tab libera el ratón para clicar los iconos de los metales (clic: encender o apagar; doble clic y
+## mantener: avivar). Al soltar Tab el ratón vuelve a la cámara.
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"metal_wheel") and not _free_mouse and not player.ui_open and not player.dead:
+		_free_mouse = true
+		player.ui_open = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif event.is_action_released(&"metal_wheel") and _free_mouse:
+		_release_mouse()
+	elif _free_mouse and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var hit := _metal_at(get_local_mouse_position())
+		if event.pressed and hit != &"":
+			_held_metal = hit
+			player.click_metal(hit, true)
+		elif not event.pressed and _held_metal != &"":
+			player.click_metal(_held_metal, false)
+			_held_metal = &""
+		get_viewport().set_input_as_handled()
+
+
+func _release_mouse() -> void:
+	_free_mouse = false
+	if _held_metal != &"":
+		player.click_metal(_held_metal, false)
+		_held_metal = &""
+	player.ui_open = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## El metal cuyo icono está bajo `p` (en coordenadas de la barra), o &"" si ninguno.
+func _metal_at(p: Vector2) -> StringName:
+	for i in _metals.size():
+		if p.distance_to(_slot_center(i)) <= SLOT * 0.5:
+			return _metals[i]
+	return &""
 
 
 func _slot_center(i: int) -> Vector2:
@@ -82,7 +123,8 @@ func _draw_metals(font: Font, now: float) -> void:
 		var frac: float = a.reserve[m] / info["max"]
 		var burning := a.is_burning(m)
 		var flaring := a.is_flaring(m)
-		var empty := frac <= 0.0
+		var learned := a.is_learned(m)
+		var empty := frac <= 0.0 or not learned
 		var blocked := m == &"pewter" and player.pewter_drag() > 0.0
 		var tint := Color(0.5, 0.5, 0.52) if empty else col
 		draw_string(font, Vector2(c.x - SLOT * 0.5 - GAP * 0.5, _metal_rect.position.y + PAD + 13), info["label"],
@@ -107,8 +149,17 @@ func _draw_metals(font: Font, now: float) -> void:
 		MetalGlyph.draw(self, m, c, r * 0.76, glyph, 2.5 if burning else 2.0)
 		if blocked:
 			draw_line(c + Vector2(-r, -r) * 0.6, c + Vector2(r, r) * 0.6, Color(0.9, 0.2, 0.15), 3.0, true)
+		if not learned:
+			_lock(c + Vector2(r * 0.55, r * 0.55))
 		HudKit.key_box(self, font, Vector2(c.x, c.y + SLOT * 0.5 + KEY_H * 0.5 + 2.0), OS.get_keycode_string(info["key"]),
 				1.0 if burning else 0.4)
+
+
+## Candado chico en la esquina del icono de un metal que todavía no se aprendió.
+func _lock(c: Vector2) -> void:
+	draw_circle(c, 8.0, Color(0, 0, 0, 0.75))
+	draw_arc(c + Vector2(0, -2.5), 3.0, PI, TAU, 10, Color(0.9, 0.85, 0.7), 1.6, true)
+	draw_rect(Rect2(c + Vector2(-3.5, -1.5), Vector2(7, 5.5)), Color(0.9, 0.85, 0.7))
 
 
 ## Adornos del panel: puntas a los lados y rombo arriba al centro.
