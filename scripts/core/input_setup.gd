@@ -32,6 +32,7 @@ func _enter_tree() -> void:
 	_key(&"roll", KEY_SHIFT)
 	_key(&"hood", KEY_H)
 	_key(&"inventory", KEY_I)
+	_key(&"skill_tree", KEY_K)
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)

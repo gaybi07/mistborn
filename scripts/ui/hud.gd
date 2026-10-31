@@ -40,6 +40,9 @@ func _ready() -> void:
 	var inventory := InventoryWindow.new()
 	inventory.player = player
 	add_child(inventory)
+	var skill_tree := SkillTreeWindow.new()
+	skill_tree.player = player
+	add_child(skill_tree)
 	var wheel := MetalWheel.new()
 	wheel.player = player
 	add_child(wheel)
@@ -91,7 +94,7 @@ func _ready() -> void:
 	_target_label.offset_top = 8
 	add_child(_target_label)
 
-	_hint = _label("Esc: habilidades y controles")
+	_hint = _label("Esc: controles  ·  K: habilidades")
 	_hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_hint.modulate.a = 0.55
 	add_child(_hint)
