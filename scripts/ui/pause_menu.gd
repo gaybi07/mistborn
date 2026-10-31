@@ -344,6 +344,8 @@ const CONTROLS := """[table=2]
 [cell][b]I[/b][/cell][cell]Inventario: capa, ropa, botas, dagas, espada y frascos. Doble clic para equipar o quitar[/cell]
 [cell][color=#f2dca8][b]JUEGO[/b][/color][/cell][cell][/cell]
 [cell][b]Esc[/b][/cell][cell]Este menú[/cell]
+[cell][b]P[/b][/cell][cell]Elegir personaje: color del traje y la capucha (negro, blanco, rojo o azul)[/cell]
+[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
 [cell][b]F1 / F2[/b][/cell][cell]Ciudad / arena[/cell]
 [cell][b]F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
 [/table]"""

@@ -17,6 +17,32 @@ static var fog := "mucha"
 ## Sube cada vez que cambia el ambiente (para que el estaño recalcule sus valores base).
 static var env_version := 0
 
+## Color del traje y la capucha del jugador, para distinguirse en las partidas con otros. "negro" es
+## el del modelo; los demás lo tiñen (HumanoidRig.set_suit). Se elige al empezar por primera vez y
+## con P en el juego (SuitPicker), y se guarda en SUIT_FILE.
+const SUITS := {"negro": Color(0.17, 0.19, 0.24), "blanco": Color(0.9, 0.89, 0.86),
+		"rojo": Color(0.62, 0.06, 0.05), "azul": Color(0.07, 0.2, 0.66)}
+const SUIT_FILE := "user://jugador.cfg"
+static var suit := "negro"
+## false hasta que se elige por primera vez (entonces se muestra SuitPicker al empezar).
+static var suit_chosen := false
+
+
+## Lee el color guardado (si nunca se eligió, queda el negro y suit_chosen en false).
+static func load_suit() -> void:
+	var cfg := ConfigFile.new()
+	suit_chosen = cfg.load(SUIT_FILE) == OK
+	var s: String = cfg.get_value("jugador", "traje", "negro") if suit_chosen else "negro"
+	suit = s if SUITS.has(s) else "negro"
+
+
+static func save_suit(s: String) -> void:
+	suit = s
+	suit_chosen = true
+	var cfg := ConfigFile.new()
+	cfg.set_value("jugador", "traje", s)
+	cfg.save(SUIT_FILE)
+
 
 ## Distancia (m) a la que alguien ve a otra persona a simple vista, sin estaño.
 ## Es lo que usan los alománticos para detectarte; la niebla y el clima la recortan.

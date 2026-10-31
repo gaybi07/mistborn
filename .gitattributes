@@ -1,4 +1,4 @@
-﻿# Finales de línea uniformes entre Windows y otras compus
+# Finales de línea uniformes entre Windows y otras compus
 * text=auto eol=lf
 *.bat text eol=crlf
 # Binarios: no mezclar nunca

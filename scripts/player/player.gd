@@ -309,6 +309,8 @@ func _ready() -> void:
 	stamina = max_stamina
 	spawn_point = global_position
 	_apply_equipment()
+	Art.load_suit()
+	rig.set_suit(Art.suit)
 	if is_local_player():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_setup_network()

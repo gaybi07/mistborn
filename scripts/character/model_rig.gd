@@ -75,9 +75,37 @@ const BONES := {
 	"hips": ["Hips", "hips", "pelvis"],
 	"hand_r": ["hand_r", "RightHand", "hand.r", "Hand.R"],
 	"hand_l": ["hand_l", "LeftHand", "hand.l", "Hand.L"],
+	"thigh_r": ["UpperLeg.R", "upperleg.r", "RightUpLeg", "thigh_r"],
+	"calf_r": ["LowerLeg.R", "lowerleg.r", "RightLeg", "calf_r"],
+	"foot_r": ["Foot.R", "foot.r", "RightFoot", "foot_r"],
+	"thigh_l": ["UpperLeg.L", "upperleg.l", "LeftUpLeg", "thigh_l"],
+	"calf_l": ["LowerLeg.L", "lowerleg.l", "LeftLeg", "calf_l"],
+	"foot_l": ["Foot.L", "foot.l", "LeftFoot", "foot_l"],
 }
+## Cápsulas del cuerpo contra las que choca la capa: [hueso, hueso, radio para 1,7 m de alto].
+## Radios con margen por la ropa gruesa del modelo.
+const CLOAK_COLLIDERS := [["hips", "torso", 0.17], ["torso", "neck", 0.15],
+		["upper_r", "lower_r", 0.09], ["lower_r", "hand_r", 0.08],
+		["upper_l", "lower_l", 0.09], ["lower_l", "hand_l", 0.08],
+		["thigh_r", "calf_r", 0.13], ["calf_r", "foot_r", 0.11],
+		["thigh_l", "calf_l", 0.13], ["calf_l", "foot_l", 0.11]]
 ## Tono del traje oscuro de nacido de la bruma (inventario).
 const OUTFIT_TINT := Color(0.5, 0.52, 0.62)
+## Traje de color (Art.SUITS): la textura del modelo es casi negra, así que en vez de multiplicarla
+## se toma su brillo (pliegues, costuras, cuero) y se pinta con el color elegido.
+const SUIT_SHADER := """
+shader_type spatial;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec3 suit : source_color;
+uniform vec3 mul : source_color = vec3(1.0);
+void fragment() {
+	vec3 c = texture(tex, UV).rgb;
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	ALBEDO = suit * mul * clamp(0.42 + l * 3.0, 0.0, 1.15);
+	ROUGHNESS = 0.78;
+}
+"""
+static var _suit_shader: Shader
 ## Lo más que se acelera un golpe o una voltereta para que quepa en su tiempo.
 const MAX_ONESHOT_SPEED := 2.4
 
@@ -121,6 +149,8 @@ var _pickup := 0.0
 ## Capa de bruma y frascos del inventario: siguen a los huesos del cuello y la cadera.
 var _cloak_anchor: Node3D
 var _vial_anchor: Node3D
+var _suit := "negro"
+var _outfit := false
 
 
 func _build() -> void:
@@ -268,15 +298,29 @@ func set_weapon(w: Weapon) -> void:
 		mi.visible = shown
 
 
+func set_suit(s: String) -> void:
+	if s == _suit or not Art.SUITS.has(s):
+		return
+	_suit = s
+	_apply_tint(OUTFIT_TINT if _outfit else tint)
+	if cloak and _skel:
+		cloak.set_suit_color(_cloak_suit())
+	elif _cloak_anchor:
+		# Las tiras se arman con su color: se rehacen con el nuevo.
+		var shown := _cloak_anchor.visible
+		_cloak_anchor.queue_free()
+		_cloak_anchor = null
+		cloak = null
+		_add_cloak()
+		_cloak_anchor.visible = shown
+		_update_anchors()
+
+
 func set_equipment(outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: bool) -> void:
+	_outfit = outfit
 	_apply_tint(OUTFIT_TINT if outfit else tint)
 	if cloak_on and _cloak_anchor == null:
-		_cloak_anchor = Node3D.new()
-		add_child(_cloak_anchor)
-		cloak = Mistcloak.new()
-		_cloak_anchor.add_child(cloak)
-		# Gris azulado del cuero del traje; solo tiras (el modelo ya trae chaqueta y capucha).
-		cloak.build(Color(0.17, 0.19, 0.24), 1.15, null, true)
+		_add_cloak()
 	if _cloak_anchor:
 		_cloak_anchor.visible = cloak_on
 	if vials_on and _vial_anchor == null:
@@ -288,14 +332,51 @@ func set_equipment(outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: boo
 	_update_anchors()
 
 
-## Recolorea la ropa del modelo (no las armas) multiplicando su color original.
+## Capa de bruma de tela desgarrada con huesos y física, que choca con el cuerpo. Sin esqueleto,
+## las tiras de siempre.
+func _add_cloak() -> void:
+	_cloak_anchor = Node3D.new()
+	add_child(_cloak_anchor)
+	cloak = Mistcloak.new()
+	_cloak_anchor.add_child(cloak)
+	if _skel == null or _bones["torso"] < 0 or _bones["neck"] < 0:
+		var c: Color = Art.SUITS[_suit]
+		cloak.build(c if _suit == "negro" else c.darkened(0.2), 1.15, null, true)
+		return
+	var s := clampf(_skel.get_bone_global_rest(_bones["neck"]).origin.y / 1.45, 0.4, 1.2)
+	var colliders := []
+	for c in CLOAK_COLLIDERS:
+		if _bones[c[0]] >= 0 and _bones[c[1]] >= 0:
+			colliders.append([_bones[c[0]], _bones[c[1]], c[2] * s])
+	cloak.build_model(_cloak_suit(), _skel, _bones["torso"], _bones["neck"], colliders)
+
+
+## Con trajes de color la capa se tiñe como el traje; con el negro queda con su textura.
+func _cloak_suit() -> Variant:
+	return null if _suit == "negro" else Art.SUITS[_suit].darkened(0.2)
+
+
+## Recolorea la ropa del modelo (no las armas) multiplicando su color original, o con el color
+## del traje si no es el negro del modelo.
 func _apply_tint(c: Color) -> void:
+	if _suit_shader == null:
+		_suit_shader = Shader.new()
+		_suit_shader.code = SUIT_SHADER
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
 		if _items.has(mi):
 			continue
 		for i in mi.mesh.get_surface_count():
 			var base := mi.mesh.surface_get_material(i) as BaseMaterial3D
-			if base:
+			if base == null:
+				continue
+			if _suit != "negro" and base.albedo_texture:
+				var sm := ShaderMaterial.new()
+				sm.shader = _suit_shader
+				sm.set_shader_parameter("tex", base.albedo_texture)
+				sm.set_shader_parameter("suit", Art.SUITS[_suit])
+				sm.set_shader_parameter("mul", tint)  # sin oscurecer con el traje del inventario: que se te reconozca
+				mi.set_surface_override_material(i, sm)
+			else:
 				var m: BaseMaterial3D = base.duplicate()
 				m.albedo_color = base.albedo_color * c
 				mi.set_surface_override_material(i, m)

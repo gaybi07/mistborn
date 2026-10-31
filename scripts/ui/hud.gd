@@ -51,6 +51,11 @@ func _ready() -> void:
 	var menu := PauseMenu.new()
 	menu.player = player
 	add_child(menu)
+	var picker := SuitPicker.new()
+	picker.player = player
+	add_child(picker)
+	if not Art.suit_chosen:
+		picker.open.call_deferred(true)
 	_status_label = _label("")
 	_status_label.add_theme_font_size_override("font_size", 20)
 	_status_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
