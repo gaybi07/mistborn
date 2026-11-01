@@ -35,6 +35,8 @@ var _rec := {}  # mientras se generan las casas: lo que se va guardando en _hous
 
 
 func _ready() -> void:
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	AudioServer.set_bus_mute(0, true)  # shortcut: todo el sonido apagado por ahora, borrar esta línea para volver a oírlo
 	_rng.seed = 1337
 	_iron_rng.seed = 7
 	_m = WorldKit.materials()
@@ -905,6 +907,23 @@ func _vial(pos: Vector3, kind: StringName) -> void:
 
 
 func _spawn_people() -> void:
+	# Cuadrilla de skaa trabajando cerca de donde aparece el jugador, y dos que acarrean cajas.
+	var tasks := ["dig", "push_heavy", "pull_heavy", "iron_pull", "lift_heavy", "kneel_pull", "kneel_inspect"]
+	for i in tasks.size():
+		var w := SkaaWorker.new()
+		w.task = tasks[i]
+		var p := Vector3(-9.0 + (i % 4) * 2.6, 0, 15.0 + (i / 4) * 3.0)
+		p.y = _ground(p)
+		w.position = p
+		w.rotation.y = randf_range(-0.5, 0.5)
+		add_child(w)
+	for i in 2:
+		var c := SkaaWorker.new()
+		var p := Vector3(-10.0, 0, 21.0 + i * 1.6)
+		p.y = _ground(p)
+		c.position = p
+		c.route = Vector3(8.0, _ground(p + Vector3(8, 0, 0)) - p.y, 0)
+		add_child(c)
 	for i in 22:
 		var c := Citizen.new()
 		var home := Vector3(_rng.randf_range(-30, 30), 0, _rng.randf_range(-30, 30))

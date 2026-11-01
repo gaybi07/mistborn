@@ -8,9 +8,10 @@ Uso (desde la carpeta del proyecto):
 - Cada animación se llama como su archivo ("Jumping Down.fbx" -> "Jumping_Down"); ese nombre
   es el que va en ModelRig.ANIMS.
 - Se quita el prefijo "mixamorig:" de los huesos.
-- Animaciones "en el lugar": la cadera no avanza ni se va de costado, y la subida o bajada
-  total se reparte para que empiece y termine a la altura de reposo (el juego mueve al
-  personaje; si la animación también lo moviera, el modelo se separaría de su cápsula).
+- Animaciones "en el lugar": se quita el avance de la cadera (queda su vaivén si es chico) y, si la animación
+  termina a otra altura que la de reposo (trepar, caer), esa diferencia se reparte en el tiempo
+  (el juego mueve al personaje; si la animación también lo moviera, el modelo se separaría de su
+  cápsula). La altura en sí se respeta: arrodillado o sentado quedan abajo.
 - Texturas reducidas a TEXTURE_SIZE para que el juego no pese de más.
 """
 import bpy, os, sys
@@ -59,12 +60,18 @@ def clean_action(action, name, scale):
             continue
         first, last = keys[0].co[1], keys[-1].co[1]
         t0, t1 = keys[0].co[0], keys[-1].co[0]
+        travels = max(abs(k.co[1] - first) for k in keys) > 0.08
         for k in keys:
+            frac = (k.co[0] - t0) / max(t1 - t0, 1e-6)
             if fc.array_index == 1:
-                drift = first + (last - first) * (k.co[0] - t0) / max(t1 - t0, 1e-6)
-                delta = k.co[1] - drift
+                # Altura: se respeta (arrodillado, sentado o agachado quedan abajo). Solo si termina
+                # en otra altura que la de reposo (trepar, caer) esa diferencia se reparte en el tiempo.
+                moved = abs(last - first) > 0.05 and abs(last) > 0.1
+                delta = k.co[1] - (last * frac if moved else 0.0)
             else:
-                delta = 0.0
+                # De costado y hacia delante: un vaivén chico se deja; si se desplaza (esquivar, recibir
+                # un golpe, caminar) la cadera queda fija: el desplazamiento lo da el juego.
+                delta = 0.0 if travels else k.co[1] - (first + (last - first) * frac)
             k.co[1] = delta
             k.handle_left[1] = delta
             k.handle_right[1] = delta
@@ -92,14 +99,40 @@ actions = []
 if first_action:
     clean_action(first_action, anim_name(model_path), scale)
     actions.append(first_action)
+
+
+def bake_onto_model(src_arm, action, name):
+    """Pasa la animación de otro FBX al esqueleto del modelo copiando la pose en el mundo, cuadro a
+    cuadro. Los FBX bajados sin malla traen otra pose de reposo: copiar sus giros locales tal cual
+    deja los brazos cruzados dentro del cuerpo."""
+    for b in src_arm.data.bones:
+        b.name = b.name.replace(PREFIX, "")
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode="POSE")
+    for pb in arm.pose.bones:
+        if pb.name not in src_arm.pose.bones:
+            continue
+        c = pb.constraints.new("COPY_ROTATION")
+        c.target, c.subtarget = src_arm, pb.name
+        if pb.parent is None:
+            c = pb.constraints.new("COPY_LOCATION")
+            c.target, c.subtarget = src_arm, pb.name
+    start, end = (int(round(v)) for v in action.frame_range)
+    bpy.ops.nla.bake(frame_start=start, frame_end=end, only_selected=False, visual_keying=True,
+                     clear_constraints=True, use_current_action=False, bake_types={"POSE"})
+    bpy.ops.object.mode_set(mode="OBJECT")
+    baked = arm.animation_data.action
+    arm.animation_data.action = None
+    clean_action(baked, name, 1.0)  # ya en metros, en los ejes del esqueleto del modelo
+    return baked
+
+
 for path in anim_paths:
     if os.path.abspath(path) == os.path.abspath(model_path):
         continue
     extra, extra_arm, action = import_fbx(path)
     if action:
-        extra_arm.animation_data.action = None
-        clean_action(action, anim_name(path), extra_arm.scale.x)
-        actions.append(action)
+        actions.append(bake_onto_model(extra_arm, action, anim_name(path)))
     for o in extra:
         bpy.data.objects.remove(o)
 

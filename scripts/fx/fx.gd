@@ -100,6 +100,64 @@ static func effect(parent: Node, name: String, pos: Vector3, size := 1.0, color 
 	e.play()
 
 
+## Hojas de sprites de pixelfx (assets/effects/pixelfx, MIT): [columnas, cuadros, pivote en px].
+const PIXELFX := "res://assets/effects/pixelfx/%s.png"
+const SHEETS := {
+	"zap-hit": [5, 28, Vector2(76, 56)],
+	"hit-spark": [4, 16, Vector2(44, 64)],
+	"crit-hit": [5, 28, Vector2(84, 106)],
+	"heavy-landing": [5, 49, Vector2(88, 60)],
+}
+static var _sheet_tex := {}
+
+
+## Efecto de pixelfx que se reproduce una vez (30 fps) y se borra solo. width: ancho en metros.
+## from: si se da, el efecto se orienta para que su lado izquierdo apunte hacia ahí (de donde
+## viene el rayo o el golpe); si no, mira siempre a la cámara. additive: brilla (rayos, chispas).
+static func sprite(parent: Node, name: String, pos: Vector3, width := 1.0, color := Color.WHITE,
+		from: Variant = null, additive := true) -> void:
+	if not _sheet_tex.has(name):
+		_sheet_tex[name] = load(PIXELFX % name)
+	var tex: Texture2D = _sheet_tex[name]
+	var info: Array = SHEETS[name]
+	var cols: int = info[0]
+	var frames: int = info[1]
+	var rows := ceili(float(frames) / cols)
+	var fs := Vector2(tex.get_width() / cols, tex.get_height() / rows)
+	var s := Sprite3D.new()
+	s.texture = tex
+	s.hframes = cols
+	s.vframes = rows
+	s.pixel_size = width / fs.x
+	s.offset = Vector2(fs.x * 0.5 - info[2].x, info[2].y - fs.y * 0.5)
+	s.modulate = color
+	s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if additive:
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = tex
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	s.material_override = m
+	parent.add_child(s)
+	s.global_position = pos
+	var cam := parent.get_viewport().get_camera_3d()
+	if from != null and cam:
+		var z := (cam.global_position - pos).normalized()
+		var x: Vector3 = pos - from
+		x = (x - z * x.dot(z)).normalized()
+		if x.length() > 0.5:
+			s.global_basis = Basis(x, z.cross(x), z)
+	else:
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var tw := s.create_tween()
+	tw.tween_property(s, "frame", frames - 1, frames / 30.0).from(0)
+	tw.tween_callback(s.queue_free)
+
+
 static func dust(parent: Node, pos: Vector3, strength := 1.0) -> void:
 	burst(parent, pos + Vector3(0, 0.1, 0), Color(0.42, 0.4, 0.38, 0.45), int(14 + 20 * strength),
 			3.0 * strength, 0.9, 0.7, 0.5, false, 70.0)

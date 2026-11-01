@@ -151,7 +151,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 			g.active = true
 			Sfx.play("steel_push", player.chest_position())
 			Fx.sparks(get_tree().current_scene, center_of(auto_push), g.color)
-			Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(auto_push), 0.25, g.color)
+			Fx.sprite(get_tree().current_scene, "zap-hit", center_of(auto_push), 2.0, g.color, player.chest_position())
 		return
 	var pressed := _grip_input(g, false)
 	if _grip_input(g, true) and g.latched:
@@ -174,7 +174,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.active = true
 		Sfx.play("steel_push" if g == push_grip else "iron_pull", player.chest_position())
 		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
-		Fx.effect(get_tree().current_scene, "ef_lightning01", center_of(t), 0.25, g.color)
+		Fx.sprite(get_tree().current_scene, "zap-hit", center_of(t), 2.0, g.color, origin)
 
 
 func _release(g: Grip) -> void:

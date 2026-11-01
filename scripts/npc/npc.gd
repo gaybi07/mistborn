@@ -194,6 +194,9 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if is_rioted():
 		damage *= 1.25
 	_on_hit(attacker)
+	if damage > 0.0:
+		rig.flash()
+		HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
 	health -= damage
 	if health <= 0.0:
 		down = true

@@ -145,10 +145,24 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 		rig.flip = true
 		rig.retarget_from = KAYKIT % "Rogue"
 		rig.retarget_map = PLAYER_MODELS[player_model][1]
+		# Gestos con monedas bajados de Mixamo (tools/blender/mixamo_to_glb.py).
+		rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
 		return rig
 	if not SETS.has(style):
 		return _procedural(look)
 	return _model(SETS[style]["player"], Color(1, 1, 1), [])
+
+
+## Skaa de Meshy con el esqueleto y las animaciones del Mistborn; lo que le falte, de KayKit y Mixamo.
+static func skaa_rig() -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = "res://assets/skaa/Skaa.glb"
+	rig.flip = true
+	rig.retarget_from = KAYKIT % "Rogue"
+	rig.retarget_map = BoneTools.KAYKIT_TO_UE
+	rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
+	rig.anim_overrides = {"idle": ["sad_idle", "idle"], "walk": ["sad_walk", "walk"]}
+	return rig
 
 
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:

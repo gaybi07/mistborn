@@ -88,8 +88,11 @@ var spawn_point := Vector3.ZERO
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 ## Aceleración alomántica recibida en el último paso (para no frenar en seco al empujar desde el suelo).
 var _allomantic_accel := 0.0
-var _shake := 0.0
+var _shake := 0.0  # "trauma" de 0 a 1: la cámara tiembla con trauma² y ruido suave
+var _shake_noise := FastNoiseLite.new()
 var _since_damage := 99.0
+## Tras un golpe, un instante sin recibir otro (que dos golpes juntos no se lleven media vida).
+const IFRAMES := 0.4
 var _attack_cd := 0.0
 var _attack_side := 1
 var _combo := 0
@@ -278,6 +281,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return  # con el inventario abierto el ratón es para la ventana
 	if event.is_action_pressed(&"drink"):
 		drink_vial()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F7:
+		_debug_next_anim()
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var motion := event as InputEventMouseMotion
@@ -609,8 +615,10 @@ func _physics_process(delta: float) -> void:
 			rig.play_land(clampf(-fall_speed / 15.0, 0.3, 1.0))
 		if fall_speed < -7.0:
 			var strength := clampf(-fall_speed / 20.0, 0.3, 1.5)
-			_shake = maxf(_shake, strength * 0.35)
+			add_trauma(strength * 0.35)
 			Fx.dust(get_tree().current_scene, global_position, strength)
+			if fall_speed < -12.0:
+				Fx.sprite(get_tree().current_scene, "heavy-landing", global_position, 2.2 * strength, Color.WHITE, null, false)
 	# Impacto = velocidad perdida al chocar (suelo, paredes o techo). Contra una pared (de costado)
 	# cuenta el 60 %: volando con acero te frenas con brazos y piernas; cayendo, no.
 	var lost := velocity_before - velocity
@@ -705,7 +713,7 @@ func _grab_ledge(ledge: Dictionary) -> void:
 	visual.rotation.y = atan2(nh.x, nh.z)  # de cara a la pared
 	rig.hanging = true
 	Fx.dust(get_tree().current_scene, top, 0.4)
-	_shake = maxf(_shake, 0.15)
+	add_trauma(0.15)
 
 
 ## Colgado: W o Espacio suben al borde; S o Shift te sueltan.
@@ -827,9 +835,12 @@ func _process(delta: float) -> void:
 		_auto_drawn = false
 		weapon = HumanoidRig.Weapon.NONE
 		rig.set_weapon(weapon)
-	_shake = move_toward(_shake, 0.0, rd * 1.2)
-	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.25
-	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.25
+	_shake = move_toward(_shake, 0.0, rd)
+	var amp := _shake * _shake
+	var nt := Time.get_ticks_msec() * 0.02
+	camera.h_offset = _shake_noise.get_noise_2d(nt, 0.0) * amp * 0.8
+	camera.v_offset = _shake_noise.get_noise_2d(0.0, nt) * amp * 0.8
+	camera.rotation.z = _shake_noise.get_noise_2d(nt, nt) * amp * 0.06
 
 
 ## Daño que haría un impacto a esa velocidad. El peltre sube el umbral y reduce el daño
@@ -969,6 +980,22 @@ func concealment() -> float:
 	return gear_stat("conceal_night" if Art.lighting == "noche" else "conceal_day")
 
 
+## shortcut: tecla de prueba (F7) para ver las animaciones de Mixamo sin asignar; borrarla cuando
+## los poderes las usen.
+const DEBUG_ANIMS := ["coin_wave", "coin_shield", "steel_push", "iron_pull", "coin_flick", "burn_focus",
+		"pewter_flex", "block", "dodge_left", "dodge_right", "hit_front", "hit_back", "hit_left", "hit_right",
+		"get_up", "crouch_idle", "crouch_walk", "climb_wall", "vault", "fall_roll", "freefall", "drink",
+		"open_door", "sit"]
+var _debug_anim := -1
+
+
+func _debug_next_anim() -> void:
+	_debug_anim = (_debug_anim + 1) % DEBUG_ANIMS.size()
+	var anim: String = DEBUG_ANIMS[_debug_anim]
+	rig.play_spell(anim, 60.0)  # duración larga: se reproduce a su velocidad natural
+	notice.emit("F7: %s (%d/%d)" % [anim, _debug_anim + 1, DEBUG_ANIMS.size()])
+
+
 ## Bebe un frasco: recupera de cada metal salvo atium (según el tipo de frasco).
 func drink_vial() -> void:
 	if dead or equipment.get("vials", "") == "" or vial_charges <= 0:
@@ -1004,6 +1031,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		mark_combat()
 		dodged.emit()
 		return
+	if _since_damage < IFRAMES:
+		return
 	# Con atium, el atacante ve el hueco: ni armadura ni peltre frenan el golpe.
 	var unblockable := attacker != null and Metals.atium_edge(attacker, self)
 	if is_rioted():
@@ -1020,11 +1049,17 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	mark_combat()
 	if attacker and attacker.has_method(&"mark_combat"):
 		attacker.mark_combat()
+	HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
 	take_damage(damage / (1.0 + 0.6 * pewter))
 
 
 func is_down() -> bool:
 	return dead
+
+
+## Suma "trauma" a la cámara (0 a 1); el temblor va con su cuadrado y se apaga en ~1 s.
+func add_trauma(amount: float) -> void:
+	_shake = minf(_shake + amount, 1.0)
 
 
 func take_damage(amount: float, impact_speed := 0.0) -> void:
@@ -1033,8 +1068,9 @@ func take_damage(amount: float, impact_speed := 0.0) -> void:
 	health -= amount
 	Sfx.play("hurt", global_position + Vector3(0, 1.2, 0))
 	_since_damage = 0.0
-	_shake = maxf(_shake, clampf(amount / 60.0, 0.2, 0.7))
+	add_trauma(clampf(amount / 40.0, 0.3, 0.8))
 	rig.stagger = 1.0
+	rig.flash()
 	damaged.emit(amount, impact_speed)
 	if health <= 0.0:
 		_die()
@@ -1138,16 +1174,18 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		if weapon != HumanoidRig.Weapon.NONE:
 			hit_sound = "clash" if npc.is_in_group(&"metal") else "slash"
 		Sfx.play(hit_sound, npc.global_position + Vector3(0, 1.2, 0))
+		add_trauma(0.12)
 		mark_combat()
 		if crit:
-			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.45, Metals.ATIUM_COLOR)
-			_shake = maxf(_shake, 0.3)
+			Fx.sprite(get_tree().current_scene, "crit-hit", npc.global_position + Vector3(0, 1.2, 0), 2.2, Metals.ATIUM_COLOR, chest_position())
+			add_trauma(0.3)
 		var color := Color(1.0, 0.7, 0.4) if npc.is_in_group(&"metal") else Color(0.6, 0.1, 0.1)
 		Fx.sparks(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), color)
+		Fx.sprite(get_tree().current_scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
 		if npc.is_in_group(&"metal"):
 			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.3)
 		if heavy:
-			_shake = maxf(_shake, 0.35)
+			add_trauma(0.35)
 	for n in get_tree().get_nodes_in_group(&"metal"):
 		var rb := n as RigidBody3D
 		if rb == null:
