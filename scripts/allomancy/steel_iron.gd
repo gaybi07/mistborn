@@ -141,6 +141,8 @@ func _physics_process(delta: float) -> void:
 	for g in grips():
 		var strength := a.strength(g.metal)
 		_update_grip(g, strength, origin)
+		if g.active and is_instance_valid(g.target) and not _los_ok(g.target, origin):
+			_cut_grip(g)  # algo se interpuso: ya no lo ves, se corta el lazo
 		if g.active:
 			holding = true
 			g.held += delta
@@ -228,6 +230,13 @@ func _steer_pulled(g: Grip, delta: float) -> bool:
 	return true
 
 
+## Corta un agarre porque algo se puso en medio. Si era la moneda de combate, deja de empujarse y cae.
+func _cut_grip(g: Grip) -> void:
+	if g.target == auto_push:
+		player._end_coin_push()
+	_release(g)
+
+
 func _release(g: Grip) -> void:
 	# Al soltar la tecla, lo que venías tirando cae con la física de siempre.
 	if g == pull_grip and is_instance_valid(g.target) and g.target is RigidBody3D:
@@ -257,10 +266,16 @@ func _net_reach() -> float:
 
 
 ## Hay línea de vista (ningún muro ni objeto en medio) entre `origin` y el objetivo.
+## Margen (m): lo que está clavado en una pared o en el suelo cuenta como visible aunque el rayo toque primero esa superficie.
+const LOS_MARGIN := 0.5
+
+
 func _net_line_of_sight(origin: Vector3, t: Node3D) -> bool:
 	var query := PhysicsRayQueryParameters3D.create(origin, center_of(t), Props.LAYER_WORLD | Props.LAYER_PROPS, [player.get_rid()])
 	var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
-	return hit.is_empty() or hit["collider"] == t
+	if hit.is_empty() or hit["collider"] == t:
+		return true
+	return (hit["position"] as Vector3).distance_to(center_of(t)) < LOS_MARGIN
 
 
 ## Servidor: aplica la fuerza de los agarres confirmados. Se suelta si el metal se apaga o el objetivo
@@ -289,6 +304,9 @@ func _net_physics(delta: float) -> void:
 		var strength := a.strength(g.metal)
 		if strength <= 0.0 or not _is_valid(g.target, origin):
 			_release(g)
+			continue
+		if not _los_ok(g.target, origin):
+			_cut_grip(g)
 			continue
 		holding = true
 		g.held += delta
@@ -505,8 +523,6 @@ func cycle_target(step: int) -> bool:
 ## En red el servidor exige línea de vista: lo que tapa un muro no se puede elegir (se ve apagado).
 ## Individual: sin cambios, siempre true. El resultado se guarda unas décimas para no lanzar tantos rayos.
 func _los_ok(t: Node3D, origin: Vector3) -> bool:
-	if not net:
-		return true
 	var id := t.get_instance_id()
 	var now := Time.get_ticks_msec()
 	var entry: Array = _los_cache.get(id, [0, true])

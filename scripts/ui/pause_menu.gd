@@ -388,7 +388,7 @@ func _metals_page() -> Control:
 const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
 [b]1.[/b] Encendé un metal con su tecla (F1 acero, F2 hierro, F3 peltre...), o clic en su icono con Tab sostenido. Tocar: encender o apagar. Doble toque y mantener: avivar.
 [b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (F1) los empuja, hierro (F2) tira de ellos.
-[b]3.[/b] Aprendé habilidades en el árbol ([b]K[/b]) y ponelas en una ranura (teclas 1 2 3 4 Q E R F Z X C V, que podés cambiar). Mantené la tecla de «Tirón básico» o «Empuje ligero» mirando un metal. El clic derecho tira una moneda; anclá con [b]Y[/b].
+[b]3.[/b] Aprendé habilidades en el árbol ([b]K[/b]) y ponelas en una ranura (teclas 1 2 3 4 5 Q E F Z X C V, que podés cambiar). Mantené la tecla de «Tirón básico» o «Empuje básico» mirando un metal. El clic derecho tira una moneda; anclá con [b]Y[/b].
 [b]4.[/b] Combiná: con acero y monedas, [b]Espacio + WASD[/b] te lanza por el aire.
 
 [color=#f2dca8][b]SIN METALES[/b][/color]
@@ -397,12 +397,12 @@ const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
 
 [color=#6b9bff][b]ACERO (F1)[/b][/color]  empuja metales
 [b]Clic derecho[/b]: moneda fuerte hacia la mira (mantené para seguir empujándola). Apuntá abajo para frenar una caída.
-Ranura «Empuje ligero» (acero 4): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Ráfaga de monedas» (acero 2): lanza nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; en el nivel 15 sale en círculo.
+Ranura «Empuje básico» (acero 1, viene puesto en la tecla Q): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Ráfaga de monedas» (acero 3): lanza nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; en el nivel 15 sale en círculo.
 [b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (mantené Espacio para seguir empujando).
 [b]Espacio, Espacio[/b]: salto de acero recto hacia arriba.
 
 [color=#a0a8c0][b]HIERRO (F2)[/b][/color]  tira de metales
-Ranura «Tirón básico» (hierro 1): tirar del metal que mirás (una moneda viene a vos y se guarda al tocarte). «Imán de monedas» (hierro 2): atrae nivel + 1 monedas dentro de un abanico hacia adelante que se abre con cada nivel; en el nivel 15 atrae las de todo alrededor.
+Ranura «Tirón básico» (hierro 1, viene puesto en la tecla E): tirar del metal que mirás (una moneda viene a vos y se guarda al tocarte). «Imán de monedas» (hierro 2): atrae nivel + 1 monedas dentro de un abanico hacia adelante que se abre con cada nivel; en el nivel 15 atrae las de todo alrededor.
 Con un solo metal encendido (acero o hierro), E y G hacen lo mismo.
 
 [color=#f28c40][b]PELTRE (3)[/b][/color]  cuerpo reforzado
@@ -420,7 +420,6 @@ Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
 [color=#d9a65a][b]BRONCE (C)[/b][/color]  sentís a los alománticos que queman metales. [color=#d1dbb3][b]ESTAÑO (V)[/b][/color]  ves más lejos en la bruma y te recuperás antes de los golpes.
 
 [color=#f2dca8][b]TRUCOS[/b][/color]
-Sin la bolsa (B) nadie puede empujarte ni tirar de vos, pero tampoco tenés monedas.
 [b]Tab[/b] (mantener) libera el ratón para clicar los iconos de los metales. [b]K[/b] árbol de habilidades. [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
 
 const CONTROLS := """[table=2]
@@ -440,11 +439,10 @@ const CONTROLS := """[table=2]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
 [cell][b]Tab[/b] (mantener)[/cell][cell]Ratón libre para clicar los iconos de los metales (clic: encender o apagar · doble clic y mantener: avivar)[/cell]
 [cell][b]Clic derecho[/b][/cell][cell]Lanza una moneda fuerte justo hacia la mira y la empuja con acero mientras mantengas el clic: pega con la moneda o, apuntando abajo, frena una caída[/cell]
-[cell][b]1 2 3 4 Q E R F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de una ráfaga o un imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
+[cell][b]1 2 3 4 5 Q E F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de una ráfaga o un imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
 [cell][b]K[/b][/cell][cell]Árbol de habilidades: subí metales, poné habilidades en las ranuras y cambiá sus teclas[/cell]
 [cell][b]Y[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
 [cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]
-[cell][b]B[/b][/cell][cell]Soltar / recoger la bolsa de monedas: sin ella nadie puede empujarte ni tirar de vos (pero no tenés monedas)[/cell]
 [cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
@@ -471,7 +469,7 @@ const COMBAT := """[b]Combos[/b] (clic izquierdo seguido, a tiempo):
 
 [b]Bolsa de monedas[/b]: los alománticos enemigos te empujan y tiran a través de ella. Soltala (B) para que no puedan; volvé a pasar por encima o pulsá B cerca para recogerla. Con hierro podés traerla de lejos.
 
-[b]Equipo y metal[/b]: la cota de malla, las botas con clavos, las armas de acero y los frascos con tapón de metal cuentan como metal: con cualquiera puesto te pueden empujar aunque sueltes la bolsa. Los alománticos derrotados a veces sueltan objetos.
+[b]Equipo y metal[/b]: la cota de malla, las botas con clavos, las armas de acero y los frascos con tapón de metal cuentan como metal: con cualquiera puesto te pueden empujar. Las monedas del monedero también cuentan como metal. Los alománticos derrotados a veces sueltan objetos.
 
 [b]Alomancia emocional enemiga[/b]: el Aplacador (latón) no te deja avivar; el Encendedor (cinc) te hace pegar más pero recibir más. El cobre (X) te protege de los dos."""
 

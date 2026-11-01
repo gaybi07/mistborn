@@ -1,6 +1,6 @@
 class_name Hud
 extends CanvasLayer
-## Barra inferior (metales y vida, ver MetalBar), mira, estados, avisos y barras de los PNJ.
+## Barra inferior de habilidades, vida y resistencia (ver AbilityHud), lista de metales (ver MetalList), mira, estados, avisos y barras de los PNJ.
 ## Esc abre el menú con todas las habilidades y controles (PauseMenu).
 
 const VIGNETTE_SHADER := """
@@ -16,6 +16,8 @@ var player: Player
 
 var _target_label: Label
 var _select_ring: Panel
+## Aro sutil en la mira: avisa cuándo lanzar la moneda para frenar una caída (ver Player.landing_cue).
+var _landing_ring: Panel
 var _enemy_bars: Array[ProgressBar] = []
 ## Estados que te afectan (arrastre de peltre, aplacado, enardecido, encandilado...).
 var _status_label: Label
@@ -25,9 +27,6 @@ var _vignette_mat: ShaderMaterial
 var _death_screen: ColorRect
 var _impact_label: Label
 var _hint: Label
-## Nivel de jugador, puntos de alomancia sin gastar y barra de experiencia (arriba a la izquierda).
-var _level_label: Label
-var _xp_bar: ProgressBar
 ## Escala actual del HUD (ver HudKit.ui_scale); la usan los textos y barras flotantes.
 var _ui_scale := 1.0
 var _flash := 0.0
@@ -43,14 +42,18 @@ func _ready() -> void:
 	var skill_tree := SkillTreeWindow.new()
 	skill_tree.player = player
 	add_child(skill_tree)
-	var bar := MetalBar.new()
+	var bar := AbilityHud.new()
 	bar.player = player
 	add_child(bar)
-	for is_left in [true, false]:
-		var corner := HudCorner.new()
-		corner.player = player
-		corner.left = is_left
-		add_child(corner)
+	var metals := MetalList.new()
+	metals.player = player
+	add_child(metals)
+	var items := HudCorner.new()
+	items.player = player
+	add_child(items)
+	var weapon := WeaponDial.new()
+	weapon.player = player
+	add_child(weapon)
 	var menu := PauseMenu.new()
 	menu.player = player
 	add_child(menu)
@@ -84,6 +87,17 @@ func _ready() -> void:
 	_select_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_select_ring.visible = false
 	add_child(_select_ring)
+	var landing_style := StyleBoxFlat.new()
+	landing_style.draw_center = false
+	landing_style.set_border_width_all(2)
+	landing_style.border_color = Color(1.0, 0.82, 0.4)
+	landing_style.set_corner_radius_all(1000)
+	landing_style.anti_aliasing = true
+	_landing_ring = Panel.new()
+	_landing_ring.add_theme_stylebox_override("panel", landing_style)
+	_landing_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_landing_ring.modulate.a = 0.0
+	add_child(_landing_ring)
 
 	_target_label = _label("")
 	_target_label.set_anchors_preset(Control.PRESET_CENTER)
@@ -96,12 +110,6 @@ func _ready() -> void:
 	_hint.modulate.a = 0.55
 	add_child(_hint)
 
-	_level_label = _label("")
-	_level_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	add_child(_level_label)
-	_xp_bar = _bar(1.0, Color(0.95, 0.8, 0.35))
-	_xp_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	add_child(_xp_bar)
 
 
 func _build_damage_overlay() -> void:
@@ -158,7 +166,7 @@ func _on_damaged(amount: float, impact_speed: float) -> void:
 func _apply_scale() -> void:
 	var s := HudKit.ui_scale(_impact_label)
 	_impact_label.add_theme_font_size_override("font_size", roundi(22.0 * s))
-	_impact_label.offset_top = -(MetalBar.H + 8.0 + 34.0) * s
+	_impact_label.offset_top = -(AbilityHud.H + 8.0 + 34.0) * s
 	_status_label.add_theme_font_size_override("font_size", roundi(20.0 * s))
 	_status_label.offset_top = 150.0 * s
 	_target_label.add_theme_font_size_override("font_size", roundi(16.0 * s))
@@ -166,11 +174,6 @@ func _apply_scale() -> void:
 	_target_label.offset_top = 8.0 * s
 	_hint.add_theme_font_size_override("font_size", roundi(13.0 * s))
 	_hint.position = Vector2(16, 12) * s
-	_level_label.add_theme_font_size_override("font_size", roundi(14.0 * s))
-	_level_label.position = Vector2(16, 34) * s
-	_xp_bar.custom_minimum_size = Vector2(150, 6) * s
-	_xp_bar.size = _xp_bar.custom_minimum_size
-	_xp_bar.position = Vector2(16, 58) * s
 	_ui_scale = s
 
 
@@ -179,7 +182,6 @@ func _process(delta: float) -> void:
 	_apply_scale()
 	_update_enemy_bars()
 	_update_status()
-	_update_level()
 	_flash = move_toward(_flash, 0.0, rd * 1.5)
 	var low := 1.0 - player.health / player.max_health
 	var pulse := maxf(low - 0.5, 0.0) * (0.6 + 0.4 * sin(Time.get_ticks_msec() / 1000.0 * 4.0))
@@ -190,6 +192,10 @@ func _process(delta: float) -> void:
 	_impact_label.modulate.a = clampf(_impact_time, 0.0, 1.0)
 
 	var a := player.allomancy
+	_landing_ring.modulate.a = move_toward(_landing_ring.modulate.a, player.landing_cue * 0.55, rd * 5.0)
+	var ring_size := 26.0 * _ui_scale
+	_landing_ring.size = Vector2(ring_size, ring_size)
+	_landing_ring.position = get_viewport().get_visible_rect().size * 0.5 - _landing_ring.size * 0.5
 	_select_ring.visible = a.is_burning(&"steel") or a.is_burning(&"iron")
 	if _select_ring.visible:
 		var view := get_viewport().get_visible_rect().size
@@ -294,18 +300,6 @@ func _update_status() -> void:
 	if player.atium.contested:
 		lines.append("Atium contra atium: se anulan")
 	_status_label.text = "\n".join(lines)
-
-
-func _update_level() -> void:
-	var free := Progression.points_free()
-	var text := "Nivel %d" % Progression.level
-	if Progression.level >= Progression.MAX_LEVEL:
-		text += " (máx.)"
-	if free > 0:
-		text += "  ·  %d punto%s" % [free, "" if free == 1 else "s"]
-	_level_label.text = text
-	_xp_bar.max_value = Progression.xp_for_next(Progression.level)
-	_xp_bar.value = Progression.xp
 
 
 func _bar(max_value: float, color: Color) -> ProgressBar:

@@ -12,7 +12,10 @@ const FREE_METALS: Array[StringName] = [&"steel", &"iron"]
 
 ## Ranuras de habilidades activas: cada una tiene una tecla (reasignable) y la habilidad que el jugador puso.
 const SLOT_COUNT := 12
-const DEFAULT_SLOT_KEYS: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_Q, KEY_E, KEY_R, KEY_F, KEY_Z, KEY_X, KEY_C, KEY_V]
+## Ranuras (por defecto con las teclas Q y E) de Empuje básico y Tirón básico: vienen puestos desde el inicio.
+const BASIC_PUSH_SLOT := 4
+const BASIC_PULL_SLOT := 5
+const DEFAULT_SLOT_KEYS: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_Q, KEY_E, KEY_5, KEY_F, KEY_Z, KEY_X, KEY_C, KEY_V]
 
 static var level := 1
 static var xp := 0
@@ -42,6 +45,8 @@ static func reset() -> void:
 	for i in SLOT_COUNT:
 		slot_skills.append(&"")
 		slot_keys.append(DEFAULT_SLOT_KEYS[i])
+	slot_skills[BASIC_PUSH_SLOT] = &"steel_light_push"  # Q
+	slot_skills[BASIC_PULL_SLOT] = &"iron_pull"  # E
 
 
 static func metal_level(metal: StringName) -> int:
@@ -181,6 +186,26 @@ static func load_progress() -> void:
 		slot_skills[i] = StringName(cfg.get_value("ranuras", "habilidad_%d" % i, ""))
 		slot_keys[i] = int(cfg.get_value("ranuras", "tecla_%d" % i, DEFAULT_SLOT_KEYS[i]))
 	prune_slots()
+	# Guardados anteriores: Empuje básico y Tirón básico pasan a venir puestos en Q y E (se mueve lo que hubiera ahí).
+	# La ranura que tenía la R ahora es la 5 (si no la cambiaste).
+	if int(cfg.get_value("ranuras", "version", 1)) < 4 and slot_keys[6] == KEY_R:
+		slot_keys[6] = KEY_5
+	if int(cfg.get_value("ranuras", "version", 1)) < 3:
+		_put_in_slot(&"steel_light_push", BASIC_PUSH_SLOT)
+		_put_in_slot(&"iron_pull", BASIC_PULL_SLOT)
+
+
+## Pone la habilidad en esa ranura: si estaba en otra la saca de ahí, y lo que hubiera en la ranura va a la primera libre.
+static func _put_in_slot(skill: StringName, index: int) -> void:
+	var old := slot_skills.find(skill)
+	if old >= 0:
+		slot_skills[old] = &""
+	var displaced := slot_skills[index]
+	slot_skills[index] = skill
+	if displaced != &"" and displaced != skill:
+		var free := slot_skills.find(&"")
+		if free >= 0:
+			slot_skills[free] = displaced
 
 
 static func save() -> void:
@@ -193,4 +218,5 @@ static func save() -> void:
 	for i in SLOT_COUNT:
 		cfg.set_value("ranuras", "habilidad_%d" % i, String(slot_skills[i]))
 		cfg.set_value("ranuras", "tecla_%d" % i, slot_keys[i])
+	cfg.set_value("ranuras", "version", 4)
 	cfg.save(PATH)
