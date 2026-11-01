@@ -49,6 +49,21 @@ static func save_suit(s: String) -> void:
 	cfg.save(SUIT_FILE)
 
 
+## Más lejos que esto no se dibuja lo chico (casas, árboles, gente, muebles): por zonas, para que
+## cada cuadro dibuje menos. La niebla tiene que tapar todo antes (ver fog_floor): nunca se ve dónde
+## termina lo dibujado. Los montes, la muralla de Kredik Shaw y su silueta no se recortan.
+const DRAW_FAR := 250.0
+## Anillo de bruma alrededor de la cámara: más lejos no se ve nada, ni los montes ni Kredik Shaw
+## (solo la lava de los volcanes). Los sombreadores de montes y de Kredik Shaw usan el mismo valor
+## (mist_ring).
+const MIST_RING := 600.0
+
+
+## Densidad mínima de la niebla de distancia para que a DRAW_FAR ya no se vea nada (≈2 % de luz).
+static func fog_floor() -> float:
+	return 3.9 / DRAW_FAR
+
+
 ## Distancia (m) a la que alguien ve a otra persona a simple vista, sin estaño.
 ## Es lo que usan los alománticos para detectarte; la niebla y el clima la recortan.
 static func sight_range() -> float:
@@ -141,6 +156,8 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 		rig.flip = true
 		rig.retarget_from = KAYKIT % "Rogue"
 		rig.retarget_map = PLAYER_MODELS[player_model][1]
+		# Gestos con monedas bajados de Mixamo (tools/blender/mixamo_to_glb.py).
+		rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
 		return rig
 	if not SETS.has(style):
 		return _procedural(look)
@@ -155,6 +172,18 @@ const KOLOSS_ANIMS := "res://assets/mixamo/Mistborn.glb"
 const NPC_MIN_HEIGHT := 1.5
 const NPC_MAX_HEIGHT := 3.0
 static var npc_use_koloss := true
+
+
+## Skaa de Meshy con el esqueleto y las animaciones del Mistborn; lo que le falte, de KayKit y Mixamo.
+static func skaa_rig() -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = "res://assets/skaa/Skaa.glb"
+	rig.flip = true
+	rig.retarget_from = KAYKIT % "Rogue"
+	rig.retarget_map = BoneTools.KAYKIT_TO_UE
+	rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
+	rig.anim_overrides = {"idle": ["sad_idle", "idle"], "walk": ["sad_walk", "walk"]}
+	return rig
 
 
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:

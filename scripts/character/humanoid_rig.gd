@@ -22,6 +22,10 @@ var aim_target_left: Variant = null
 var panic := 0.0
 var slouch := 0.0
 var stagger := 0.0
+## Congelado del golpe (hit stop, en tiempo real): mientras dure, la pose se queda quieta.
+var hitstop := 0.0
+var _flash_mat: StandardMaterial3D
+var _flash_tween: Tween
 var brace := 0.0
 ## Colgado de un borde (las manos van a aim_target y aim_target_left).
 var hanging := false
@@ -74,6 +78,11 @@ func _ready() -> void:
 
 func play_throw() -> void:
 	_throw = 0.3
+
+
+## Gesto de alomancia con monedas ("coin_wave", "coin_shield"). El cuerpo procedural no lo anima.
+func play_spell(_state: String, _duration: float) -> void:
+	pass
 
 
 ## Recoger algo del suelo (bolsa, objeto, frasco). El cuerpo procedural no lo anima.
@@ -271,25 +280,13 @@ func _build_weapons(w: float) -> void:
 
 
 ## Daga de obsidiana: no es metal, así que ningún alomántico puede empujarla.
+## Dagas y espada modeladas en Blender (tools/blender/make_weapons.py): agarre en el origen, hoja hacia +Y.
 func _dagger() -> Node3D:
-	var root := Node3D.new()
-	var obsidian := _mat(Color(0.03, 0.03, 0.04), 0.0, 0.08)
-	_part(root, _cylinder(0.016, 0.016, 0.1), Vector3(0, -0.02, 0), _mat(Color(0.15, 0.1, 0.07)))
-	_part(root, _box(Vector3(0.07, 0.012, 0.022)), Vector3(0, 0.035, 0), obsidian)
-	_part(root, _box(Vector3(0.032, 0.17, 0.007)), Vector3(0, 0.125, 0), obsidian)
-	_part(root, _prism(Vector3(0.032, 0.05, 0.007)), Vector3(0, 0.235, 0), obsidian)
-	return root
+	return (load("res://assets/weapons/dagger_crystal.glb") as PackedScene).instantiate()
 
 
 func _sword() -> Node3D:
-	var root := Node3D.new()
-	var steel := _mat(Color(0.6, 0.62, 0.66), 0.9, 0.25)
-	_part(root, _cylinder(0.018, 0.018, 0.2), Vector3(0, -0.05, 0), _mat(Color(0.15, 0.1, 0.07)))
-	_part(root, _sphere(0.025), Vector3(0, -0.16, 0), steel)
-	_part(root, _box(Vector3(0.18, 0.025, 0.03)), Vector3(0, 0.06, 0), steel)
-	_part(root, _box(Vector3(0.045, 0.8, 0.01)), Vector3(0, 0.47, 0), steel)
-	_part(root, _prism(Vector3(0.045, 0.08, 0.01)), Vector3(0, 0.91, 0), steel)
-	return root
+	return (load("res://assets/weapons/sword_steel.glb") as PackedScene).instantiate()
 
 
 func _build_hair_and_hat(head: Vector3, hair: Color, shirt: Color, coat: Variant, metal: Material) -> void:
@@ -316,7 +313,40 @@ func _build_hair_and_hat(head: Vector3, hair: Color, shirt: Color, coat: Variant
 			_part(neck, _cylinder(0.14, 0.14, 0.02), head + Vector3(0, 0.025, 0.005), metal)
 
 
+## Congela un instante a los que chocan en un golpe: 50 ms, hasta 120 ms con mucho daño.
+static func hit_stop(rigs: Array, damage: float) -> void:
+	var t := clampf(0.05 + damage / 400.0, 0.05, 0.12)
+	for r in rigs:
+		if r is HumanoidRig:
+			r.hitstop = maxf(r.hitstop, t)
+
+
+## Destello de color sobre todo el cuerpo al recibir un golpe (se va en 0,2 s).
+func flash(color := Color(1.0, 0.3, 0.25)) -> void:
+	if _flash_mat == null:
+		_flash_mat = StandardMaterial3D.new()
+		_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	if _flash_tween:
+		_flash_tween.kill()
+	var meshes := find_children("*", "MeshInstance3D", true, false)
+	for mi: MeshInstance3D in meshes:
+		mi.material_overlay = _flash_mat
+	_flash_mat.albedo_color = Color(color, 0.8)
+	_flash_tween = create_tween().set_ignore_time_scale(true)
+	_flash_tween.tween_property(_flash_mat, "albedo_color:a", 0.0, 0.2).set_ease(Tween.EASE_OUT)
+	# Sin el overlay puesto no cuesta una pasada más de dibujo.
+	_flash_tween.tween_callback(func() -> void:
+		for mi: MeshInstance3D in meshes:
+			if is_instance_valid(mi):
+				mi.material_overlay = null)
+
+
 func _process(delta: float) -> void:
+	if hitstop > 0.0:
+		hitstop -= delta / Engine.time_scale
+		return
 	var dt := minf(delta / Engine.time_scale if use_real_time else delta, 0.05)
 	_t += dt
 	_throw -= dt
@@ -500,15 +530,6 @@ static func _cylinder(top: float, bottom: float, h: float) -> Mesh:
 		m.height = h
 		m.radial_segments = 16
 		m.rings = 1
-		_meshes[key] = m
-	return _meshes[key]
-
-
-static func _prism(size: Vector3) -> Mesh:
-	var key := "pri%s" % size
-	if not _meshes.has(key):
-		var m := PrismMesh.new()
-		m.size = size
 		_meshes[key] = m
 	return _meshes[key]
 

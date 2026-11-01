@@ -110,7 +110,7 @@ func _ready() -> void:
 		else:
 			_build()
 		var solid := _mb.commit(SOLID_KEYS)
-		_cache[level] = {"mesh": solid, "shape": solid.create_trimesh_shape(), "deco": _deco.commit(),
+		_cache[level] = {"mesh": solid, "shape": ModelKit.solid_trimesh(solid), "deco": _deco.commit(),
 				"lights": _lights, "anchors": _anchors, "braziers": _braziers,
 				"rooms": _rooms, "grid": _grid, "props": _props, "ramps": _ramps}
 	var c: Dictionary = _cache[level]
@@ -139,13 +139,14 @@ func _ready() -> void:
 	add_child(body)
 	var deco := _instance(c["deco"], mats)
 	deco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	deco.visibility_range_end = Art.DRAW_FAR  # molduras, telas y vidrios
 	add_child(deco)
 	for l: Array in c["lights"]:
 		var light := OmniLight3D.new()
 		light.position = l[0]
 		light.light_color = l[1]
-		light.omni_range = l[2]
-		light.light_energy = l[3]
+		light.omni_range = l[2] * 1.25  # más luz que antes: las salas se veían muy oscuras
+		light.light_energy = l[3] * 1.5
 		light.light_volumetric_fog_energy = 0.6 if dark else 1.2
 		light.distance_fade_enabled = true
 		light.distance_fade_begin = 38.0
@@ -156,7 +157,7 @@ func _ready() -> void:
 		anchor.position = a
 		anchor.add_to_group(&"metal")
 		add_child(anchor)
-	PolyProps.spawn(self, c["props"], 24.0, 70.0)
+	PolyProps.spawn(self, c["props"], 32.0, Art.DRAW_FAR)
 	for p: Vector3 in c["braziers"]:
 		var b := Brazier.new()
 		b.position = p
@@ -183,6 +184,9 @@ static func materials() -> Dictionary:
 		return m
 	m["ks_wall"] = WorldKit.pbr("castle_brick_07", Color(0.75, 0.72, 0.76), 3.0)
 	var floor_mat := WorldKit.pbr("large_floor_tiles_02", Color(0.55, 0.53, 0.56), 4.0)
+	# Relieve por parallax de cerca: juntas de los ladrillos y de las losas.
+	(m["ks_wall"] as ShaderMaterial).set_shader_parameter(&"parallax_depth", 0.08)
+	floor_mat.set_shader_parameter(&"parallax_depth", 0.04)
 	m["ks_floor"] = floor_mat
 	var court: ShaderMaterial = (m["ground"] as ShaderMaterial).duplicate()
 	m["ks_court"] = court

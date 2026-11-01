@@ -50,14 +50,56 @@ const ANIMS := {
 	"allomancy": ["spell_simple_idle", "Attacking_Idle", "Idle_Attacking", "Spellcasting", "Idle"],
 	"hit": ["hit_chest", "RecieveHit", "Hit_A"],
 	"down": ["death01", "Death", "Death_A"],
+	# Alomancia con monedas (Mixamo, ver extra_donors): onda de monedas hacia afuera y escudo.
+	"coin_wave": ["coin_wave"],
+	"coin_shield": ["coin_shield"],
+	# Más de Mixamo (MixamoSpells.glb), todavía sin estado que las use: se llaman con play_spell().
+	"steel_push": ["steel_push"],
+	"iron_pull": ["iron_pull"],
+	"coin_flick": ["coin_flick"],
+	"burn_focus": ["burn_focus"],
+	"pewter_flex": ["pewter_flex"],
+	"block": ["block"],
+	"dodge_left": ["dodge_left"],
+	"dodge_right": ["dodge_right"],
+	"hit_front": ["hit_front"],
+	"hit_back": ["hit_back"],
+	"hit_left": ["hit_left"],
+	"hit_right": ["hit_right"],
+	"get_up": ["get_up"],
+	"crouch_idle": ["crouch_idle"],
+	"crouch_walk": ["crouch_walk"],
+	"climb_wall": ["climb_wall"],
+	"vault": ["vault"],
+	"fall_roll": ["fall_roll"],
+	"freefall": ["freefall"],
+	"drink": ["drink"],
+	"open_door": ["open_door"],
+	"sit": ["sit"],
+	# Trabajo de los skaa (SkaaWorker): arrodillado arreglando algo y los de Mixamo.
+	"kneel_work": ["fixing_kneeling"],
+	"box_idle": ["box_idle"],
+	"carry_walk": ["carry_walk"],
+	"dig": ["dig"],
+	"push_heavy": ["push_heavy"],
+	"pull_heavy": ["pull_heavy"],
+	"lift_heavy": ["lift_heavy"],
+	"put_down": ["put_down"],
+	"pick_up": ["pick_up"],
+	"kneel_pull": ["kneel_pull"],
+	"kneel_inspect": ["kneel_inspect"],
+	"sad_idle": ["sad_idle"],
+	"sad_walk": ["sad_walk"],
+	"warm_hands": ["warm_hands"],
 }
 ## Animaciones que se repiten (el resto se queda en su último fotograma al terminar).
 const LOOPING := ["idle", "idle_armed", "walk", "run", "sprint", "flee", "air", "allomancy", "hang",
-		"swim", "swim_idle", "slide"]
+		"swim", "swim_idle", "slide", "burn_focus", "crouch_idle", "crouch_walk", "freefall", "sit", "box_idle",
+		"carry_walk", "dig", "push_heavy", "pull_heavy", "kneel_inspect", "sad_idle", "sad_walk", "warm_hands"]
 ## Velocidad (m/s) a la que cada animación de desplazamiento "pisa" bien.
 const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swim": 2.0}
 ## Lo mismo por nombre de animación, para las que se apartan del valor de su estado (ActionForge).
-const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7}
+const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7, "sad_walk": 0.72, "carry_walk": 1.1, "crouch_walk": 1.57}
 ## Por encima de esta velocidad (peltre) se esprinta.
 const SPRINT_SPEED := 8.0
 ## Partes de las mallas que son armas o accesorios (se ocultan salvo las que use el personaje).
@@ -106,6 +148,23 @@ void fragment() {
 }
 """
 static var _suit_shader: Shader
+## IK de pies: estados sin los pies en el suelo (no se corrigen) y de desplazamiento (el pie apoyado
+## no se clava: el personaje avanza y la animación va en el lugar).
+const IK_OFF := ["air", "jump", "hang", "climb", "swim", "swim_idle", "slide", "down", "roll", "dash",
+		"attack_air", "freefall", "fall_roll", "climb_wall", "vault"]
+const IK_MOVING := ["walk", "run", "sprint", "flee", "carry_walk", "sad_walk", "crouch_walk"]
+## Clips que se desplazan de verdad (esquives, golpes que te empujan; ver actionforge_to_glb.py): traen
+## el avance en el hueso root. Se saca del esqueleto y se mueve al personaje lo mismo (ver
+## _take_root_motion): en el lugar los pies patinarían más de un metro.
+const ROOT_MOTION := ["dodge_left", "dodge_right", "hit_front", "hit_back", "hit_left", "hit_right"]
+## Cuánto sube o baja como mucho un pie para buscar el suelo (m).
+const FOOT_REACH := 0.4
+## Del tobillo a la punta del pie (m), para buscar el suelo también ahí.
+const FOOT_TOE := 0.12
+## Si la animación deja los dos pies en el aire menos que esto (m), se los apoya (ver _update_foot_ik).
+const GROUND_FLOAT := 0.15
+## Lo más que se separa un pie clavado de donde lo pone la animación antes de soltarlo (m).
+const FOOT_LOCK_SLACK := 0.25
 ## Lo más que se acelera un golpe o una voltereta para que quepa en su tiempo.
 const MAX_ONESHOT_SPEED := 2.4
 
@@ -122,6 +181,10 @@ var down := false
 ## Modelo cuyo AnimationPlayer presta animaciones que este no tiene (o "").
 var retarget_from := ""
 var retarget_map: Array = []
+## Otros packs que prestan animaciones (después de retarget_from): [ruta, mapeo de huesos].
+var extra_donors: Array = []
+## Estado -> candidatos que reemplazan a los de ANIMS para este personaje (p. ej. el skaa camina triste).
+var anim_overrides := {}
 ## Fuerza de las poses de alomancia: 1 quemando, 2 avivando (las pone el Player).
 var push_power := 1.0
 var pull_power := 1.0
@@ -132,6 +195,10 @@ var _ap: AnimationPlayer
 var _src_model: Node3D
 var _src_ap: AnimationPlayer
 var _retargeter: BoneTools.Retargeter
+var _donor_specs: Array = []  # [ruta, mapeo]: retarget_from y extra_donors
+var _donors := {}  # índice -> {"model", "ap", "rt"} (se arman la primera vez que hacen falta)
+var _spell := 0.0
+var _spell_state := ""
 var _resolved := {}  # estado -> {"name": String, "borrowed": bool}
 var _state := ""
 var _borrowed := false
@@ -146,11 +213,34 @@ var _land := 0.0
 var _dash := 0.0
 var _climb := 0.0
 var _pickup := 0.0
+## Animación más espaciada lejos de la cámara (salvo el jugador, use_real_time): el tiempo que no se
+## anima se junta y se aplica en el siguiente cuadro que sí.
+var _pending_dt := 0.0
+var _frame := 0
+const NEAR_ANIM := 20.0
+const FAR_ANIM := 60.0
 ## Capa de bruma y frascos del inventario: siguen a los huesos del cuello y la cadera.
 var _cloak_anchor: Node3D
 var _vial_anchor: Node3D
 var _suit := "negro"
 var _outfit := false
+## Pies apoyados en el suelo real (pendientes, escalones) sin hundirse ni patinar; ver _update_foot_ik.
+var foot_ik := true
+var _ik: TwoBoneIK3D
+var _ik_targets: Array[Node3D] = []
+var _ik_poles: Array[Node3D] = []
+var _ik_lock: Array = [null, null]  # punto (Vector3) donde quedó clavado cada pie, o null
+## Corrección de cada pie respecto de la animación, suavizada: al pasar un escalón o soltar un pie
+## clavado entra y sale de a poco en vez de saltar de un cuadro al otro.
+var _ik_corr: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
+var _ik_unlocking: Array[bool] = [false, false]  # recién soltado: no se vuelve a clavar hasta llegar
+var _float_by := 0.0  # cuánto flota la animación (suavizado: es parejo, no cambia de un cuadro al otro)
+var _ankle := 0.0  # altura del tobillo en reposo, en metros del personaje
+var _hips_drop := 0.0  # cuánto se baja el cuerpo para que llegue el pie que pisa más abajo
+var _model_y := 0.0
+var _near := true
+var _root_bone := -1
+var _root_prev: Variant = null  # dónde estaba el root del clip el cuadro anterior (Vector3), o null
 
 
 func _build() -> void:
@@ -164,11 +254,48 @@ func _build() -> void:
 	if _skel:
 		for key in BONES:
 			_bones[key] = BoneTools.find_bone(_skel, BONES[key])
+		_root_bone = _skel.find_bone("root")
 		if _items.is_empty():
 			_attach_weapons()
 	_resolve_animations()
+	if not use_real_time:
+		for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
+			mi.visibility_range_end = Art.DRAW_FAR
 	set_weapon(weapon)
+	_setup_foot_ik()
 	_play("idle", 0.0)
+
+
+func _setup_foot_ik() -> void:
+	if _skel == null:
+		return
+	for side in ["_l", "_r"]:
+		# Pierna encadenada muslo -> pantorrilla -> pie (en algunos packs el pie cuelga de la raíz).
+		var thigh: int = _bones.get("thigh" + side, -1)
+		var calf: int = _bones.get("calf" + side, -1)
+		var foot: int = _bones.get("foot" + side, -1)
+		if thigh < 0 or calf < 0 or foot < 0 or _skel.get_bone_parent(calf) != thigh or _skel.get_bone_parent(foot) != calf:
+			return
+	_ik = TwoBoneIK3D.new()
+	_skel.add_child(_ik)
+	_ik.setting_count = 2
+	for i in 2:
+		var side: String = ["_l", "_r"][i]
+		var target := Node3D.new()
+		var pole := Node3D.new()
+		add_child(target)
+		add_child(pole)
+		_ik_targets.append(target)
+		_ik_poles.append(pole)
+		_ik.set_root_bone(i, _bones["thigh" + side])
+		_ik.set_middle_bone(i, _bones["calf" + side])
+		_ik.set_end_bone(i, _bones["foot" + side])
+		_ik.set_target_node(i, _ik.get_path_to(target))
+		_ik.set_pole_node(i, _ik.get_path_to(pole))
+	_ik.influence = 0.0
+	_model_y = _model.position.y
+	var to_rig := global_transform.affine_inverse() * _skel.global_transform
+	_ankle = (to_rig * _skel.get_bone_global_rest(_bones["foot_l"]).origin).y
 
 
 func _instance(path: String) -> Node3D:
@@ -187,33 +314,46 @@ func _first(node: Node, type: String) -> Node:
 
 
 func _resolve_animations() -> void:
-	var donor_root: Node = null
-	var donor: AnimationPlayer = null
+	_donor_specs = []
 	if retarget_from != "":
-		donor_root = (load(retarget_from) as PackedScene).instantiate()
-		donor = _first(donor_root, "AnimationPlayer")
+		_donor_specs.append([retarget_from, retarget_map])
+	_donor_specs += extra_donors
+	var lists := []  # qué animaciones tiene cada donante
+	for spec: Array in _donor_specs:
+		var root: Node = (load(spec[0]) as PackedScene).instantiate()
+		var ap := _first(root, "AnimationPlayer") as AnimationPlayer
+		lists.append(ap.get_animation_list() if ap else PackedStringArray())
+		root.free()
 	for state in ANIMS:
-		_resolved[state] = {"name": "", "borrowed": false}
-		for candidate in ANIMS[state]:
+		_resolved[state] = {"name": "", "borrowed": false, "donor": -1}
+		for candidate in anim_overrides.get(state, ANIMS[state]):
 			if _ap and _ap.has_animation(candidate):
-				_resolved[state] = {"name": candidate, "borrowed": false}
+				_resolved[state] = {"name": candidate, "borrowed": false, "donor": -1}
 				break
-			if donor and donor.has_animation(candidate):
-				_resolved[state] = {"name": candidate, "borrowed": true}
+			var found := -1
+			for i in lists.size():
+				if candidate in lists[i]:
+					found = i
+					break
+			if found >= 0:
+				_resolved[state] = {"name": candidate, "borrowed": true, "donor": found}
 				break
-	if donor_root:
-		donor_root.free()  # solo hacía falta para saber qué animaciones tiene
 
 
-func _ensure_donor() -> void:
-	if _src_model or retarget_from == "" or _skel == null:
+## Deja listo el donante i (esqueleto invisible que reproduce sus animaciones) como el activo.
+func _ensure_donor(i := 0) -> void:
+	if _skel == null or i < 0 or i >= _donor_specs.size():
 		return
-	_src_model = _instance(retarget_from)
-	_src_model.visible = false
-	_fit_height(_src_model, false)
-	_src_model.rotation.y = _model.rotation.y
-	_src_ap = _first(_src_model, "AnimationPlayer")
-	_retargeter = BoneTools.Retargeter.new(_first(_src_model, "Skeleton3D"), _skel, retarget_map)
+	if not _donors.has(i):
+		var model := _instance(_donor_specs[i][0])
+		model.visible = false
+		_fit_height(model, false)
+		model.rotation.y = _model.rotation.y
+		_donors[i] = {"model": model, "ap": _first(model, "AnimationPlayer"),
+				"rt": BoneTools.Retargeter.new(_first(model, "Skeleton3D"), _skel, _donor_specs[i][1])}
+	_src_model = _donors[i]["model"]
+	_src_ap = _donors[i]["ap"]
+	_retargeter = _donors[i]["rt"]
 
 
 func _prepare_meshes() -> void:
@@ -438,6 +578,12 @@ func play_throw() -> void:
 	_throw = _play_once("throw", 0.55)
 
 
+## Gesto de alomancia con monedas (coin_wave, coin_shield) de unos `duration` segundos.
+func play_spell(state: String, duration: float) -> void:
+	_spell_state = state
+	_spell = _play_once(state, duration)
+
+
 ## Solo parado o caminando: a la carrera la animación entera se vería deslizándose.
 func play_pickup() -> void:
 	if move_speed < 3.0 and _attack <= 0.0 and _roll <= 0.0:
@@ -498,7 +644,24 @@ func _current_length() -> float:
 
 
 func _process(delta: float) -> void:
-	var dt := minf(delta / Engine.time_scale if use_real_time else delta, 0.05)
+	if hitstop > 0.0:
+		hitstop -= delta / Engine.time_scale
+		return
+	_near = true
+	if not use_real_time:
+		var cam := get_viewport().get_camera_3d()
+		var every := 1
+		if cam:
+			var d := cam.global_position.distance_to(global_position)
+			every = 1 if d < NEAR_ANIM else (3 if d < FAR_ANIM else 8)
+		_near = every == 1
+		_frame += 1
+		if _frame % every != 0:
+			_pending_dt += delta
+			return
+		delta += _pending_dt
+		_pending_dt = 0.0
+	var dt := minf(delta / Engine.time_scale if use_real_time else delta, 0.25 if not use_real_time else 0.05)
 	_t += dt
 	_attack -= dt
 	_roll -= dt
@@ -508,6 +671,7 @@ func _process(delta: float) -> void:
 	_dash -= dt
 	_climb -= dt
 	_pickup -= dt
+	_spell -= dt
 	if _ap == null and retarget_from == "":
 		return
 	var state := _choose_state()
@@ -525,7 +689,9 @@ func _process(delta: float) -> void:
 		_retargeter.apply()
 	elif _ap:
 		_ap.advance(dt * speed)
+	_take_root_motion()
 	_apply_allomancy_pose(dt)
+	_update_foot_ik(dt, state)
 	_update_anchors()
 	if cloak and _cloak_anchor.visible:
 		cloak.drive(dt, body_velocity)
@@ -546,6 +712,8 @@ func _choose_state() -> String:
 		return "roll"
 	if _dash > 0.0:
 		return "dash"
+	if _spell > 0.0:
+		return _spell_state
 	if _attack > 0.0:
 		return _state if _state.begins_with("attack") else "attack_fist"
 	if _throw > 0.0:
@@ -592,7 +760,7 @@ func _play(state: String, blend: float, restart := false) -> void:
 	_borrowed = info["borrowed"]
 	var player := _ap
 	if _borrowed:
-		_ensure_donor()
+		_ensure_donor(info.get("donor", 0))
 		player = _src_ap
 		if player == null:
 			_borrowed = false
@@ -604,6 +772,126 @@ func _play(state: String, blend: float, restart := false) -> void:
 		player.play(anim, blend)
 		if restart:
 			player.seek(0.0, true)
+		_root_prev = null
+
+
+## Clip de ROOT_MOTION: el avance del root en este cuadro pasa del esqueleto al personaje (el
+## CharacterBody3D de arriba, que choca con las paredes; si no hay, el rig mismo).
+func _take_root_motion() -> void:
+	if _root_bone < 0 or _borrowed:
+		return
+	var now := _skel.get_bone_pose_position(_root_bone)
+	# Siempre en reposo: al mezclar el final de un esquive con la siguiente, el root trae su avance.
+	_skel.set_bone_pose_position(_root_bone, _skel.get_bone_rest(_root_bone).origin)
+	if not _resolved.get(_state, {}).get("name", "") in ROOT_MOTION:
+		_root_prev = null
+		return
+	if _root_prev != null:
+		var step: Vector3 = _skel.global_basis * (now - _root_prev)
+		step.y = 0.0
+		var body := get_parent()
+		while body and not body is CharacterBody3D:
+			body = body.get_parent()
+		if body:
+			(body as CharacterBody3D).move_and_collide(step)
+		else:
+			global_position += step
+	_root_prev = now
+
+
+# ---------------------------------------------------------------- IK de pies
+
+## Las animaciones suponen suelo plano a la altura del personaje. Cada pie busca el suelo real debajo
+## (rayo contra el mundo) y se apoya ahí conservando lo que la animación lo levanta; el cuerpo baja lo
+## que haga falta para que llegue el pie que pisa más abajo. Parado, trabajando o peleando, el pie
+## apoyado se queda clavado donde pisó (no patina). El TwoBoneIK3D dobla la pierna después de la
+## animación, en la actualización del esqueleto.
+func _update_foot_ik(dt: float, state: String) -> void:
+	if _ik == null:
+		return
+	var want := foot_ik and _near and on_floor and not state in IK_OFF and is_inside_tree()
+	_ik.influence = move_toward(_ik.influence, 1.0 if want else 0.0, dt * 6.0)
+	if _ik.influence <= 0.0:
+		_ik_lock = [null, null]
+		_ik_corr = [Vector3.ZERO, Vector3.ZERO]
+		_ik_unlocking = [false, false]
+		_float_by = 0.0
+		_hips_drop = move_toward(_hips_drop, 0.0, dt)
+		_model.position.y = _model_y + _hips_drop / maxf(scale.y, 1e-4)
+		return
+	var space := get_world_3d().direct_space_state
+	var ground := global_position.y  # el suelo de la animación
+	var fwd := -global_basis.z.normalized()
+	var drop := 0.0
+	var goals: Array[Vector3] = []
+	var anim_feet: Array[Vector3] = []
+	for side in ["_l", "_r"]:
+		anim_feet.append(BoneTools.bone_world_pos(_skel, _bones["foot" + side]) - Vector3(0, _hips_drop, 0))
+	# Animaciones que dejan al personaje flotando (los dos pies arriba, p. ej. el reposo del Mistborn
+	# a 10 cm): se apoya el pie más bajo. Más de GROUND_FLOAT ya es un salto a propósito.
+	var float_target := 0.0
+	if not state in IK_MOVING:
+		var low := minf(anim_feet[0].y, anim_feet[1].y) - ground - _ankle
+		if low > 0.04 and low < GROUND_FLOAT:
+			float_target = low
+	_float_by = lerpf(_float_by, float_target, minf(dt * (8.0 if state in IK_MOVING else 3.0), 1.0))
+	var float_by := _float_by
+	for i in 2:
+		var side: String = ["_l", "_r"][i]
+		var foot := anim_feet[i]
+		var lift := maxf(foot.y - ground - _ankle - float_by, 0.0)  # nunca por debajo del suelo
+		# Suelo bajo el talón y bajo la punta: en el borde de un escalón manda el más alto (si no, la
+		# punta se mete en el escalón).
+		# Cuenta como escalón si la punta está más alta de lo que da la pendiente bajo el talón.
+		var floor_y := ground
+		var heel := _floor_hit(space, foot, ground)
+		if heel:
+			floor_y = heel["position"].y
+			var n: Vector3 = heel["normal"]
+			var d := fwd * FOOT_TOE
+			var slope_rise := -(n.x * d.x + n.z * d.z) / maxf(n.y, 0.2)
+			var toe := _floor_hit(space, foot + d, ground)
+			if toe and toe["position"].y > floor_y + slope_rise + 0.03:
+				floor_y = toe["position"].y
+		var goal := Vector3(foot.x, floor_y + _ankle + lift, foot.z)
+		var shown := foot + _ik_corr[i]  # donde se ve el pie ahora
+		if not state in IK_MOVING and lift < 0.03 and not _ik_unlocking[i]:
+			if _ik_lock[i] == null:
+				_ik_lock[i] = shown  # se clava donde está, sin saltar
+			elif Vector2(_ik_lock[i].x - goal.x, _ik_lock[i].z - goal.z).length() > FOOT_LOCK_SLACK:
+				# La animación se alejó demasiado: se suelta y el pie vuelve de a poco a donde va.
+				_ik_lock[i] = null
+				_ik_unlocking[i] = true
+			if _ik_lock[i] != null:
+				goal = Vector3(_ik_lock[i].x, goal.y, _ik_lock[i].z)
+		else:
+			_ik_lock[i] = null
+		if _ik_unlocking[i] and Vector2(_ik_corr[i].x, _ik_corr[i].z).length() < 0.02:
+			_ik_unlocking[i] = false
+		# La corrección se acomoda en ~0,1 s (al soltar un pie clavado o bajar de un escalón), salvo
+		# subir el pie, que es inmediato (si no, se metería en el escalón), y el pie clavado, que
+		# queda fijo.
+		var need := goal - foot
+		var c: Vector3 = _ik_corr[i].lerp(need, minf(dt * 14.0, 1.0))
+		if _ik_lock[i] != null:
+			c.x = need.x
+			c.z = need.z
+		c.y = maxf(c.y, need.y)
+		_ik_corr[i] = c
+		goal = foot + c
+		drop = minf(drop, goal.y - foot.y)
+		goals.append(goal)
+		var knee := BoneTools.bone_world_pos(_skel, _bones["calf" + side])
+		_ik_poles[i].global_position = knee + fwd * 0.5
+	_hips_drop = lerpf(_hips_drop, maxf(drop, -FOOT_REACH), minf(dt * 12.0, 1.0))
+	_model.position.y = _model_y + _hips_drop / maxf(scale.y, 1e-4)
+	for i in 2:
+		_ik_targets[i].global_position = goals[i]
+
+
+func _floor_hit(space: PhysicsDirectSpaceState3D, at: Vector3, ground: float) -> Dictionary:
+	return space.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(at.x, ground + FOOT_REACH, at.z),
+			Vector3(at.x, ground - FOOT_REACH, at.z), Props.LAYER_WORLD))
 
 
 # ---------------------------------------------------------------- Poses de alomancia

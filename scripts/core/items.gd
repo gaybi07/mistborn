@@ -70,10 +70,11 @@ const DB := {
 		"stats": {"charges": 4, "refill": 55.0}},
 }
 
-## Con qué empieza el jugador (equipado) y qué más lleva en la mochila.
-const START_EQUIPPED := {"cloak": "mistcloak", "body": "mistborn_suit", "boots": "soft_boots",
+## Con qué empieza el jugador (equipado) y qué más lleva en la mochila. La capa de bruma va en la
+## mochila: se la pone desde el inventario.
+const START_EQUIPPED := {"cloak": "", "body": "mistborn_suit", "boots": "soft_boots",
 		"daggers": "obsidian_daggers", "sword": "obsidian_sword", "vials": "glass_vials"}
-const START_BAG := ["skaa_clothes"]
+const START_BAG := ["skaa_clothes", "mistcloak"]
 
 ## Nombre de cada stat y si "más" es mejor (para las comparaciones del inventario).
 const STAT_INFO := {

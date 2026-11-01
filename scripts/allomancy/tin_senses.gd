@@ -50,7 +50,8 @@ func _process(delta: float) -> void:
 	if (_env == null or _version != Art.env_version) and not _grab_environment():
 		return
 	_amount = move_toward(_amount, player.allomancy.strength(&"tin"), rd * 2.0)
-	_env.fog_density = _curve(_base_fog, _base_fog * 0.35, _base_fog * 0.08)
+	# Aparta la bruma, pero no más allá de lo que se dibuja (Art.fog_floor).
+	_env.fog_density = maxf(_curve(_base_fog, _base_fog * 0.35, _base_fog * 0.08), Art.fog_floor())
 	_env.volumetric_fog_density = _curve(_base_vol_fog, _base_vol_fog * 0.35, _base_vol_fog * 0.08)
 	_env.tonemap_exposure = _curve(_base_exposure, _base_exposure * 1.5, _base_exposure * 2.2)
 	(WorldKit.materials()["exterior_fog"] as FogMaterial).density = _curve(_base_ext_fog, _base_ext_fog * 0.4, _base_ext_fog * 0.12)

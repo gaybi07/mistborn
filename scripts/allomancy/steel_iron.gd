@@ -67,6 +67,7 @@ var auto_push: Node3D = null
 
 var _bolts: BoltMesh
 var _markers := {}  # "hover"/Grip -> MeshInstance3D
+var _hum: AudioStreamPlayer
 var _metals: Array[Node3D] = []
 var _reach := 0.0
 ## Los que se pueden elegir ahora (cerca de la mira), de mejor a peor; ver _pick_target y cycle_target.
@@ -91,6 +92,13 @@ func _ready() -> void:
 	_markers[pull_grip] = _make_marker(pull_grip.color)
 	for i in DOTS_FLARE + 2:
 		_dots.append(_make_marker(Color(0.45, 0.72, 1.0, 0.5)))
+	# Zumbido mientras empujás o tirás.
+	_hum = AudioStreamPlayer.new()
+	_hum.stream = Sfx.stream("steel_hum_loop")
+	_hum.bus = "SFX"
+	_hum.volume_db = -80.0
+	add_child(_hum)
+	_hum.play()
 
 
 func _make_marker(color: Color) -> MeshInstance3D:
@@ -119,6 +127,7 @@ func grips() -> Array:
 
 
 func _physics_process(delta: float) -> void:
+	_hum.volume_db = move_toward(_hum.volume_db, -16.0 if applying_force else -80.0, 4.0)  # (el cuadro anterior)
 	if net:
 		_net_physics(delta)
 		return
@@ -190,6 +199,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		if g.target != auto_push:
 			g.target = auto_push
 			g.active = true
+			Sfx.play("steel_push", player.chest_position())
 		return
 	var pressed := _grip_input(g, false)
 	if _grip_input(g, true) and g.latched:
@@ -213,6 +223,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 			return  # sigue pulsado: se agarrará en cuanto haya algo que agarrar
 		g.target = t
 		g.active = true
+		Sfx.play("steel_push" if g == push_grip else "iron_pull", player.chest_position())
 
 
 ## Tirón sobre una moneda u objeto suelto: va hacia ti siguiendo tu posición (también si te mueves) en vez de

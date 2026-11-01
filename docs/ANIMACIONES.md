@@ -37,6 +37,14 @@ con `BoneTools.KAYKIT_TO_UE` (se elige en `Art.PLAYER_MODELS`). Las animaciones 
 nombre (`sprint_loop` → `sprint`). Para añadir una nueva, vuelve a correr el comando con todos los
 archivos (los fuente están en `Escritorio\Mistborn`) y pon su nombre primero en `ModelRig.ANIMS`.
 
+Corregidas en el Motion Lab de ActionForge, con el `Mistborn.glb` cargado como personaje (salen ya
+en su esqueleto), en `Escritorio\Mistborn\af_fixed`: `walk`, `sprint`, `sad_walk`, `carry_walk`,
+`crouch_walk` con *Foot lock* (ojo: solo se aplica si el ciclo está *adjusted*, o sea con algún valor
+de Gait cambiado), y los esquives y golpes de Mixamo (`dodge_*`, `hit_*`). Van en el comando de arriba
+en lugar de `walk_loop` y `sprint_loop`; después se regenera el skaa con
+`tools/blender/rig_like_mistborn.py`. Esquives y golpes se desplazan de verdad (1 a 1,7 m): conservan
+el root (`ROOT_MOTION` en el script y en `ModelRig`) y el juego mueve al personaje con ese avance.
+
 Todo lo que el modelo no traiga lo toma de KayKit automáticamente. Para añadir una animación
 nueva: bájala de Mixamo, añádela al comando del paso 3 y pon su nombre (el del archivo, con `_`
 en vez de espacios) **primero** en la lista de su estado en `ModelRig.ANIMS`.

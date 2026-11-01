@@ -90,6 +90,7 @@ var ui_open := false
 
 var allomancy: Allomancy
 var steel_iron: SteelIron
+var _step_acc := 0.0
 var atium: Atium
 var senses: TinSenses
 
@@ -176,8 +177,11 @@ var _protected_until_ms := 0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 ## Aceleración alomántica recibida en el último paso (para no frenar en seco al empujar desde el suelo).
 var _allomantic_accel := 0.0
-var _shake := 0.0
+var _shake := 0.0  # "trauma" de 0 a 1: la cámara tiembla con trauma² y ruido suave
+var _shake_noise := FastNoiseLite.new()
 var _since_damage := 99.0
+## Tras un golpe, un instante sin recibir otro (que dos golpes juntos no se lleven media vida).
+const IFRAMES := 0.4
 var _attack_cd := 0.0
 var _attack_side := 1
 var _combo := 0
@@ -316,6 +320,7 @@ func _ready() -> void:
 	_apply_equipment()
 	Art.load_suit()
 	rig.set_suit(Art.suit)
+	Sfx.start()
 	if is_local_player():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_setup_network()
@@ -400,6 +405,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed(&"drink"):
 		drink_vial()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F7:
+		_debug_next_anim()
 		return
 	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _slot_key(event):
 		return
@@ -1290,7 +1298,8 @@ func _in_deep_water() -> bool:
 		return false
 	var bed := CityPlan.river_bed(Vector2(global_position.x, global_position.z))
 	var y := global_position.y
-	return CityPlan.WATER_LEVEL - bed > SWIM_DEPTH and y < CityPlan.WATER_LEVEL - 0.05 and y > bed - 0.5
+	var top := CityPlan.water_level(Vector2(global_position.x, global_position.z))
+	return CityPlan.WATER_LEVEL - bed > SWIM_DEPTH and y < top - 0.05 and y > top - CityPlan.WATER_LEVEL + bed - 0.5
 
 
 func has_bag() -> bool:
@@ -1366,7 +1375,7 @@ func _physics_process(delta: float) -> void:
 	var guided := _assist_coin_push() or steel_iron.holding
 	if _swimming and velocity.y <= 2.0:
 		# Flota con la cabeza fuera: un resorte hacia la superficie (saltando, sale del agua).
-		var float_y := CityPlan.WATER_LEVEL - SWIM_FLOAT
+		var float_y := CityPlan.water_level(Vector2(global_position.x, global_position.z)) - SWIM_FLOAT
 		velocity.y = move_toward(velocity.y, (float_y - global_position.y) * 3.0, 15.0 * rd)
 	elif not is_on_floor():
 		# Durante el dash planeas un poco (cae más despacio).
@@ -1402,6 +1411,7 @@ func _physics_process(delta: float) -> void:
 		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
 			velocity.y = jump_velocity * jump_mult
 			rig.play_jump()
+			Sfx.play("jump", global_position)
 
 	var input := Vector2.ZERO if dead else _move_vector()
 	var dir := yaw_pivot.global_basis * Vector3(input.x, 0, input.y)
@@ -1461,12 +1471,17 @@ func _physics_process(delta: float) -> void:
 			if get_slide_collision(i).get_normal().y > 0.2:
 				_slide_t = 0.2  # margen: el contacto parpadea de un frame a otro
 	if is_on_floor() and not was_on_floor:
+		if fall_speed < -4.0:
+			Sfx.play("land_heavy" if fall_speed < -12.0 else "land_soft", global_position)
+			Sfx.step(self)
 		if fall_speed < -4.0 and _roll_time <= 0.0:
 			rig.play_land(clampf(-fall_speed / 15.0, 0.3, 1.0))
 		if fall_speed < -7.0:
 			var strength := clampf(-fall_speed / 20.0, 0.3, 1.5)
-			_shake = maxf(_shake, strength * 0.35)
+			add_trauma(strength * 0.35)
 			Fx.dust(get_tree().current_scene, global_position, strength)
+			if fall_speed < -12.0:
+				Fx.sprite(get_tree().current_scene, "heavy-landing", global_position, 2.2 * strength, Color.WHITE, null, false)
 	# Impacto = velocidad perdida al chocar (suelo, paredes o techo). Contra una pared (de costado)
 	# cuenta el 60 %: volando con acero te frenas con brazos y piernas; cayendo, no.
 	var lost := velocity_before - velocity
@@ -1523,6 +1538,26 @@ func _find_ledge(moving: Vector3) -> Dictionary:
 		var up := PhysicsRayQueryParameters3D.create(top + Vector3.UP * 0.1, top + Vector3.UP * 1.9, Props.LAYER_WORLD, [get_rid()])
 		if not space.intersect_ray(up).is_empty():
 			continue
+		# Que se pueda llegar: nada entre tu cabeza y el borde (si no, el "borde" es el piso de arriba
+		# visto a través del techo, o lo de arriba de un dintel, y al trepar atravesarías la pared).
+		var head := global_position + Vector3.UP * 1.7
+		var lip := top + Vector3.UP * 0.4 + nh * 0.25
+		var corner := Vector3(head.x, lip.y, head.z)
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(head, corner, Props.LAYER_WORLD, [get_rid()])).is_empty():
+			continue
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(corner, lip, Props.LAYER_WORLD, [get_rid()])).is_empty():
+			continue
+		# Y que quepas parado arriba.
+		var q := PhysicsShapeQueryParameters3D.new()
+		var cap := CapsuleShape3D.new()
+		cap.radius = 0.35
+		cap.height = 1.7
+		q.shape = cap
+		q.transform = Transform3D(Basis(), top + Vector3.UP * 0.95 - nh * 0.45)
+		q.collision_mask = Props.LAYER_WORLD
+		q.exclude = [get_rid()]
+		if not space.intersect_shape(q, 1).is_empty():
+			continue
 		return {"top": top, "normal": nh, "wall": p}
 	return {}
 
@@ -1541,7 +1576,7 @@ func _grab_ledge(ledge: Dictionary) -> void:
 	visual.rotation.y = atan2(nh.x, nh.z)  # de cara a la pared
 	rig.hanging = true
 	Fx.dust(get_tree().current_scene, top, 0.4)
-	_shake = maxf(_shake, 0.15)
+	add_trauma(0.15)
 
 
 ## Colgado: W o Espacio suben al borde; S o Shift te sueltan.
@@ -1587,7 +1622,23 @@ func is_hanging() -> bool:
 	return _hanging
 
 
+## Pasos al ritmo de la zancada (cada ~0,7 m caminando, ~1,4 m corriendo); nadando, brazadas.
+func _footsteps(rd: float) -> void:
+	var speed := Vector2(velocity.x, velocity.z).length()
+	if speed < 0.6 or not (is_on_floor() or _swimming):
+		_step_acc = 0.0
+		return
+	_step_acc += speed * rd
+	if _step_acc >= clampf(0.45 + speed * 0.13, 0.65, 1.7) * (1.8 if _swimming else 1.0):
+		_step_acc = 0.0
+		if _swimming:
+			Sfx.play("step_water", global_position)
+		else:
+			Sfx.step(self)
+
+
 func _update_rig(hv: Vector2, rd: float) -> void:
+	_footsteps(rd)
 	rig.move_speed = Vector2(velocity.x, velocity.z).length()
 	rig.vertical_speed = velocity.y
 	rig.on_floor = is_on_floor() or _swimming
@@ -1651,9 +1702,12 @@ func _process(delta: float) -> void:
 		_auto_drawn = false
 		weapon = HumanoidRig.Weapon.NONE
 		rig.set_weapon(weapon)
-	_shake = move_toward(_shake, 0.0, rd * 1.2)
-	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.25
-	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.25
+	_shake = move_toward(_shake, 0.0, rd)
+	var amp := _shake * _shake
+	var nt := Time.get_ticks_msec() * 0.02
+	camera.h_offset = _shake_noise.get_noise_2d(nt, 0.0) * amp * 0.8
+	camera.v_offset = _shake_noise.get_noise_2d(0.0, nt) * amp * 0.8
+	camera.rotation.z = _shake_noise.get_noise_2d(nt, nt) * amp * 0.06
 	if net_peer_id != 0:
 		# Protegido tras reaparecer: parpadea (el servidor lo marca, ambos clientes lo dibujan).
 		visual.visible = not net_protected or int(Time.get_ticks_msec() / 120.0) % 2 == 0
@@ -1798,11 +1852,28 @@ func concealment() -> float:
 	return gear_stat("conceal_night" if Art.lighting == "noche" else "conceal_day")
 
 
+## shortcut: tecla de prueba (F7) para ver las animaciones de Mixamo sin asignar; borrarla cuando
+## los poderes las usen.
+const DEBUG_ANIMS := ["coin_wave", "coin_shield", "steel_push", "iron_pull", "coin_flick", "burn_focus",
+		"pewter_flex", "block", "dodge_left", "dodge_right", "hit_front", "hit_back", "hit_left", "hit_right",
+		"get_up", "crouch_idle", "crouch_walk", "climb_wall", "vault", "fall_roll", "freefall", "drink",
+		"open_door", "sit"]
+var _debug_anim := -1
+
+
+func _debug_next_anim() -> void:
+	_debug_anim = (_debug_anim + 1) % DEBUG_ANIMS.size()
+	var anim: String = DEBUG_ANIMS[_debug_anim]
+	rig.play_spell(anim, 60.0)  # duración larga: se reproduce a su velocidad natural
+	notice.emit("F7: %s (%d/%d)" % [anim, _debug_anim + 1, DEBUG_ANIMS.size()])
+
+
 ## Bebe un frasco: recupera de cada metal salvo atium (según el tipo de frasco).
 func drink_vial() -> void:
 	if dead or equipment.get("vials", "") == "" or vial_charges <= 0:
 		return
 	vial_charges -= 1
+	Sfx.play("drink")
 	var refill := Items.stat(equipment["vials"], "refill", 40.0)
 	for m in Allomancy.METALS:  # todo menos el atium
 		if m != &"atium":
@@ -1832,6 +1903,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 		mark_combat()
 		dodged.emit()
 		return
+	if _since_damage < IFRAMES:
+		return
 	# Con atium, el atacante ve el hueco: ni armadura ni peltre frenan el golpe.
 	var unblockable := attacker != null and Metals.atium_edge(attacker, self)
 	if _shield > 0 and not unblockable and not ranged and randf() < SkillTree.shield_block_chance(_shield):
@@ -1851,6 +1924,7 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 	mark_combat()
 	if attacker and attacker.has_method(&"mark_combat"):
 		attacker.mark_combat()
+	HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
 	take_damage(damage / (1.0 + 0.6 * pewter))
 
 
@@ -1858,13 +1932,20 @@ func is_down() -> bool:
 	return dead
 
 
+## Suma "trauma" a la cámara (0 a 1); el temblor va con su cuadrado y se apaga en ~1 s.
+func add_trauma(amount: float) -> void:
+	_shake = minf(_shake + amount, 1.0)
+
+
 func take_damage(amount: float, impact_speed := 0.0) -> void:
 	if dead:
 		return
 	health -= amount
+	Sfx.play("hurt", global_position + Vector3(0, 1.2, 0))
 	_since_damage = 0.0
-	_shake = maxf(_shake, clampf(amount / 60.0, 0.2, 0.7))
+	add_trauma(clampf(amount / 40.0, 0.3, 0.8))
 	rig.stagger = 1.0
+	rig.flash()
 	damaged.emit(amount, impact_speed)
 	if health <= 0.0:
 		_die()
@@ -1923,6 +2004,7 @@ func attack() -> void:
 		velocity += fwd * 4.0  # el remate va con una estocada hacia delante
 		_shoved = 0.15
 	rig.play_attack(_attack_side, duration, _combo)
+	Sfx.play("swing", global_position + Vector3(0, 1.2, 0))
 	get_tree().create_timer(duration * (0.55 if finisher else 0.4), true, false, true).timeout.connect(
 			_resolve_hit.bind(stats, pewter, step[1], step[2], 1.2, 0.0, finisher))
 
@@ -1966,16 +2048,22 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 			continue
 		var crit := randf() < Metals.crit_chance(self, npc)
 		npc.take_hit(to.normalized() * knockback, damage * (Metals.CRIT_MULT if crit else 1.0), self)
+		var hit_sound := "punch_heavy" if heavy else "punch"
+		if weapon != HumanoidRig.Weapon.NONE:
+			hit_sound = "clash" if npc.is_in_group(&"metal") else "slash"
+		Sfx.play(hit_sound, npc.global_position + Vector3(0, 1.2, 0))
+		add_trauma(0.12)
 		mark_combat()
 		if crit:
-			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.45, Metals.ATIUM_COLOR)
-			_shake = maxf(_shake, 0.3)
+			Fx.sprite(get_tree().current_scene, "crit-hit", npc.global_position + Vector3(0, 1.2, 0), 2.2, Metals.ATIUM_COLOR, chest_position())
+			add_trauma(0.3)
 		var color := Color(1.0, 0.7, 0.4) if npc.is_in_group(&"metal") else Color(0.6, 0.1, 0.1)
 		Fx.sparks(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), color)
+		Fx.sprite(get_tree().current_scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
 		if npc.is_in_group(&"metal"):
 			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.3)
 		if heavy:
-			_shake = maxf(_shake, 0.35)
+			add_trauma(0.35)
 	for n in get_tree().get_nodes_in_group(&"metal"):
 		var rb := n as RigidBody3D
 		if rb == null:
@@ -2024,6 +2112,7 @@ func _start_roll(dir: Vector3) -> void:
 	_roll_cd = roll_duration + 0.15
 	visual.rotation.y = atan2(-_roll_dir.x, -_roll_dir.z)
 	rig.play_roll(roll_duration)
+	Sfx.play("roll", global_position)
 	Fx.dust(get_tree().current_scene, global_position, 0.5)
 
 
@@ -2076,6 +2165,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	_shot_speed = speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_throw()
+	Sfx.play("coin_throw", global_position + Vector3(0, 1.2, 0))
 	return coin
 
 

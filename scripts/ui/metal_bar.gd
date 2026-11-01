@@ -30,6 +30,9 @@ var _frame_rect := Rect2(20, 150, 800, 34)
 var _compass_c := Vector2(420, 167)
 var _health_rect := Rect2(104, 157, 272, 20)
 var _stamina_rect := Rect2(464, 157, 272, 20)
+var _trail_hold := 0.0  # el tramo perdido se ve un momento antes de bajar
+var _last_health := 100.0
+var _panel := StyleBoxFlat.new()
 
 
 func _ready() -> void:
@@ -48,7 +51,15 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var rd := delta / Engine.time_scale
-	_trail = player.health if player.health > _trail else move_toward(_trail, player.health, rd * 25.0)
+	if player.health < _last_health:
+		_trail_hold = 0.45
+	_last_health = player.health
+	_trail_hold -= rd
+	if player.health > _trail:
+		_trail = player.health
+	elif _trail_hold <= 0.0:
+		# Baja rápido al principio y frena al llegar (ease out).
+		_trail = move_toward(_trail, player.health, rd * maxf(25.0, (_trail - player.health) * 6.0))
 	var s := HudKit.ui_scale(self)
 	scale = Vector2(s, s)
 	queue_redraw()

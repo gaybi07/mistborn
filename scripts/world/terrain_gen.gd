@@ -60,7 +60,7 @@ static func body(mesh: ArrayMesh, pos: Vector3, mat: Material) -> StaticBody3D:
 	b.collision_mask = 0
 	b.position = pos
 	var col := CollisionShape3D.new()
-	col.shape = mesh.create_trimesh_shape()
+	col.shape = ModelKit.solid_trimesh(mesh)
 	b.add_child(col)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh

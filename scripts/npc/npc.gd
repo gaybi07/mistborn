@@ -38,6 +38,7 @@ var body_height := 1.8
 var face_point: Variant = null
 
 var _world_time := 0.0
+var _step_acc := 0.0
 var _desired := Vector3.ZERO
 var _pending := Vector3.ZERO
 var _switch_at := INF
@@ -189,6 +190,19 @@ func apply_allomantic_impulse(dv: Vector3) -> void:
 
 
 ## Golpe cuerpo a cuerpo o de moneda: empujón, daño y, si se queda sin vida, noqueado un rato.
+## Pasos de la gente que está cerca de la cámara (los demás no se oirían).
+func _footsteps(delta: float) -> void:
+	var speed := Vector2(velocity.x, velocity.z).length()
+	if speed < 0.6 or not is_on_floor():
+		return
+	_step_acc += speed * delta
+	if _step_acc >= clampf(0.45 + speed * 0.13, 0.65, 1.7):
+		_step_acc = 0.0
+		var cam := get_viewport().get_camera_3d()
+		if cam and cam.global_position.distance_to(global_position) < 18.0:
+			Sfx.step(self, -4.0)
+
+
 func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	apply_allomantic_impulse(impulse + Vector3.UP * impulse.length() * 0.25)
 	if down:
@@ -199,6 +213,9 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if is_rioted():
 		damage *= 1.25
 	_on_hit(attacker)
+	if damage > 0.0:
+		rig.flash()
+		HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
 	health -= damage
 	if health <= 0.0:
 		down = true
@@ -247,6 +264,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, _desired.z, accel * delta)
 	velocity.y -= _gravity * delta
 	move_and_slide()
+	_footsteps(delta)
 	_update_facing(delta)
 
 	rig.move_speed = Vector2(velocity.x, velocity.z).length()

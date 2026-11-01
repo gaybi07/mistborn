@@ -38,7 +38,7 @@ func _init() -> void:
 	for iz in n:
 		for ix in n:
 			var p := Vector2(-HALF + ix * SPACING, -HALF + iz * SPACING)
-			height.set_pixel(ix, iz, Color(CityPlan.river_bed(p), 0, 0))
+			height.set_pixel(ix, iz, Color(CityPlan.ground(p) + CityPlan.river_bed(p), 0, 0))
 			var c := land
 			if KredikCitadel.ground(p - CityPlan.HILL) > 0.0 or Workshop.GROUND_HOLE.has_point(p) or VentureManor.GROUND_HOLE.has_point(p):
 				c = hole

@@ -165,6 +165,27 @@ const UE_TO_UE := [
 	["foot_r", "foot_r", "ball_r", "aim"],
 ]
 
+## Mapeo Mixamo (fuente, sin "mixamorig:"; ver tools/blender/mixamo_to_glb.py) -> rig de ActionForge
+## (destino, nombres tipo Unreal): para usar animaciones de Mixamo en el personaje del jugador.
+const MIXAMO_TO_UE := [
+	["pelvis", "Hips", "", "root"],
+	["spine_01", "Spine", "Spine2", "aim"],
+	["spine_03", "Spine2", "Neck", "aim"],
+	["Head", "Head", "", "rot"],
+	["upperarm_l", "LeftArm", "LeftForeArm", "aim"],
+	["lowerarm_l", "LeftForeArm", "LeftHand", "aim"],
+	["hand_l", "LeftHand", "", "rot"],
+	["upperarm_r", "RightArm", "RightForeArm", "aim"],
+	["lowerarm_r", "RightForeArm", "RightHand", "aim"],
+	["hand_r", "RightHand", "", "rot"],
+	["thigh_l", "LeftUpLeg", "LeftLeg", "aim"],
+	["calf_l", "LeftLeg", "LeftFoot", "aim"],
+	["foot_l", "LeftFoot", "LeftToeBase", "aim"],
+	["thigh_r", "RightUpLeg", "RightLeg", "aim"],
+	["calf_r", "RightLeg", "RightFoot", "aim"],
+	["foot_r", "RightFoot", "RightToeBase", "aim"],
+]
+
 ## Mapeo KayKit (fuente) -> Quaternius (destino).
 const KAYKIT_TO_QUATERNIUS := [
 	["Body", "hips", "", "root"],

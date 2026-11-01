@@ -73,7 +73,15 @@ func set_state(metal: StringName, new_state: State) -> void:
 		new_state = State.OFF
 	if new_state == State.FLARE and flare_blocked:
 		new_state = State.BURN
+	var old: State = state[metal]
 	state[metal] = new_state
+	if old != new_state and get_parent() is Player:
+		if new_state == State.OFF:
+			Sfx.play("burn_off")
+		elif new_state == State.FLARE:
+			Sfx.play("flare" if metal == &"pewter" else "burn_on", null, 4.0)
+		elif old == State.OFF:
+			Sfx.play("atium" if metal == &"atium" else "burn_on")
 
 
 ## Metales que se manejan con la tecla `key` (cada tecla es un metal).

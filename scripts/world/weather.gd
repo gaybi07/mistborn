@@ -147,13 +147,13 @@ func apply(show_label := true) -> void:
 		# Sol rojo de Luthadel tras nubes de ceniza pardas.
 		sky = [Color(0.36, 0.27, 0.25), Color(0.78, 0.5, 0.38), Color(0.2, 0.17, 0.16), Color(0.33, 0.25, 0.22),
 				Color(0.95, 0.6, 0.42), 0.62, 0.0, Color(0.75, 0.16, 0.07), 0.06]
-		env.ambient_light_energy = 1.0
+		env.ambient_light_energy = 1.35
 		env.fog_light_color = Color(0.75, 0.55, 0.45)
 		env.volumetric_fog_density = 0.004 * fog_mult
 		env.volumetric_fog_albedo = Color(0.9, 0.75, 0.65)
 		moon.rotation_degrees = Vector3(-22, -40, 0)
 		moon.light_color = Color(1.0, 0.68, 0.5)
-		_moon_energy = 1.8
+		_moon_energy = 2.1
 	else:
 		# Noche de bruma: luna velada, nubes oscuras con el borde plateado y alguna estrella.
 		sky = [Color(0.02, 0.025, 0.045), Color(0.15, 0.14, 0.16), Color(0.02, 0.02, 0.03), Color(0.045, 0.045, 0.055),
@@ -165,7 +165,11 @@ func apply(show_label := true) -> void:
 		moon.rotation_degrees = Vector3(-26, 30, 0)
 		moon.light_color = Color(0.62, 0.7, 0.92)
 		_moon_energy = 0.55
-	env.tonemap_exposure = 1.0
+	# De día, más luz que la "realista" (parte de la ambiente es un color fijo y no solo el cielo). De
+	# noche se ve poco a propósito: hay que quemar estaño.
+	env.tonemap_exposure = 1.1 if day else 1.0
+	env.ambient_light_color = Color(0.62, 0.48, 0.42)
+	env.ambient_light_sky_contribution = 0.75 if day else 1.0
 
 	# --- Clima
 	if rain:
@@ -194,6 +198,9 @@ func apply(show_label := true) -> void:
 	# La bruma se acumula con la distancia: lo que ves acaba donde acaba Art.sight_range() (lo que
 	# ven los alománticos). A esa distancia queda ~45 % de nitidez de noche; el estaño la aparta.
 	env.fog_density = 0.0 if no_fog else (0.4 if day else 1.0) / Art.sight_range() * fog_scale * (0.12 if sheltered else 1.0)
+	# Nunca menos que fog_floor: lo que no se dibuja (más allá de Art.DRAW_FAR) ya está tapado.
+	if not no_fog:
+		env.fog_density = maxf(env.fog_density, Art.fog_floor())
 	moon.light_energy = _moon_energy
 	moon.light_volumetric_fog_energy = 1.0 if day else 0.5
 	var params := [&"top_color", &"horizon_color", &"ground_color", &"cloud_color", &"cloud_light",
@@ -242,11 +249,13 @@ func apply(show_label := true) -> void:
 	cap.emission_energy_multiplier = 0.0 if day else 0.35
 	cap.disable_fog = not day  # de día la niebla las tapa (si no, el oro refleja el sol)
 	var cloud: StandardMaterial3D = mats["citadel_cloud"]
-	cloud.albedo_color = Color(0.03, 0.03, 0.035, 0.7) if day else Color(env.fog_light_color * 0.9, 0.5)
+	# La bruma de Kredik Shaw es la misma que la del resto (antes, de día, era negra y la ciudadela
+	# quedaba como una mancha oscura), solo que más espesa alrededor.
+	cloud.albedo_color = Color(env.fog_light_color * 0.9, 0.6 if day else 0.5)
 	var citadel_fog: FogMaterial = mats["citadel_fog"]
 	citadel_fog.density = ext_fog.density * 5.0
-	citadel_fog.albedo = Color(0.03, 0.03, 0.035) if day else ext_fog.albedo
-	citadel_fog.emission = Color.BLACK if day else env.fog_light_color * 0.06
+	citadel_fog.albedo = ext_fog.albedo
+	citadel_fog.emission = env.fog_light_color * 0.06
 	var haze := (0.28 if day else 0.72) + (0.2 if thick else 0.0) + (0.12 if rain else 0.0) + (0.15 if ash else 0.0)
 	var mountain: ShaderMaterial = mats["mountain"]
 	mountain.set_shader_parameter(&"haze", clampf(haze * (0.3 if no_fog else 1.0), 0.0, 0.97))
@@ -255,10 +264,12 @@ func apply(show_label := true) -> void:
 	(mats["citadel_glass_lit"] as ShaderMaterial).set_shader_parameter(&"glow_energy", 0.0 if day else 4.0)
 	for key in ["citadel_rock", "citadel_stone", "citadel_wall", "citadel_roof", "citadel_trim", "citadel_glass", "citadel_glass_lit", "citadel_red"]:
 		var m: ShaderMaterial = mats[key]
-		m.set_shader_parameter(&"haze_color", Color(0.04, 0.04, 0.05) if day else env.fog_light_color)
-		m.set_shader_parameter(&"haze_brightness", 1.0 if day else 0.6)  # de noche, un velo gris sobre el cielo negro
-		m.set_shader_parameter(&"haze_density", 0.007 * (0.0 if no_fog else (1.5 if thick else 1.0)) * (1.2 if bad_weather else 1.0))
-		m.set_shader_parameter(&"haze_max", 0.92)
+		# Se pierde en la bruma como todo lo demás: mismo color y al menos la misma densidad que la
+		# niebla del motor (que estos materiales no reciben); casi del todo (haze_max).
+		m.set_shader_parameter(&"haze_color", env.fog_light_color)
+		m.set_shader_parameter(&"haze_brightness", 0.62 if day else 0.6)  # como la bruma de alrededor, no más clara
+		m.set_shader_parameter(&"haze_density", maxf(0.007 * (0.0 if no_fog else (1.5 if thick else 1.0)) * (1.2 if bad_weather else 1.0), env.fog_density))
+		m.set_shader_parameter(&"haze_max", 0.97)
 		# Siempre envuelto: la bruma sube hasta media aguja. La roca no (si no, el pie del cordón
 		# de picos se ve como un muro liso).
 		m.set_shader_parameter(&"haze_height", 1.0 if key == "citadel_rock" else 90.0)

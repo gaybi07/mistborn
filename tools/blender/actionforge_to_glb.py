@@ -9,13 +9,16 @@ Uso (desde la carpeta del proyecto):
   -> "sprint"; Godot quitaría "_loop" al importar de todos modos). Ese nombre es el que va en
   ModelRig.ANIMS; qué se repite lo decide ModelRig.LOOPING.
 - Animaciones "en el lugar": se anula el desplazamiento del hueso root (el juego mueve al
-  personaje). La cadera conserva su subida y bajada (caer, agacharse).
+  personaje), salvo las de ROOT_MOTION. La cadera conserva su subida y bajada (caer, agacharse).
 - ActionForge exporta el color como emisión (se vería sin sombras): se pasa a color base.
 """
 import bpy, os, sys
 
 TEXTURE_SIZE = 1024
 SUFFIX = "_adjusted_fit"
+# Se desplazan de verdad (esquives, golpes que te empujan): conservan el avance del root y el juego
+# mueve al personaje con él (ModelRig.ROOT_MOTION). En el lugar los pies patinarían más de un metro.
+ROOT_MOTION = {"dodge_left", "dodge_right", "hit_front", "hit_back", "hit_left", "hit_right"}
 
 out_path, *anim_paths = sys.argv[sys.argv.index("--") + 1:]
 
@@ -43,7 +46,7 @@ for i, path in enumerate(anim_paths):
     if action:
         action.name = os.path.splitext(os.path.basename(path))[0].replace(SUFFIX, "").removesuffix("_loop")
         for fc in fcurves(action):
-            if fc.data_path == 'pose.bones["root"].location':
+            if fc.data_path == 'pose.bones["root"].location' and action.name not in ROOT_MOTION:
                 for k in fc.keyframe_points:
                     k.co[1] = k.handle_left[1] = k.handle_right[1] = 0.0
         action.use_fake_user = True

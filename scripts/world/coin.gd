@@ -32,6 +32,7 @@ var _born_ms := Time.get_ticks_msec()
 var _left_shooter := false
 var _homing: Node3D = null
 var _homing_rolled := false
+var _sound_at := 0
 
 
 func _ready() -> void:
@@ -44,6 +45,8 @@ func _ready() -> void:
 	contact_monitor = true
 	max_contacts_reported = 2
 	body_entered.connect(_on_body_entered)
+	# Quieta en el suelo no hace falta seguirla (hay cientos por la ciudad y Kredik Shaw).
+	sleeping_state_changed.connect(func() -> void: set_physics_process(not sleeping))
 
 
 func _physics_process(delta: float) -> void:
@@ -100,6 +103,10 @@ func _pick_target() -> Node3D:
 
 func _on_body_entered(body: Node) -> void:
 	var speed := _last_velocity.length()
+	if speed > 2.5 and Time.get_ticks_msec() - _sound_at > 120:
+		_sound_at = Time.get_ticks_msec()
+		var hit := "coin_hit" if speed >= HARMFUL_SPEED and body.has_method(&"take_hit") else ("coin_metal" if body.is_in_group(&"metal") else "coin_stone")
+		Sfx.play(hit, global_position, clampf((speed - 12.0) / 3.0, -10.0, 3.0), 35.0)
 	if speed < HARMFUL_SPEED or body == shooter or body == pull_owner or not body.has_method(&"take_hit"):
 		return
 	var damage := clampf((speed - 10.0) * 1.1, 3.0, 25.0)

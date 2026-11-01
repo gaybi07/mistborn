@@ -52,6 +52,48 @@ static func footprint(model_path: String, scale: float) -> float:
 	return maxf(s.x, s.z) * scale / 2.0
 
 
+## Modelos que se atraviesan por un hueco (portones de la muralla, glorieta): colisión exacta.
+const OPEN_MODELS := ["Entrance", "Gazebo"]
+
+
+## Colisión de un modelo: una envolvente convexa por pieza (maciza: no se puede entrar al hueco de
+## una casa o una torre ni atravesar sus paredes desde adentro), o la malla exacta de dos caras para
+## los que tienen pasos (OPEN_MODELS).
+static func shapes(model_path: String, scale: float) -> Array:
+	for word: String in OPEN_MODELS:
+		if word in model_path:
+			return [shape(model_path, scale)]
+	# La envolvente se calcula una vez por modelo; cada escala (redondeada) solo la estira.
+	var base_key := "hull|" + model_path
+	if not _shapes.has(base_key):
+		var pts := []
+		for part in parts(model_path):
+			var hull := (part[0] as Mesh).create_convex_shape(true, false)
+			if hull and hull.points.size() >= 4:
+				pts.append((part[1] as Transform3D) * hull.points)
+		_shapes[base_key] = pts
+	var sc := snappedf(scale, 0.05)
+	var key := "%s|%s" % [base_key, sc]
+	if _shapes.has(key):
+		return _shapes[key]
+	var out := []
+	for pts: PackedVector3Array in _shapes[base_key]:
+		var hull := ConvexPolygonShape3D.new()
+		hull.points = Transform3D(Basis.from_scale(Vector3.ONE * sc), Vector3.ZERO) * pts
+		out.append(hull)
+	if out.is_empty():
+		out = [shape(model_path, scale)]
+	_shapes[key] = out
+	return out
+
+
+## Malla exacta como colisión, de dos caras: no se atraviesa ni desde adentro.
+static func solid_trimesh(mesh: Mesh) -> ConcavePolygonShape3D:
+	var shp := mesh.create_trimesh_shape()
+	shp.backface_collision = true
+	return shp
+
+
 static func shape(model_path: String, scale: float) -> ConcavePolygonShape3D:
 	var key := "%s|%s" % [model_path, scale]
 	if _shapes.has(key):
@@ -64,6 +106,7 @@ static func shape(model_path: String, scale: float) -> ConcavePolygonShape3D:
 			faces.append(xf * v)
 	var shp := ConcavePolygonShape3D.new()
 	shp.set_faces(faces)
+	shp.backface_collision = true
 	_shapes[key] = shp
 	return shp
 

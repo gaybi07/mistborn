@@ -10,6 +10,7 @@ var _t := randf() * 10.0
 
 
 func _ready() -> void:
+	Sfx.loop(self, "fire_loop", 14.0, -6.0)
 	collision_layer = Props.LAYER_WORLD
 	collision_mask = 0
 	if is_metal:
