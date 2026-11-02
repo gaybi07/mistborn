@@ -44,7 +44,7 @@ signal damaged(amount: float, impact_speed: float)
 signal died
 ## Esquivaste un golpe gracias al atium (el atacante no lo quemaba).
 signal dodged
-## Aviso corto para el HUD ("sin bolsa", "recogiste la bolsa"...).
+## Aviso corto para el HUD ("sin monedas", "nivel 5"...).
 signal notice(text: String)
 
 ## Armas: daño y empuje base (el peltre los multiplica) y alcance.
@@ -277,8 +277,6 @@ var _shoved := 0.0
 var _auto_drawn := false
 var _fists_chosen := false
 ## Bolsa de monedas soltada en el suelo (null: la llevas encima).
-var _bag: MetalBag = null
-var _bag_dropped_ms := 0
 var _guide: JumpGuide
 ## Agarrarse a bordes: te agarras si el choque contra la pared no te haría más de este daño.
 const LEDGE_MAX_DAMAGE := 10.0
@@ -475,8 +473,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start_coin_shot()
 	elif event.is_action_released(&"coin_shot"):
 		_end_coin_push()
-	elif event.is_action_pressed(&"drop_bag"):
-		toggle_bag()
 	elif event.is_action_pressed(&"weapon_cycle"):
 		var step := -1 if (event as InputEventMouseButton).button_index == MOUSE_BUTTON_WHEEL_DOWN else 1
 		if steel_iron.cycle_target(step):
@@ -1110,6 +1106,9 @@ var _shot_speed := 0.0
 func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void:
 	if dead:
 		return
+	if not skill_unlocked(&"steel_combat_coin"):
+		notice.emit("Moneda de combate bloqueada: gasta un punto en acero (K)")
+		return
 	var coin := throw_coin(aim_target, aim_dir)
 	if coin == null:
 		return
@@ -1220,7 +1219,7 @@ func _engage_coin_push(coin: RigidBody3D) -> void:
 
 ## Salto de acero: con el acero encendido y monedas en el monedero.
 func _can_steel_jump() -> bool:
-	return not dead and has_bag() and coins_held > 0 and allomancy.strength(&"steel") > 0.0 \
+	return not dead and coins_held > 0 and allomancy.strength(&"steel") > 0.0 \
 			and steel_iron.auto_push == null and Time.get_ticks_msec() >= _net_coin_ready_ms
 
 
@@ -1258,6 +1257,12 @@ func _assist_coin_push() -> bool:
 				coin.gravity_scale = 1.0
 				steel_iron.auto_push = object
 				return true
+			if _coin_shot:
+				var now := Time.get_ticks_msec()
+				if now < _anchor_ready_ms or coin.global_position.distance_to(chest_position()) > ANCHOR_RANGE:
+					_end_coin_push()  # sin recarga o demasiado lejos: la moneda solo cae
+					return false
+				_anchor_ready_ms = now + ANCHOR_COOLDOWN_MS
 			coin.set_deferred(&"freeze", true)
 			coin.linear_velocity = Vector3.ZERO
 		elif coin.linear_velocity.length() > GUIDED_COIN_SPEED and not _coin_shot:
@@ -1305,40 +1310,6 @@ func _movable_contact(coin: RigidBody3D) -> RigidBody3D:
 	return null
 
 
-## Soltar la bolsa (F): sin metal encima nadie puede empujarte ni tirar de ti, pero tampoco
-## tienes monedas. F cerca de ella (o pasar por encima) la recoge.
-func toggle_bag() -> void:
-	if dead:
-		return
-	if _bag == null:
-		_bag = MetalBag.new()
-		get_tree().current_scene.add_child(_bag)
-		_bag.global_position = global_position + Vector3(0, 0.4, 0) - visual.global_basis.z * 0.5
-		_bag.linear_velocity = velocity * 0.5
-		_bag_dropped_ms = Time.get_ticks_msec()
-		_update_metal_group()
-		if carries_metal():
-			notice.emit("Soltaste la bolsa, pero llevás otro metal encima (mirá el inventario)")
-		else:
-			notice.emit("Soltaste la bolsa: nadie puede empujarte, pero no tenés monedas")
-		return
-	var d := _bag.global_position.distance_to(global_position)
-	if d < 2.5:
-		_pick_up_bag()
-	else:
-		notice.emit("Tu bolsa está a %d m (traéla con hierro o andá a buscarla)" % int(d))
-
-
-func _pick_up_bag(animate := true) -> void:
-	if animate:
-		rig.play_pickup()
-	if is_instance_valid(_bag):
-		_bag.queue_free()
-	_bag = null
-	_update_metal_group()
-	notice.emit("Recogiste la bolsa de monedas")
-
-
 ## En el río, donde el agua cubre más de SWIM_DEPTH (solo en escenarios con río).
 func _in_deep_water() -> bool:
 	if get_tree().get_node_count_in_group(&"water") == 0:
@@ -1347,22 +1318,6 @@ func _in_deep_water() -> bool:
 	var y := global_position.y
 	var top := CityPlan.water_level(Vector2(global_position.x, global_position.z))
 	return CityPlan.WATER_LEVEL - bed > SWIM_DEPTH and y < top - 0.05 and y > top - CityPlan.WATER_LEVEL + bed - 0.5
-
-
-func has_bag() -> bool:
-	return _bag == null
-
-
-func _update_bag() -> void:
-	if _bag == null:
-		return
-	if not is_instance_valid(_bag) or _bag.global_position.y < -40.0:
-		_pick_up_bag(false)  # se perdió: aparece de nuevo contigo
-		return
-	# Pasar por encima la recoge (no justo al soltarla).
-	if Time.get_ticks_msec() - _bag_dropped_ms > 1200 \
-			and _bag.global_position.distance_to(global_position + Vector3(0, 0.5, 0)) < 1.1:
-		_pick_up_bag()
 
 
 func mark_combat() -> void:
@@ -1395,6 +1350,7 @@ func _physics_process(delta: float) -> void:
 	_update_practice_xp(rd)
 	_update_shield(rd)
 	_update_field()
+	_update_landing_cue()
 	_update_pewter_drag(rd)
 	allomancy.flare_blocked = is_soothed()
 	var pewter := allomancy.strength(&"pewter")
@@ -1410,7 +1366,6 @@ func _physics_process(delta: float) -> void:
 	if blocking:
 		speed_mult *= BLOCK_SPEED
 
-	_update_bag()
 	_collect_coins()
 	_ledge_cd -= rd
 	var was_swimming := _swimming
@@ -1850,14 +1805,9 @@ func gear_stat(key: String, additive := false) -> float:
 	return v
 
 
-## Llevas algo de metal encima (bolsa de monedas o un objeto metálico): te pueden empujar.
+## Siempre llevas metal encima (el monedero): los alománticos te pueden empujar y tirar de ti.
 func carries_metal() -> bool:
-	if has_bag():
-		return true
-	for id: String in equipment.values():
-		if id != "" and Items.get_item(id).get("metal", false):
-			return true
-	return false
+	return true
 
 
 func _update_metal_group() -> void:
@@ -2366,17 +2316,138 @@ func aim_point(max_dist := 150.0) -> Vector3:
 ## ve la cámara (el del mundo bajo el puntero, o uno lejano en esa dirección si no hay nada), en línea
 ## recta (sin gravedad mientras vuela). Con acero va empujada y más rápida (como una bala).
 ## `aim_target` es el punto que ve la cámara y `aim_dir` su dirección (en red los manda el cliente).
+## Ángulo mínimo (grados bajo la horizontal) al que sale la moneda de combate cuando estás cayendo.
+const LANDING_COIN_PITCH := 55.0
+## Moneda de combate (clic derecho): ancla instantánea sobre lo fijo hasta ANCHOR_RANGE (m), con ANCHOR_COOLDOWN_MS entre
+## impulsos, y proyectil rápido (COIN_SHOT_SPEED m/s) para enemigos, objetos sueltos y lo lejano.
+const COIN_SHOT_SPEED := 60.0
+const ANCHOR_RANGE := 25.0
+const ANCHOR_COOLDOWN_MS := 1000
+var _anchor_ready_ms := 0
+## 0 o 1: estás a distancia de impulsarte con la moneda del objeto que apuntas (lo muestra el HUD con un aro sutil en la mira).
+var landing_cue := 0.0
+
+
+## Cayendo, la dirección de la moneda baja al menos LANDING_COIN_PITCH grados bajo la horizontal (hacia donde miras): el
+## suelo queda debajo y el empuje te frena, en vez de lanzarte hacia atrás por un suelo lejano.
+func _landing_clamp(dir: Vector3) -> Vector3:
+	if is_on_floor() or velocity.y > -3.0 or dir.y <= -sin(deg_to_rad(LANDING_COIN_PITCH)):
+		return dir
+	var flat := Vector3(dir.x, 0.0, dir.z)
+	if flat.length() < 0.01:
+		return Vector3.DOWN
+	return flat.normalized() * cos(deg_to_rad(LANDING_COIN_PITCH)) + Vector3.DOWN * sin(deg_to_rad(LANDING_COIN_PITCH))
+
+
+## Lo fijo (suelo, pared, farola) que toca un rayo desde el pecho hasta ANCHOR_RANGE; vacío si no hay nada o es gente u un
+## objeto suelto.
+func _fixed_hit(start: Vector3, dir: Vector3) -> Dictionary:
+	var query := PhysicsRayQueryParameters3D.create(start, start + dir * ANCHOR_RANGE, Props.LAYER_WORLD | Props.LAYER_PROPS, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return {}
+	var body: Object = hit["collider"]
+	if body is CharacterBody3D or (body is RigidBody3D and not (body as RigidBody3D).freeze):
+		return {}
+	return hit
+
+
+## Efectos que tienes ahora, para los iconos flotantes sobre la barra del HUD: id, nombre, si es bueno (buff), segundos
+## que quedan (-1 si no tiene tiempo), duración total y el metal cuyo símbolo se dibuja.
+func active_effects() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var now := Time.get_ticks_msec()
+	if _shield > 0:
+		out.append({"id": &"shield", "name": "Escudo de monedas", "buff": true, "left": maxf((_shield_until_ms - now) / 1000.0, 0.0), "total": SkillTree.SHIELD_DURATION, "metal": &"steel"})
+	if _field_shell != null and _field_shell.visible:
+		out.append({"id": &"field", "name": "Campo magnético", "buff": true, "left": maxf((_field_until_ms - now) / 1000.0, 0.0), "total": SkillTree.FIELD_DURATION, "metal": &"steel"})
+	if net_protected:
+		out.append({"id": &"protected", "name": "Protegido", "buff": true, "left": -1.0, "total": 0.0, "metal": &"pewter"})
+	if pewter_drag() > 0.0:
+		out.append({"id": &"drag", "name": "Arrastre de peltre", "buff": false, "left": pewter_drag(), "total": PEWTER_DRAG_TIME, "metal": &"pewter"})
+	if is_soothed():
+		out.append({"id": &"soothed", "name": "Aplacado", "buff": false, "left": maxf((_soothed_ms - now) / 1000.0, 0.0), "total": 2.0, "metal": &"brass"})
+	if is_rioted():
+		out.append({"id": &"rioted", "name": "Enardecido", "buff": false, "left": maxf((_rioted_ms - now) / 1000.0, 0.0), "total": 2.0, "metal": &"zinc"})
+	if senses != null and senses.blinded > 0.0:
+		out.append({"id": &"blinded", "name": "Encandilado", "buff": false, "left": -1.0, "total": 0.0, "metal": &"tin"})
+	if atium != null and atium.contested:
+		out.append({"id": &"atium_contested", "name": "Atium anulado", "buff": false, "left": -1.0, "total": 0.0, "metal": &"atium"})
+	if is_exhausted():
+		out.append({"id": &"exhausted", "name": "Sin aliento", "buff": false, "left": -1.0, "total": 0.0, "metal": &"pewter"})
+	return out
+
+
+## Fracción (0 a 1) que le falta a una habilidad para recargarse, para el HUD.
+func skill_cooldown(skill: StringName) -> float:
+	var now := Time.get_ticks_msec()
+	match skill:
+		&"steel_combat_coin":
+			return clampf(float(_anchor_ready_ms - now) / ANCHOR_COOLDOWN_MS, 0.0, 1.0)
+		&"steel_spear":
+			return clampf(float(_spear_ready_ms - now) / (SkillTree.SPEAR_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"steel_magnetic_field":
+			return clampf(float(_field_ready_ms - now) / (SkillTree.FIELD_COOLDOWN * 1000.0), 0.0, 1.0)
+	return 0.0
+
+
+## Si la habilidad está haciendo algo ahora (agarre sostenido, escudo o campo en marcha), para el HUD.
+func skill_active(skill: StringName) -> bool:
+	match skill:
+		&"steel_light_push":
+			return steel_iron.push_grip.active
+		&"iron_pull":
+			return steel_iron.pull_grip.active
+		&"steel_coin_shield":
+			return _shield > 0
+		&"steel_magnetic_field":
+			return _field_shell != null and _field_shell.visible
+		&"steel_combat_coin":
+			return _coin_shot
+	return false
+
+
+## Aro sutil en la mira: en el aire, cuando lo que apuntas es algo fijo (suelo, pared, farola) que está al alcance para
+## impulsarte con la moneda (ANCHOR_RANGE) y no hay que esperar la recarga. Avisa con tiempo para que lances la moneda.
+func _update_landing_cue() -> void:
+	landing_cue = 0.0
+	if not is_local_player() or dead or is_on_floor() or coins_held <= 0:
+		return
+	if Time.get_ticks_msec() < _anchor_ready_ms:
+		return
+	var dir := _landing_clamp(_burst_aim(Vector3.INF))
+	if not _fixed_hit(chest_position(), dir).is_empty():
+		landing_cue = 1.0  # está dentro de ANCHOR_RANGE: ya puedes lanzar la moneda
+
+
 func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3D:
 	if not _check_coins():
 		return null
 	var look := (aim_dir if aim_dir.is_finite() else aim_direction()).normalized()
-	var start := chest_position()
+	var start := _coin_origin(aim_target.is_finite())
 	var hit := aim_target if aim_target.is_finite() else aim_point()
 	# Un punto detrás de ti (la cámara pegada a un muro): usa uno lejano en la dirección de la mira.
 	if (hit - start).dot(look) < 0.5:
 		hit = camera.global_position + look * 150.0
-	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
-	var dir := (hit - start).normalized()
+	var speed := COIN_SHOT_SPEED
+	var dir := _landing_clamp((hit - start).normalized())
+	if dir != (hit - start).normalized():
+		hit = start + dir * 60.0
+	# Algo fijo (suelo, pared, farola) al alcance: la moneda queda clavada al instante y el empuje empieza ya. Hace falta
+	# que haya pasado la recarga del impulso. Enemigos, objetos sueltos y lo lejano van con el proyectil.
+	var now := Time.get_ticks_msec()
+	if now >= _anchor_ready_ms:
+		var fixed := _fixed_hit(start, dir)
+		if not fixed.is_empty():
+			_anchor_ready_ms = now + ANCHOR_COOLDOWN_MS
+			var anchor := _spawn_coin((fixed["position"] as Vector3) + (fixed["normal"] as Vector3) * 0.04)
+			anchor.gravity_scale = 0.0
+			anchor.freeze = true
+			_shot_point = fixed["position"]
+			_shot_speed = 0.0
+			visual.rotation.y = atan2(-dir.x, -dir.z)
+			rig.play_throw()
+			return anchor
 	var coin := _spawn_coin(start + dir * 0.35)
 	coin.gravity_scale = 0.0  # vuela en línea recta hasta el punto apuntado (se restaura en _end_coin_push)
 	coin.linear_velocity = dir * speed  # sin sumar tu velocidad: así la trayectoria pasa por la mira
@@ -2388,7 +2459,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	return coin
 
 
-## Suelta una moneda a los pies (null si no llevas la bolsa).
+## Suelta una moneda a los pies (null si no te quedan monedas).
 func drop_coin(offset := Vector3.ZERO) -> RigidBody3D:
 	if not _check_coins():
 		return null
@@ -2397,9 +2468,6 @@ func drop_coin(offset := Vector3.ZERO) -> RigidBody3D:
 
 func _check_coins() -> bool:
 	if dead:
-		return false
-	if not has_bag():
-		notice.emit("Sin bolsa no tenés monedas (F para recogerla)")
 		return false
 	if coins_held <= 0:
 		notice.emit("Sin monedas (pasá por encima de las del suelo para recogerlas)")
@@ -2469,10 +2537,12 @@ func fire_coin_burst(aim := Vector3.INF) -> void:
 	right = right.normalized() if right.length() > 0.05 else (camera.global_basis.x if camera != null else Vector3.RIGHT)
 	var view_up := right.cross(base).normalized()
 	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
-	var start := chest_position()
+	var start := _coin_origin(aim.is_finite())
 	var level := metal_level(&"steel")
-	var count := mini(SkillTree.fan_count(level), coins_held)
-	var angle := SkillTree.fan_angle(level)
+	var count := mini(SkillTree.fan_count(level, SkillTree.BURST_MIN_LEVEL), coins_held)
+	if count % 2 == 0:
+		count -= 1  # con pocas monedas también sale una cantidad impar: siempre hay una al centro
+	var angle := SkillTree.fan_angle(level, SkillTree.BURST_MIN_LEVEL)
 	for i in count:
 		var dir := base
 		if angle >= TAU:
@@ -2483,7 +2553,7 @@ func fire_coin_burst(aim := Vector3.INF) -> void:
 		elif count > 1:
 			dir = base.rotated(view_up, -angle * 0.5 + angle * i / (count - 1))
 		var coin := _spawn_coin(start + dir * 0.5)
-		coin.gravity_scale = 0.25  # cae despacio: no queda flotando
+		coin.gravity_scale = 0.08  # casi recta: cae muy despacio, para que acierte donde apuntas
 		coin.linear_velocity = dir * speed
 	rig.play_skill("coin_wave", 0.9)
 
@@ -2635,7 +2705,7 @@ func _launch_spear(aim: Vector3) -> void:
 		return
 	coins_held += 1  # _spawn_coin descuenta la última
 	var dir := _burst_aim(aim)
-	var spear := _spawn_coin(chest_position() + dir * 0.6) as Coin
+	var spear := _spawn_coin(_coin_origin(aim.is_finite()) + dir * 0.6) as Coin
 	spear.gravity_scale = 0.0
 	spear.mass = 0.5
 	spear.linear_damp = 0.0
@@ -2753,18 +2823,23 @@ func _update_field() -> void:
 func _burst_aim(aim: Vector3) -> Vector3:
 	if aim.is_finite() and aim.length() > 0.5:
 		return aim.normalized()
-	var start := chest_position()
+	return aim_direction().normalized()  # la de la cámara: pasa justo por el centro de la mira
+
+
+## Desde dónde salen las monedas que van a la mira: el punto de la línea de la cámara más cercano al pecho. Así la moneda
+## del medio viaja por la misma línea que ve la cámara y se ve justo en el centro del puntero, sin quedar desviada hacia el
+## costado del personaje. En red (la dirección la manda el cliente) sale del pecho.
+func _coin_origin(from_network := false) -> Vector3:
+	var chest := chest_position()
+	if from_network or camera == null:
+		return chest
 	var look := aim_direction().normalized()
-	var hit := aim_point()
-	# Un punto detrás de ti (la cámara pegada a un muro): usa uno lejano en la dirección de la mira.
-	if (hit - start).dot(look) < 0.5:
-		hit = camera.global_position + look * 150.0
-	return (hit - start).normalized()
+	return camera.global_position + look * maxf((chest - camera.global_position).dot(look), 0.5)
 
 
 ## Imán de monedas (con hierro encendido): las monedas sueltas del abanico vuelan hacia ti y se guardan al tocarte.
 func start_gather(aim := Vector3.INF) -> void:
-	if dead or not has_bag():
+	if dead:
 		return
 	if allomancy.strength(&"iron") <= 0.0:
 		notice.emit("Sin hierro encendido no se pueden atraer monedas")
@@ -2828,14 +2903,14 @@ func _stop_gather() -> void:
 			coin.gravity_scale = 1.0
 	_gathering.clear()
 
-## Recoge las monedas quietas del suelo que tengas bajo los pies (solo con la bolsa puesta).
+## Recoge las monedas quietas del suelo que tengas bajo los pies.
 ## No recoge las que estás usando (agarradas con acero/hierro) ni las que acabas de soltar o lanzar y
 ## todavía no se alejaron de ti (ver Coin.pickable): así la moneda que dejas bajo los pies para
 ## impulsarte no te la guardas de nuevo, y al caer de vuelta sí.
 ## Las que traes con hierro (E sobre una moneda) o con Alt+E (ver start_gather) se guardan en cuanto te
 ## tocan (a menos de COIN_CATCH_DIST del pecho), aunque vayan rápido.
 func _collect_coins() -> void:
-	if dead or coins_held >= COIN_MAX or not has_bag():
+	if dead or coins_held >= COIN_MAX:
 		_stop_gather()
 		return
 	_update_gather()

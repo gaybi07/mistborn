@@ -267,8 +267,7 @@ func _stat_keys(a: String, b: String) -> Array:
 
 func _update_summary() -> void:
 	var metal := PackedStringArray()
-	if player.has_bag():
-		metal.append("bolsa de monedas")
+	metal.append("monedero")
 	for id: String in player.equipment.values():
 		if id != "" and Items.get_item(id).get("metal", false):
 			metal.append(Items.get_item(id)["name"].to_lower())

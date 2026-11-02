@@ -15,9 +15,9 @@ const POWER_PER_LEVEL := 0.15
 
 ## id, metal, nivel de metal, tipo y nombre.
 const SKILLS := [
-	{"id": &"steel_combat_coin", "metal": &"steel", "level": 1, "kind": Kind.ACTIVE, "name": "Moneda de combate"},
-	{"id": &"steel_coin_burst", "metal": &"steel", "level": 2, "kind": Kind.ACTIVE, "name": "Ráfaga de monedas"},
-	{"id": &"steel_light_push", "metal": &"steel", "level": 4, "kind": Kind.ACTIVE, "name": "Empuje ligero"},
+	{"id": &"steel_light_push", "metal": &"steel", "level": 1, "kind": Kind.ACTIVE, "name": "Empuje básico"},
+	{"id": &"steel_combat_coin", "metal": &"steel", "level": 2, "kind": Kind.ACTIVE, "name": "Moneda de combate"},
+	{"id": &"steel_coin_burst", "metal": &"steel", "level": 3, "kind": Kind.ACTIVE, "name": "Ráfaga de monedas"},
 	{"id": &"steel_coin_shield", "metal": &"steel", "level": 8, "kind": Kind.ACTIVE, "name": "Escudo de monedas"},
 	{"id": &"steel_magnetic_field", "metal": &"steel", "level": 12, "kind": Kind.ACTIVE, "name": "Campo magnético"},
 	{"id": &"steel_spear", "metal": &"steel", "level": 20, "kind": Kind.ACTIVE, "name": "Lanza de acero"},
@@ -51,21 +51,24 @@ static func is_assignable(id: StringName) -> bool:
 
 ## Ráfaga de monedas (acero) e Imán de monedas (hierro): desde el nivel 2 salen o se atraen nivel + 1 monedas en un
 ## abanico hacia adelante que se abre con cada nivel; desde FAN_RADIAL_LEVEL es un círculo completo.
-const FAN_MIN_LEVEL := 2
+const FAN_MIN_LEVEL := 2  # el imán de hierro
+const BURST_MIN_LEVEL := 3  # la ráfaga de monedas de acero
 const FAN_RADIAL_LEVEL := 15
 const FAN_MIN_ANGLE := 0.5236  # 30°
 const FAN_MAX_ANGLE := 5.7596  # 330°
 
 
-static func fan_count(metal_level: int) -> int:
-	return maxi(metal_level + 1, 3)
+## Siempre impar, para que haya una moneda justo en el centro (donde apunta el ratón): 3 en el nivel 2 y dos más (una a
+## cada lado) cada 2 niveles; 21 en el 20.
+static func fan_count(metal_level: int, min_level := FAN_MIN_LEVEL) -> int:
+	return 3 + 2 * maxi((metal_level - min_level) / 2, 0)
 
 
 ## Ángulo total (rad) del abanico; TAU = radial.
-static func fan_angle(metal_level: int) -> float:
+static func fan_angle(metal_level: int, min_level := FAN_MIN_LEVEL) -> float:
 	if metal_level >= FAN_RADIAL_LEVEL:
 		return TAU
-	return lerpf(FAN_MIN_ANGLE, FAN_MAX_ANGLE, clampf(float(metal_level - FAN_MIN_LEVEL) / float(FAN_RADIAL_LEVEL - 1 - FAN_MIN_LEVEL), 0.0, 1.0))
+	return lerpf(FAN_MIN_ANGLE, FAN_MAX_ANGLE, clampf(float(metal_level - min_level) / float(FAN_RADIAL_LEVEL - 1 - min_level), 0.0, 1.0))
 
 
 static func skills_of(metal: StringName) -> Array:
@@ -126,7 +129,7 @@ static func shield_block_chance(coins: int) -> float:
 
 ## Qué hace cada habilidad y cómo mejora con los niveles (se muestra al pasar el ratón por encima en el árbol).
 const DESCRIPTIONS := {
-	&"steel_combat_coin": "Clic derecho: lanza una moneda fuerte justo hacia donde apuntas y la empuja con acero mientras mantengas el clic.\nSi choca con algo fijo o más pesado que tú, te empuja en sentido contrario: sirve para frenar una caída o para impulsarte. Una moneda en el aire no te mueve.\nMejora: el empuje gana un 3 % de fuerza por nivel de acero.",
+	&"steel_combat_coin": "Clic derecho: lanza una moneda hacia donde apuntas. Si apuntas a algo fijo (suelo, pared, farola) a menos de 25 m, la moneda queda clavada al instante y el empuje empieza ya: sirve para frenar una caída, saltar o desplazarte. Mantén el clic para seguir empujando; si te interpones con algo, el lazo se corta.\nSi apuntas a un enemigo, un objeto suelto o algo más lejos, sale como proyectil rápido (60 m/s) que hiere al chocar.\nTe empuja solo cuando la moneda está clavada en algo fijo o más pesado que tu poder. Entre impulsos hay 1 s de recarga.\nCayendo, la moneda sale siempre hacia abajo (al menos 55° bajo la horizontal). En el aire, un aro suave en la mira te avisa cuando lo que apuntas está a distancia para impulsarte con la moneda.\nMejora: el empuje gana un 3 % de fuerza por nivel de acero.",
 	&"steel_light_push": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo empuja lejos de ti. Lo fijo (farolas, rejas, anclas) o más pesado que tu poder no se mueve: te empuja a ti en sentido contrario. Lo más liviano sale despedido y casi no te mueve.\nTu poder de empuje es tu peso en el nivel 1 y sube un 15 % por nivel: con más niveles mueves cosas cada vez más pesadas que tú.\nLa fuerza también sube un 3 % por nivel.",
 	&"iron_pull": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo trae hacia ti. Lo más liviano que tu poder viene curvando si te mueves; una moneda se guarda al tocarte y otro objeto puede golpearte. Lo fijo o más pesado que tu poder (farolas, rejas, techos) no se mueve: te acerca a él, así puedes subir a un techo.\nAl soltar la tecla, lo que traías cae con la física normal. Al terminar un agarre pasa solo al siguiente metal dentro del círculo.\nTu poder de tirón es tu peso en el nivel 1 y sube un 15 % por nivel; la fuerza sube un 3 % por nivel.",
 	&"iron_light_pull": "Pasiva (hito del nivel 4): el tirón de hierro gana un 10 % de fuerza extra. Se suma al 3 % por nivel y a tu poder de tirón.",
@@ -153,11 +156,11 @@ static func tooltip_parts(id: StringName, metal_level: int) -> Dictionary:
 	var now := ""
 	match id:
 		&"steel_coin_burst":
-			body = "Lanza monedas en abanico hacia donde apunta el ratón. Gasta una moneda del monedero por cada una.\nNivel 2: 3 monedas en un cono de 30°. Cada nivel suma una moneda y abre el cono; en el nivel 15 sale en círculo completo (radial)."
-			now = _fan_now("monedas", metal_level, 2)
+			body = "Lanza monedas en abanico hacia donde apunta el ratón. Gasta una moneda del monedero por cada una.\nSiempre sale una cantidad impar, con una moneda justo en el centro, donde apuntas.\nNivel 3: 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas (una a cada lado) y el cono se abre; desde el nivel 15 es una ráfaga ancha alrededor de donde apuntas."
+			now = _fan_now("monedas", metal_level, BURST_MIN_LEVEL)
 		&"iron_coin_magnet":
-			body = "Atrae las monedas sueltas cercanas hacia donde apunta el ratón; vuelan hacia ti y se guardan al tocarte, sin hacerte daño.\nNivel 2: hasta 3 monedas en un cono de 30°. Cada nivel suma una moneda y abre el cono; en el nivel 15 atrae todas las de alrededor."
-			now = _fan_now("monedas atraídas", metal_level, 2)
+			body = "Atrae las monedas sueltas cercanas hacia donde apunta el ratón; vuelan hacia ti y se guardan al tocarte, sin hacerte daño.\nNivel 2: hasta 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas y el cono se abre; en el nivel 15 atrae todas las de alrededor."
+			now = _fan_now("monedas atraídas", metal_level, FAN_MIN_LEVEL)
 		&"steel_light_push", &"iron_pull":
 			now = "Ahora (nivel %d): mueves objetos de hasta %d kg; lo más pesado o fijo te mueve a ti." % [metal_level, roundi(power_mass(metal_level))]
 		&"steel_coin_shield":
@@ -177,7 +180,7 @@ static func tooltip_parts(id: StringName, metal_level: int) -> Dictionary:
 static func _fan_now(noun: String, metal_level: int, min_level: int) -> String:
 	if metal_level < min_level:
 		return ""
-	var n := fan_count(metal_level)
-	if fan_angle(metal_level) >= TAU:
+	var n := fan_count(metal_level, min_level)
+	if fan_angle(metal_level, min_level) >= TAU:
 		return "Ahora (nivel %d): %d %s, en círculo completo." % [metal_level, n, noun]
-	return "Ahora (nivel %d): %d %s, cono de %d°." % [metal_level, n, noun, roundi(rad_to_deg(fan_angle(metal_level)))]
+	return "Ahora (nivel %d): %d %s, cono de %d°." % [metal_level, n, noun, roundi(rad_to_deg(fan_angle(metal_level, min_level)))]

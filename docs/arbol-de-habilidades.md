@@ -25,7 +25,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 
 | Tema | Decisión |
 |---|---|
-| Ranuras | 12, con teclas por defecto `1 2 3 4 Q E R F Z X C V`, reasignables. Las habilidades activas no se asignan solas: las asigna el jugador al aprenderlas. Solo se mantiene fijo el clic derecho para la moneda de combate |
+| Ranuras | 12, con teclas por defecto `1 2 3 4 5 Q E F Z X C V`, reasignables. Las habilidades activas no se asignan solas: las asigna el jugador al aprenderlas. Solo se mantiene fijo el clic derecho para la moneda de combate |
 | Metales | F1 a F9 encienden y apagan cada metal, en el orden de la barra del HUD (acero, hierro, peltre, atium, cinc, cobre, bronce, estaño, latón). También se enciende con clic sobre su icono en el HUD. Se mantiene el doble toque para avivar |
 | Cursor | Mantener `Tab` libera el cursor para clicar los iconos del HUD; al soltarlo vuelve la cámara |
 | Fases | 1) XP, nivel y HUD; 2) panel K; 3) bloqueo de metales y F1-F9; 4) ranuras y habilidades de acero, hierro y peltre; 5) servidor. Un commit por fase |
@@ -45,9 +45,9 @@ A = activa (ocupa ranura). P = pasiva (automática).
 ### Acero
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Moneda de combate: lanzar moneda con clic derecho y empujarla |
-| 4 | A · Empuje ligero: empuja el metal de la mira; lo fijo o más pesado que tu poder te empuja a ti, lo más liviano sale despedido |
-| 2 | A · Ráfaga de monedas: nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; radial desde el 15 |
+| 2 | A · Moneda de combate: clic derecho; hay que desbloquearla con el primer punto de acero. Sobre lo fijo a menos de 25 m queda clavada al instante y empuja (recarga 1 s); si no, sale como proyectil de 60 m/s. Cayendo sale hacia abajo; en el aire un aro suave avisa cuando lo apuntado está al alcance |
+| 1 | A · Empuje básico: viene puesto desde el inicio en la tecla Q; empuja el metal de la mira (lo fijo o más pesado que tu poder te empuja a ti, lo más liviano sale despedido) |
+| 3 | A · Ráfaga de monedas: siempre una cantidad impar, con una moneda al centro (donde apuntas): 3 en el nivel 3 y 2 más cada 2 niveles; ráfaga ancha desde el 15 |
 | 8 | A · Escudo de monedas: 8 monedas giran en órbitas inclinadas (una más por nivel, 20 en el 20) y dan una probabilidad de desviar cada golpe cuerpo a cuerpo (40 % con 8, +3 % por moneda); no se gastan; dura 5,5 s y se retira solo |
 | 12 | A · Campo magnético: 5 s en los que las monedas y proyectiles enemigos que se acercan (3,5 m) vuelven hacia quien los lanzó; recarga 12 s |
 | 20 | A · Lanza de acero: gasta 5 monedas en un proyectil muy veloz que atraviesa hasta 4 enemigos con mucho daño y empuje; recarga 4 s |
@@ -55,7 +55,7 @@ A = activa (ocupa ranura). P = pasiva (automática).
 ### Hierro
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Tirón básico: trae monedas y objetos más livianos que tú; si tiras de algo fijo o más pesado (farolas, rejas, techos metálicos), te acerca a ti |
+| 1 | A · Tirón básico (viene puesto en la tecla E): trae monedas y objetos más livianos que tú; si tiras de algo fijo o más pesado (farolas, rejas, techos metálicos), te acerca a ti |
 | 4 | P · Tirón ligero: +10 % de fuerza en el tirón de hierro |
 | 2 | A · Imán de monedas: atrae nivel + 1 monedas dentro de un abanico hacia adelante; todas alrededor desde el 15 |
 | 8 | A · Anclaje de monedas: clava monedas como anclas temporales para columpiarte (pendiente) |
@@ -164,3 +164,8 @@ Total: 51 habilidades base + 36 combinadas = 87. Se propone implementarlas por f
 - Tirón básico y Empuje ligero se comportan igual con el objetivo (el que está dentro del círculo de la mira, con reselección automática; el agarre se suelta al salir del alcance útil de ese objeto). Poder de empuje y de tirón = tu peso (70 kg) en el nivel 1, +15 % por nivel (143 kg en el 8, 270 kg en el 20): lo más liviano que ese poder sale despedido y casi no te mueve; lo fijo o más pesado te mueve a ti. La fuerza sube un 3 % por nivel y con los hitos Tirón ligero y Tirón de masa (hierro). La moneda de combate solo te empuja cuando choca con algo fijo o más pesado que tu poder.
 - Teclas que cambiaron: anclar pasó a `Y` y la bolsa a `B`, porque `R` y `F` son ranuras por defecto.
 - En red (fase 5): el cliente manda su nivel y el de cada metal al servidor, que lo acota a lo que pagan sus puntos y lo guarda por jugador. Las ranuras se envían como habilidad + objetivo y el servidor comprueba que esté desbloqueada. Quedan fuera por ahora la XP en red (matar a otro jugador no da experiencia) y el guardado en el servidor: cada cliente guarda su propio archivo.
+
+## HUD (barra inferior y lista de metales)
+
+- **Barra inferior** (`AbilityHud`), al estilo de League of Legends: retrato en vivo del personaje con la experiencia como un arco dorado alrededor, el nivel en un círculo abajo a la derecha y, abajo a la izquierda, los puntos de alomancia sin gastar. En fila, la Moneda de combate (clic derecho) y las ranuras 1 a 4 con su icono y su tecla; donde van los hechizos del LoL, Empuje básico (Q) y Tirón básico (E); más a la derecha, el resto de las ranuras. Debajo, vida (verde) y resistencia (azul) con sus números.
+- **Lista de metales** (`MetalList`) en el borde izquierdo, vertical y discreta: un icono circular por metal con su reserva y su tecla (F1 a F9); con `Tab` sostenido se puede clicar.

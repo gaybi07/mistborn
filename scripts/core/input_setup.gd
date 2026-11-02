@@ -27,7 +27,6 @@ func _enter_tree() -> void:
 	_key(&"jump", KEY_SPACE)
 	_key(&"stop_burning", KEY_N)
 	_key(&"anchor", KEY_Y)
-	_key(&"drop_bag", KEY_B)
 	_wheel(&"weapon_cycle")
 	_mouse(&"attack", MOUSE_BUTTON_LEFT)
 	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)

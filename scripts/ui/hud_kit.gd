@@ -1,6 +1,6 @@
 class_name HudKit
-## Piezas de dibujo compartidas por la barra central (MetalBar) y los paneles de las esquinas (HudCorner):
-## colores, aros metálicos, paneles con borde dorado, íconos de bolsa, frascos y monedas.
+## Piezas de dibujo compartidas por la barra inferior (AbilityHud) y la lista de metales (MetalList) y los paneles de las esquinas (HudCorner):
+## colores, aros metálicos, paneles con borde dorado, íconos de frascos y monedas.
 ## Todas son funciones estáticas que dibujan sobre el CanvasItem `ci` (se llaman desde su _draw).
 
 const GOLD := Color(0.72, 0.62, 0.45)
@@ -17,6 +17,17 @@ const FULL_SIZE_HEIGHT := 880.0
 
 ## Escala del HUD según la ventana (1 = tamaño completo, nunca menos de la mitad), por el ajuste
 ## "Tamaño del HUD" de las opciones (que sí permite agrandarlo).
+## Un entero con separador de miles (por defecto el punto: 1.250), para las monedas.
+static func thousands(n: int, separator := ".") -> String:
+	var digits := str(absi(n))
+	var out := ""
+	for i in digits.length():
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			out += separator
+		out += digits[i]
+	return ("-" if n < 0 else "") + out
+
+
 static func ui_scale(ci: CanvasItem) -> float:
 	var vp := ci.get_viewport_rect().size
 	return clampf(minf(vp.x / FULL_SIZE_WIDTH, vp.y / FULL_SIZE_HEIGHT), 0.5, 1.0) * GameSettings.hud_scale
@@ -97,28 +108,6 @@ static func ellipse(ci: CanvasItem, c: Vector2, rx: float, ry: float, col: Color
 		var t := TAU * i / 24.0
 		pts.append(c + Vector2(cos(t) * rx, sin(t) * ry))
 	ci.draw_colored_polygon(pts, col)
-
-
-## Medallón de la bolsa de cuero (radio 44 × `s`); gris y tachado si no la llevas.
-static func bag(ci: CanvasItem, c: Vector2, s: float, has: bool) -> void:
-	ci.draw_set_transform(c, 0.0, Vector2(s, s))
-	disc(ci, Vector2.ZERO, 44.0, Color(0.1, 0.1, 0.12), Color(0.02, 0.022, 0.03))
-	ring(ci, Vector2.ZERO, 44.0, 4.0, GOLD)
-	ci.draw_arc(Vector2.ZERO, 37.0, 0.0, TAU, 48, Color(1, 1, 1, 0.1), 1.0, true)
-	for k in 4:
-		var a := TAU * k / 4.0 - PI / 2.0
-		diamond(ci, Vector2(cos(a), sin(a)) * 44.0, 4.5, Color(GOLD_LIGHT, 0.95) if has else Color(0.5, 0.5, 0.52))
-	var base := Color(0.72, 0.47, 0.24) if has else Color(0.36, 0.36, 0.38)
-	disc(ci, Vector2(0, 8), 20.0, base.lightened(0.25), base.darkened(0.45))
-	ci.draw_colored_polygon(PackedVector2Array([Vector2(-8, -12), Vector2(8, -12), Vector2(14, 2), Vector2(-14, 2)]), base.darkened(0.1))
-	ci.draw_colored_polygon(PackedVector2Array([Vector2(-10, -17), Vector2(-5, -11), Vector2(5, -11), Vector2(10, -17), Vector2(0, -14)]), base.darkened(0.25))
-	ci.draw_line(Vector2(-10, -4), Vector2(10, -4), base.lightened(0.55), 2.5, true)
-	ci.draw_line(Vector2(-9, -1), Vector2(9, -1), base.darkened(0.55), 1.5, true)
-	ci.draw_arc(Vector2(0, 8), 16.0, PI * 0.1, PI * 0.65, 12, Color(1, 1, 1, 0.22), 2.5, true)
-	ci.draw_circle(Vector2(0, 10), 3.0, base.lightened(0.5) if has else base)
-	if not has:
-		ci.draw_line(Vector2(-26, -26), Vector2(26, 26), Color(0.9, 0.2, 0.15), 3.5, true)
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Frasco de vidrio con corcho y líquido brillante (centrado en `c`, escala `s`); vacío: solo el vidrio.
