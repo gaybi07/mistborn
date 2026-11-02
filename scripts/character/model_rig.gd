@@ -29,7 +29,8 @@ const ANIMS := {
 	"hang": ["Hanging_Idle", "Hang_Idle", "Jump_Idle"],
 	"climb": ["Climbing", "Climb_Up", "Jump_Start", "jump_start"],
 	# Saltar desde un borde hacia abajo (Mixamo "Jumping Down"): todavía no la usa ningún estado.
-	"attack_air": ["2H_Melee_Attack_Spinning", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Punch", "sword_attack"],
+	# El salto con tajo del 3er golpe de la espada; ModelRig le suma un giro rápido del cuerpo.
+	"attack_air": ["sword_regular_c", "2H_Melee_Attack_Spinning", "Dualwield_Melee_Attack_Slice", "Dagger_Attack2", "Punch", "sword_attack"],
 	# Combos: golpe 1, 2... y remate (attack_X, attack_X_1, attack_X_2, attack_X_3).
 	"attack_fist": ["Punch", "Unarmed_Melee_Attack_Punch_A", "sword_regular_a"],
 	"attack_fist_1": ["Unarmed_Melee_Attack_Punch_A", "Punch", "sword_regular_b"],
@@ -49,6 +50,8 @@ const ANIMS := {
 	"slide": ["slide", "Jump_Idle"],
 	"allomancy": ["spell_simple_idle", "Attacking_Idle", "Idle_Attacking", "Spellcasting", "Idle"],
 	"hit": ["hit_chest", "RecieveHit", "Hit_A"],
+	"hit_head": ["hit_head", "hit_chest", "RecieveHit", "Hit_A"],
+	"hit_knockback": ["hit_knockback", "hit_front", "RecieveHit", "Hit_A"],
 	"down": ["death01", "Death", "Death_A"],
 	# Alomancia con monedas (Mixamo, ver extra_donors): onda de monedas hacia afuera y escudo.
 	"coin_wave": ["coin_wave"],
@@ -102,6 +105,17 @@ const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swi
 const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7, "sad_walk": 0.72, "carry_walk": 1.1, "crouch_walk": 1.57}
 ## Por encima de esta velocidad (peltre) se esprinta.
 const SPRINT_SPEED := 8.0
+## Golpes con dagas o espada: a esta fracción de la velocidad a la que entrarían en su duración.
+const WEAPON_ANIM_SPEED := 0.8
+## Quieto, caminar, correr...: al pasar de una a otra se mezclan durante LOCO_BLEND segundos y la
+## nueva arranca en el mismo punto del paso (fase) que la anterior, así no se cortan de golpe.
+const LOCOMOTION := ["idle", "idle_armed", "walk", "run", "sprint", "flee", "crouch_walk", "allomancy"]
+const LOCO_BLEND := 0.4
+## Bloqueo: la animación "block" se queda quieta en este punto (guardia arriba); al recibir un golpe
+## retrocede a BLOCK_KICK_FROM y vuelve a subir.
+const BLOCK_HOLD := 0.5
+const BLOCK_KICK_FROM := 0.36
+var _block_kick := 0.0
 ## Partes de las mallas que son armas o accesorios (se ocultan salvo las que use el personaje).
 const ITEM_WORDS := ["Knife", "Dagger", "Guard", "Sword", "Shield", "Crossbow", "Throwable", "Staff", "Wand",
 		"Spellbook", "Bow", "Arrow", "Axe", "Mug"]
@@ -213,6 +227,13 @@ var _land := 0.0
 var _dash := 0.0
 var _climb := 0.0
 var _pickup := 0.0
+var _arms_open := 0.0
+var _arms_open_len := 0.0
+var _arms_lift := 0.0
+var _arms_bend := 0.0
+## Giro del golpe aéreo: una vuelta entera del cuerpo en SPIN_TIME s.
+const SPIN_TIME := 0.3
+var _spin := 0.0
 ## Animación más espaciada lejos de la cámara (salvo el jugador, use_real_time): el tiempo que no se
 ## anima se junta y se aplica en el siguiente cuadro que sí.
 var _pending_dt := 0.0
@@ -556,7 +577,7 @@ func _update_anchors() -> void:
 		_vial_anchor.position = hips + Vector3(0, 0.02, -0.2 * s)
 
 
-func play_attack(side: int, duration: float, step := 0) -> void:
+func play_attack(side: int, duration: float, step := 0) -> float:
 	super(side, duration, step)
 	var state := "attack_fist"
 	if weapon == Weapon.DAGGERS:
@@ -566,6 +587,9 @@ func play_attack(side: int, duration: float, step := 0) -> void:
 	if step > 0 and _resolved.get("%s_%d" % [state, step], {"name": ""})["name"] != "":
 		state = "%s_%d" % [state, step]
 	_attack = _play_once(state, duration)
+	if weapon != Weapon.NONE:
+		_slow_attack()
+	return _attack
 
 
 func play_roll(duration := 0.5) -> void:
@@ -582,6 +606,25 @@ func play_throw() -> void:
 func play_spell(state: String, duration: float) -> void:
 	_spell_state = state
 	_spell = _play_once(state, duration)
+
+
+## Brazos abiertos hacia los costados (escudo de monedas, golpe giratorio con las armas por fuera).
+## lift: cuánto suben (0 = horizontales; negativo, más abajo). bend: codos doblados hacia delante.
+func open_arms(duration: float, lift := 0.0, bend := 0.0) -> void:
+	_arms_open = duration
+	_arms_open_len = duration
+	_arms_lift = lift
+	_arms_bend = bend
+
+
+## Gesto de un poder (empujar, tirar, lanzar monedas...): parado o caminando, la animación del
+## banco; corriendo, en el aire o en medio de un golpe, el de lanzar (el cuerpo entero se deslizaría).
+func play_skill(state: String, duration: float) -> float:
+	if on_floor and move_speed < 3.0 and _attack <= 0.0 and _roll <= 0.0 and _climb <= 0.0 			and _resolved.get(state, {"name": ""})["name"] != "":
+		play_spell(state, duration)
+		return _spell
+	play_throw()
+	return _throw
 
 
 ## Solo parado o caminando: a la carrera la animación entera se vería deslizándose.
@@ -617,11 +660,18 @@ func play_climb(duration := 0.65) -> float:
 	return _climb
 
 
-func play_air_attack(duration: float) -> void:
+func play_air_attack(duration: float) -> float:
 	_attack_len = duration
 	_jump = 0.0
 	_dash = 0.0
 	_attack = _play_once("attack_air", duration)
+	_spin = SPIN_TIME
+	return _attack
+
+
+func _slow_attack() -> void:
+	_oneshot_speed *= WEAPON_ANIM_SPEED
+	_attack /= WEAPON_ANIM_SPEED
 
 
 ## Reproduce entera una animación de una vez (golpe, voltereta...), acelerada para que quepa en
@@ -634,6 +684,61 @@ func _play_once(state: String, duration: float) -> float:
 		return duration
 	_oneshot_speed = clampf(length / duration, 1.0, MAX_ONESHOT_SPEED)
 	return length / _oneshot_speed
+
+
+## Por dónde va el ciclo de la animación actual (0..1).
+func _cycle_phase() -> float:
+	var length := _current_length()
+	var player := _src_ap if _borrowed else _ap
+	return fposmod(player.current_animation_position / length, 1.0) if length > 0.0 else -1.0
+
+
+func _seek_time(t: float) -> void:
+	(_src_ap if _borrowed else _ap).seek(t, false)
+
+
+func block_impact() -> void:
+	if _state == "block":
+		_seek_time(BLOCK_KICK_FROM)
+		_block_kick = BLOCK_HOLD - BLOCK_KICK_FROM
+
+
+## Ligero: un respingo (cabeza o pecho). Fuerte: la de su lado (de frente, de espaldas, izquierda,
+## derecha), que además empuja el cuerpo (root motion). Aturdido: la que lo tira hacia atrás.
+func play_hit(from: Vector3, heavy: bool, stun := false) -> void:
+	stagger = 1.0
+	if down or _roll > 0.0 or _climb > 0.0 or _skel == null:
+		return
+	var state := "hit_head" if randf() < 0.5 else "hit"
+	var duration := 0.35
+	if stun:
+		state = "hit_knockback"
+		duration = 0.8
+	elif heavy:
+		var torso: int = _bones["torso"]
+		var center := BoneTools.bone_world_pos(_skel, torso) if torso >= 0 else global_position
+		var up := global_basis.orthonormalized() * Vector3.UP
+		var right := BoneTools.bone_world_pos(_skel, _bones["upper_r"]) - center
+		right = (right - up * right.dot(up)).normalized()
+		var forward := up.cross(right)
+		var to := from - global_position
+		to = (to - up * to.dot(up)).normalized()
+		if absf(to.dot(forward)) >= absf(to.dot(right)):
+			state = "hit_front" if to.dot(forward) > 0.0 else "hit_back"
+		else:
+			state = "hit_right" if to.dot(right) > 0.0 else "hit_left"
+		duration = 0.75
+	if _resolved.get(state, {"name": ""})["name"] == "":
+		return
+	if heavy or stun:
+		_attack = 0.0  # un golpe fuerte corta el tuyo
+	play_spell(state, duration)
+
+
+func _seek_phase(phase: float) -> void:
+	var length := _current_length()
+	if length > 0.0:
+		(_src_ap if _borrowed else _ap).seek(phase * length, false)
 
 
 func _current_length() -> float:
@@ -672,17 +777,35 @@ func _process(delta: float) -> void:
 	_climb -= dt
 	_pickup -= dt
 	_spell -= dt
+	_arms_open -= dt
+	_block_kick -= dt
+	if _spin > 0.0:
+		_spin -= dt
+		# Arranca de golpe y frena al final de la vuelta.
+		var k := 1.0 - maxf(_spin, 0.0) / SPIN_TIME
+		rotation.y = TAU * (1.0 - pow(1.0 - k, 3.0)) if _spin > 0.0 else 0.0
 	if _ap == null and retarget_from == "":
 		return
 	var state := _choose_state()
 	if state != _state:
-		# Entrar y salir del aire con una mezcla más larga: el salto se ve más suave.
-		_play(state, 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else 0.15)
+		if state == "block":
+			_play(state, 0.12)
+			_seek_time(BLOCK_HOLD)
+		elif state in LOCOMOTION and _state in LOCOMOTION:
+			var phase := _cycle_phase() if STRIDE_SPEED.has(_state) and STRIDE_SPEED.has(state) else -1.0
+			_play(state, LOCO_BLEND)
+			if phase >= 0.0:
+				_seek_phase(phase)
+		else:
+			# Entrar y salir del aire con una mezcla más larga: el salto se ve más suave.
+			_play(state, 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else 0.15)
 	var speed := 1.0
 	if STRIDE_SPEED.has(state):
 		var stride: float = ANIM_STRIDE.get(_resolved[state]["name"], STRIDE_SPEED[state])
 		speed = clampf(move_speed / stride, 0.6, 2.2)
-	elif state in ["roll", "throw", "jump", "land", "dash", "climb", "pickup"] or state.begins_with("attack"):
+	elif state == "block":
+		speed = 1.0 if _block_kick > 0.0 else 0.0
+	elif state in ["roll", "throw", "jump", "land", "dash", "climb", "pickup"] or state.begins_with("attack") 			or (_spell > 0.0 and state == _spell_state):
 		speed = _oneshot_speed
 	if _borrowed and _src_ap:
 		_src_ap.advance(dt * speed)
@@ -691,6 +814,7 @@ func _process(delta: float) -> void:
 		_ap.advance(dt * speed)
 	_take_root_motion()
 	_apply_allomancy_pose(dt)
+	_apply_open_arms()
 	_update_foot_ik(dt, state)
 	_update_anchors()
 	if cloak and _cloak_anchor.visible:
@@ -716,6 +840,8 @@ func _choose_state() -> String:
 		return _spell_state
 	if _attack > 0.0:
 		return _state if _state.begins_with("attack") else "attack_fist"
+	if blocking and _resolved.get("block", {"name": ""})["name"] != "":
+		return "block"
 	if _throw > 0.0:
 		return "throw"
 	if _pickup > 0.0:
@@ -932,6 +1058,30 @@ func _apply_allomancy_pose(dt: float) -> void:
 	if head >= 0 and look != null:
 		var to: Vector3 = (look as Vector3) - BoneTools.bone_world_pos(_skel, head)
 		BoneTools.aim(_skel, head, (body_basis * Vector3.UP).slerp(to.normalized(), 0.25), 0.6)
+
+
+## Los dos brazos abiertos hacia su costado, algo adelantados y con los codos doblados hacia delante;
+## entran y salen suave (en un 30 % de la duración cada uno).
+func _apply_open_arms() -> void:
+	if _arms_open <= 0.0 or _skel == null:
+		return
+	var edge := _arms_open_len * 0.3
+	var w := smoothstep(0.0, 1.0, clampf(minf(_arms_open_len - _arms_open, _arms_open) / edge, 0.0, 1.0))
+	var torso: int = _bones["torso"]
+	var center := BoneTools.bone_world_pos(_skel, torso) if torso >= 0 else global_position
+	var up := global_basis.orthonormalized() * Vector3.UP
+	var right := BoneTools.bone_world_pos(_skel, _bones["upper_r"]) - center
+	var forward := up.cross(right - up * right.dot(up)).normalized()
+	for side in ["l", "r"]:
+		var upper: int = _bones["upper_" + side]
+		var lower: int = _bones["lower_" + side]
+		if upper < 0 or lower < 0:
+			continue
+		var out := BoneTools.bone_world_pos(_skel, upper) - center
+		out = (out - up * out.dot(up)).normalized()
+		var arm := (out + up * _arms_lift + forward * 0.3).normalized()
+		BoneTools.aim(_skel, upper, arm, w)
+		BoneTools.aim(_skel, lower, arm.slerp(forward + up * _arms_lift, _arms_bend).normalized(), w)
 
 
 ## bend: cuánto se dobla el codo hacia el pecho (0 = brazo recto).

@@ -4,7 +4,7 @@ extends CharacterBody3D
 ## Las habilidades viven en nodos hijos (SteelIron, Atium, TinSenses); el peltre se aplica aquí.
 
 @export var walk_speed := 6.0
-@export var jump_velocity := 5.5
+@export var jump_velocity := 5.0
 @export var ground_accel := 45.0
 @export var air_accel := 8.0
 @export var body_mass := 70.0
@@ -36,8 +36,8 @@ const EXHAUSTED_SPEED := 0.7
 const EXHAUSTED_RECOVER := 25.0
 
 @export_group("Combate y movimiento")
-@export var roll_speed := 9.0
-@export var roll_duration := 0.6
+@export var roll_speed := 7.5
+@export var roll_duration := 0.75
 @export var air_dash_speed := 8.0
 
 signal damaged(amount: float, impact_speed: float)
@@ -166,6 +166,17 @@ var net_levels: Dictionary = {&"steel": 1, &"iron": 1}
 var _sent_progress_rev := -1
 ## Cámara: el hombro de la cámara al lado; al mirar hacia abajo pasa al eje del personaje (apunta bajo tus pies).
 const CAMERA_SHOULDER := 0.55
+## Cámara: el spring_arm (una esfera, choca con el mundo y con la gente) solo mide cuánto espacio hay;
+## la cámara va en _boom. Si algo se mete entre vos y la cámara se acerca al instante (nunca ve a
+## través de una pared o un cuerpo) y al despejarse vuelve despacio (CAMERA_RETURN m/s).
+const CAMERA_RETURN := 2.5
+## Si la cámara queda tapada y no movés el ratón hace CAMERA_ASSIST_IDLE_MS, gira sola hacia el lado
+## más libre (hasta CAMERA_ASSIST_SPEED rad/s) para que no te pierdas de vista.
+const CAMERA_ASSIST_IDLE_MS := 600
+const CAMERA_ASSIST_SPEED := 0.9
+var _boom: Node3D
+var _cam_len := 3.8
+var _look_ms := 0
 ## Cliente: último estado visto, para disparar el parpadeo de daño y la pantalla de muerte.
 var _seen_health := 100.0
 var _seen_dead := false
@@ -182,6 +193,26 @@ var _shake_noise := FastNoiseLite.new()
 var _since_damage := 99.0
 ## Tras un golpe, un instante sin recibir otro (que dos golpes juntos no se lleven media vida).
 const IFRAMES := 0.4
+## Defensa (Ctrl). Mantener: guardia arriba; los golpes cuerpo a cuerpo de frente (BLOCK_ARC rad a cada
+## lado) hacen BLOCK_DAMAGE del daño y gastan BLOCK_STAMINA de resistencia por punto de daño; sin
+## resistencia la guardia se rompe (te tambaleas y el golpe entra entero). Pulsar como mucho
+## PARRY_WINDOW_MS antes del golpe: parry, sin daño, y el atacante queda aturdido PARRY_STUN s (el próximo
+## golpe que le des es crítico). Mientras bloqueas vas a BLOCK_SPEED de tu velocidad y no atacas.
+const BLOCK_ARC := 1.2
+const BLOCK_DAMAGE := 0.2
+const BLOCK_STAMINA := 1.2
+const BLOCK_SPEED := 0.45
+const PARRY_WINDOW_MS := 200
+const PARRY_STUN := 1.5
+var blocking := false
+var _block_pressed_ms := -100000
+var _guard_broken := false
+## Esquive (Shift + A/D): paso al costado con la animación (el cuerpo lo mueve ella); la voltereta y el
+## esquive te hacen intocable los primeros EVADE_TIME s.
+const DODGE_TIME := 0.55
+const EVADE_TIME := 0.35
+var _dodge_t := 0.0
+var _evade_t := 0.0
 var _attack_cd := 0.0
 var _attack_side := 1
 var _combo := 0
@@ -195,11 +226,19 @@ var _coin_push_steel := Allomancy.State.OFF
 var _coin_shot := false
 ## El empuje automático lo inició un salto de acero: se suelta al soltar Espacio.
 var _jump_push := false
-## Segundo salto en el aire (Espacio dos veces, sin acero): una vez por salto. Altura relativa al salto normal
-## (AIR_JUMP_BOOST sin peltre, más AIR_JUMP_PEWTER por cada punto de peltre) y empuje extra hacia donde pulsas.
-const AIR_JUMP_BOOST := 1.2
+## Salto normal (sin peltre): altura y distancia que recorre, parado y corriendo a walk_speed (en medio,
+## se interpola). Corriendo, el salto frena tu velocidad horizontal a la que hace falta para esa distancia,
+## y en el aire WASD no te deja ir más rápido que eso.
+const JUMP_HEIGHT_STAND := 1.0
+const JUMP_DIST_STAND := 2.0
+const JUMP_HEIGHT_RUN := 1.5
+const JUMP_DIST_RUN := 3.0
+## Segundo salto en el aire (Espacio dos veces, sin acero): una vez por salto. Sube AIR_JUMP_HEIGHT m más
+## (más AIR_JUMP_PEWTER por punto de peltre) y conserva tu velocidad horizontal: alarga el salto ~1 m.
+const AIR_JUMP_HEIGHT := 0.5
 const AIR_JUMP_PEWTER := 1.1
-const AIR_JUMP_FORWARD := 3.0
+## Velocidad horizontal máxima que da el control en el aire tras un salto normal (INF: sin límite).
+var _jump_hcap := INF
 ## Acero + peltre en el doble Espacio: impulso vertical extra (múltiplo del salto) por punto de peltre.
 const PEWTER_STEEL_KICK := 1.0
 var _air_jump_used := false
@@ -380,15 +419,22 @@ func _build_camera() -> void:
 	yaw_pivot.add_child(pitch_pivot)
 	spring_arm = SpringArm3D.new()
 	spring_arm.spring_length = 3.8
-	spring_arm.margin = 0.2
+	spring_arm.margin = 0.1
+	var probe := SphereShape3D.new()
+	probe.radius = 0.3
+	spring_arm.shape = probe
 	spring_arm.position = Vector3(CAMERA_SHOULDER, 0, 0)
-	spring_arm.collision_mask = Props.LAYER_WORLD
+	spring_arm.collision_mask = Props.LAYER_WORLD | Props.LAYER_PROPS  # paredes y también gente (monstruos)
 	spring_arm.add_excluded_object(get_rid())
 	pitch_pivot.add_child(spring_arm)
+	_boom = Node3D.new()
+	_boom.position = spring_arm.position
+	pitch_pivot.add_child(_boom)
 	camera = Camera3D.new()
 	camera.fov = base_fov
 	camera.far = 2500.0  # para ver los montes de ceniza en el horizonte
-	spring_arm.add_child(camera)
+	camera.position.z = spring_arm.spring_length
+	_boom.add_child(camera)
 	if is_local_player():
 		camera.make_current()
 
@@ -456,6 +502,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _look(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var motion := event as InputEventMouseMotion
+		_look_ms = Time.get_ticks_msec()
 		yaw_pivot.rotate_y(-motion.relative.x * mouse_sensitivity)
 		pitch_pivot.rotation.x = clampf(pitch_pivot.rotation.x - motion.relative.y * mouse_sensitivity,
 				deg_to_rad(-89.0), deg_to_rad(60.0))
@@ -1359,6 +1406,9 @@ func _physics_process(delta: float) -> void:
 	_update_stamina(rd)
 	if _exhausted:
 		speed_mult *= EXHAUSTED_SPEED
+	_update_block()
+	if blocking:
+		speed_mult *= BLOCK_SPEED
 
 	_update_bag()
 	_collect_coins()
@@ -1382,6 +1432,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= _gravity * rd * (0.35 if _dash_time > 0.0 else 1.0)
 	if _jump_push and not _held(&"jump"):
 		_end_coin_push()
+	var jumped := false
 	if _just(&"jump") and not dead and not ui_open:
 		var now := Time.get_ticks_msec()
 		var double_tap := now - _last_jump_ms <= DOUBLE_TAP_MS
@@ -1400,16 +1451,15 @@ func _physics_process(delta: float) -> void:
 			if double_tap and move == Vector2.ZERO and pewter_for(&"pewter_jump") > 0.0 and _jump_push:
 				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter_for(&"pewter_jump")
 				_air_jump_used = true
-		elif double_tap and not is_on_floor() and not _swimming and not _air_jump_used and _spend_stamina(JUMP_COST):
+		elif double_tap and not is_on_floor() and not _swimming and _air_action_free() and _spend_stamina(JUMP_COST):
 			# Doble Espacio en el aire sin acero: segundo salto (el peltre lo hace mucho más fuerte).
 			_air_jump_used = true
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
-			velocity.y = jump_velocity * (AIR_JUMP_BOOST + AIR_JUMP_PEWTER * pewter_for(&"pewter_jump"))
-			var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
-			velocity += push.normalized() * AIR_JUMP_FORWARD * (1.0 + 0.5 * pewter_for(&"pewter_jump"))
+			_air_jump(move)
 			rig.play_jump()
 		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
-			velocity.y = jump_velocity * jump_mult
+			_ground_jump(move, speed_mult, jump_mult)
+			jumped = true
 			rig.play_jump()
 			Sfx.play("jump", global_position)
 
@@ -1428,6 +1478,8 @@ func _physics_process(delta: float) -> void:
 		attack()
 	_roll_cd -= rd
 	_roll_buffer -= rd
+	if is_on_floor() and not jumped:
+		_jump_hcap = INF
 	if is_on_floor():
 		_air_dash_used = false
 		_air_attack_used = false
@@ -1438,18 +1490,27 @@ func _physics_process(delta: float) -> void:
 		_dash_time -= rd
 		hv += Vector2(_dash_dir.x, _dash_dir.z) * _dash_speed * (2.0 * k) * rd / DASH_TIME
 		velocity.y = lerpf(velocity.y, maxf(velocity.y, 1.0), minf(10.0 * rd, 1.0))
-	if _roll_time > 0.0:
+	_evade_t -= rd
+	if _dodge_t > 0.0:
+		# Esquive: el paso lo da la animación (root motion); tu velocidad se queda quieta.
+		_dodge_t -= rd
+		if is_on_floor():
+			hv = Vector2.ZERO
+	elif _roll_time > 0.0:
 		# Durante la voltereta mantienes la dirección y velocidad del impulso.
 		_roll_time -= rd
 		if is_on_floor():
 			hv = Vector2(_roll_dir.x, _roll_dir.z) * roll_speed * (1.0 + 0.3 * pewter)
-	elif (is_on_floor() or _swimming) and not being_pushed:
+	elif (is_on_floor() or _swimming) and not being_pushed and not jumped:
 		hv = hv.move_toward(target * (SWIM_SPEED if _swimming else 1.0), ground_accel * rd)
 	elif input != Vector2.ZERO:
 		# En el aire solo añadimos control, sin frenar el impulso de un empujón.
 		# Empujando la moneda de la G, el triple: así diriges el salto.
 		var along := hv.dot(target.normalized())
-		if along < target.length() * (1.5 if guided else 1.0):
+		var cap := target.length() * (1.5 if guided else 1.0)
+		if not guided and not being_pushed:
+			cap = minf(cap, _jump_hcap)
+		if along < cap:
 			hv += target.normalized() * air_accel * (3.0 if guided else 1.0) * rd
 	velocity.x = hv.x
 	velocity.z = hv.y
@@ -1685,6 +1746,7 @@ func _process(delta: float) -> void:
 		# Hacia abajo la cámara pasa del hombro al eje del personaje: la mira apunta justo bajo tus pies.
 		var down := clampf(inverse_lerp(deg_to_rad(40.0), deg_to_rad(80.0), -pitch_pivot.rotation.x), 0.0, 1.0)
 		spring_arm.position.x = lerpf(CAMERA_SHOULDER, 0.0, down)
+		_update_camera_boom(rd)
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():
@@ -1905,8 +1967,25 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 		return
 	if _since_damage < IFRAMES:
 		return
+	if _evade_t > 0.0:
+		# Esquive a tiempo: el golpe pasa de largo.
+		Atium.dodge_trail(visual)
+		Fx.popup(get_tree().current_scene, chest_position() + Vector3(0, 0.8, 0), "esquiva", Color(0.7, 0.85, 1.0))
+		mark_combat()
+		return
 	# Con atium, el atacante ve el hueco: ni armadura ni peltre frenan el golpe.
 	var unblockable := attacker != null and Metals.atium_edge(attacker, self)
+	if attacker and not ranged and not unblockable and _facing(attacker):
+		if Time.get_ticks_msec() - _block_pressed_ms <= PARRY_WINDOW_MS:
+			_parry(attacker)
+			return
+		if blocking:
+			if _spend_stamina(damage * BLOCK_STAMINA):
+				_block_hit(attacker, impulse, damage)
+				return
+			_guard_broken = true  # sin resistencia: la guardia cede y el golpe entra entero
+			blocking = false
+			notice.emit("Guardia rota")
 	if _shield > 0 and not unblockable and not ranged and randf() < SkillTree.shield_block_chance(_shield):
 		_shield_block(attacker)  # el escudo de monedas desvía el golpe cuerpo a cuerpo
 		return
@@ -1925,11 +2004,87 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 	if attacker and attacker.has_method(&"mark_combat"):
 		attacker.mark_combat()
 	HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
+	if attacker:
+		rig.play_hit(attacker.global_position, damage >= 20.0 or _guard_broken)
 	take_damage(damage / (1.0 + 0.6 * pewter))
 
 
 func is_down() -> bool:
 	return dead
+
+
+## El atacante está delante (dentro de BLOCK_ARC de hacia donde miras).
+func _facing(attacker: Node3D) -> bool:
+	var to := attacker.global_position - global_position
+	to.y = 0.0
+	var fwd := -visual.global_basis.z
+	fwd.y = 0.0
+	return to.length() < 0.1 or fwd.angle_to(to) <= BLOCK_ARC
+
+
+## Ctrl: guardia mientras lo mantienes (en el suelo, sin rodar ni atacar). Pulsarlo abre la ventana de parry.
+func _update_block() -> void:
+	var held := is_local_player() and not ui_open and not dead and Input.is_action_pressed(&"block")
+	if is_local_player() and Input.is_action_just_pressed(&"block") and not ui_open:
+		_block_pressed_ms = Time.get_ticks_msec()
+	if not held:
+		_guard_broken = false
+	blocking = held and not _guard_broken and is_on_floor() and _roll_time <= 0.0 and _dodge_t <= 0.0 \
+			and _attack_cd <= 0.0 and not _hanging
+	rig.blocking = blocking
+
+
+func _parry(attacker: Node3D) -> void:
+	_block_pressed_ms = -100000  # un parry por pulsación
+	var at := (chest_position() + Metals.center_of(attacker)) * 0.5
+	Fx.sprite(get_tree().current_scene, "parry", at, 1.8)
+	Fx.sparks(get_tree().current_scene, at, Color(1.0, 0.8, 0.4))
+	Fx.popup(get_tree().current_scene, chest_position() + Vector3(0, 0.8, 0), "¡Parry!", Color(1.0, 0.85, 0.4))
+	HumanoidRig.hit_stop([rig, attacker.get(&"rig")], 60.0)
+	add_trauma(0.35)
+	rig.block_impact()
+	Sfx.play("clash", at)
+	mark_combat()
+	if attacker.has_method(&"stun"):
+		attacker.stun(PARRY_STUN, global_position)
+
+
+func _block_hit(attacker: Node3D, impulse: Vector3, damage: float) -> void:
+	var at := chest_position() + (Metals.center_of(attacker) - chest_position()).normalized() * 0.4
+	Fx.sparks(get_tree().current_scene, at, Color(1.0, 0.75, 0.45))
+	HumanoidRig.hit_stop([rig, attacker.get(&"rig")], damage * 0.5)
+	velocity += impulse * 0.3
+	_shoved = 0.15
+	rig.block_impact()
+	Sfx.play("clash", at)
+	mark_combat()
+	take_damage(damage * BLOCK_DAMAGE)
+
+
+func _update_camera_boom(rd: float) -> void:
+	_boom.position = spring_arm.position
+	var free := spring_arm.get_hit_length()
+	_cam_len = free if free < _cam_len else move_toward(_cam_len, free, CAMERA_RETURN * rd)
+	camera.position.z = _cam_len
+	# Tapada (algo detrás tuyo) y sin tocar el ratón: gira hacia el lado con más espacio.
+	var full := spring_arm.spring_length
+	if free > full * 0.7 or Time.get_ticks_msec() - _look_ms < CAMERA_ASSIST_IDLE_MS or dead:
+		return
+	var origin := spring_arm.global_position
+	var back := pitch_pivot.global_basis.z
+	var left := _camera_room(origin, back.rotated(Vector3.UP, 0.5), full)
+	var right := _camera_room(origin, back.rotated(Vector3.UP, -0.5), full)
+	if maxf(left, right) < free + 0.3:
+		return  # ningún lado está mejor
+	var push := (1.0 - free / full) * CAMERA_ASSIST_SPEED * rd
+	yaw_pivot.rotate_y(push if left >= right else -push)
+
+
+## Distancia libre desde `origin` en `dir` (hasta `length`).
+func _camera_room(origin: Vector3, dir: Vector3, length: float) -> float:
+	var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * length, spring_arm.collision_mask, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	return origin.distance_to(hit["position"]) if hit else length
 
 
 ## Suma "trauma" a la cámara (0 a 1); el temblor va con su cuadrado y se apaga en ~1 s.
@@ -1969,6 +2124,8 @@ func _die() -> void:
 func attack() -> void:
 	if dead or rig.is_rolling() or ui_open or _hanging or _climb_t >= 0.0:
 		return
+	if blocking:
+		return
 	if _attack_cd > 0.0:
 		_attack_buffered = _attack_cd < 0.3
 		return
@@ -1980,19 +2137,23 @@ func attack() -> void:
 		rig.set_weapon(weapon)
 	var pewter := pewter_for(&"pewter_strike")
 	var stats := weapon_stats(weapon)
-	if not is_on_floor() and not _air_attack_used:
-		_air_attack(stats, pewter)
+	if not is_on_floor():
+		# En el aire, un solo golpe y solo si todavía no hiciste otra acción (segundo salto o dash).
+		if _air_action_free():
+			_air_attack(stats, pewter)
 		return
 	var combo: Array = stats["combo"]
 	_combo = (_combo + 1) % combo.size() if _combo_window > 0.0 else 0
 	var step: Array = combo[_combo]
 	var duration: float = step[0] / (1.0 + 0.5 * pewter)
-	_attack_cd = duration * 0.85
-	_combo_window = duration + COMBO_WINDOW
 	if weapon == HumanoidRig.Weapon.DAGGERS:
 		_attack_side = 1 - _attack_side  # alterna las manos
 	else:
 		_attack_side = 1
+	# El ritmo del golpe (cuándo pega, cuándo se puede encadenar) sigue a la animación de verdad.
+	duration = rig.play_attack(_attack_side, duration, _combo)
+	_attack_cd = duration * 0.85
+	_combo_window = duration + COMBO_WINDOW
 	# Golpea hacia donde mira la cámara.
 	var fwd := aim_direction()
 	fwd.y = 0.0
@@ -2003,16 +2164,16 @@ func attack() -> void:
 	if finisher and is_on_floor():
 		velocity += fwd * 4.0  # el remate va con una estocada hacia delante
 		_shoved = 0.15
-	rig.play_attack(_attack_side, duration, _combo)
 	Sfx.play("swing", global_position + Vector3(0, 1.2, 0))
 	get_tree().create_timer(duration * (0.55 if finisher else 0.4), true, false, true).timeout.connect(
 			_resolve_hit.bind(stats, pewter, step[1], step[2], 1.2, 0.0, finisher))
 
 
+const AIR_ATTACK_TIME := 0.55
 ## Golpe aéreo: un tajo giratorio que pega alrededor y te da un salto extra (uno por salto).
 func _air_attack(stats: Dictionary, pewter: float) -> void:
 	_air_attack_used = true
-	var duration := 0.55 / (1.0 + 0.3 * pewter)
+	var duration := rig.play_air_attack(AIR_ATTACK_TIME / (1.0 + 0.3 * pewter))
 	_attack_cd = duration * 0.9
 	_combo_window = 0.0
 	var fwd := aim_direction()
@@ -2021,8 +2182,8 @@ func _air_attack(stats: Dictionary, pewter: float) -> void:
 	visual.rotation.y = atan2(-fwd.x, -fwd.z)
 	velocity.y = maxf(velocity.y, jump_velocity * 0.9)
 	velocity += fwd * 2.5
-	rig.play_air_attack(duration)
 	Fx.burst(get_tree().current_scene, chest_position(), Color(0.75, 0.8, 0.9, 0.35), 18, 4.0, 0.5, 0.5, 0.0, false)
+	_shield_spin = ModelRig.SPIN_TIME + 0.2  # las monedas del escudo giran con el cuerpo
 	get_tree().create_timer(duration * 0.45, true, false, true).timeout.connect(
 			_resolve_hit.bind(stats, pewter, 1.4, 1.8, PI, 0.8, true))
 
@@ -2046,8 +2207,13 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		to.y = 0.0
 		if to.length() > reach or forward.angle_to(to) > arc:
 			continue
-		var crit := randf() < Metals.crit_chance(self, npc)
-		npc.take_hit(to.normalized() * knockback, damage * (Metals.CRIT_MULT if crit else 1.0), self)
+		# Crítico: la suerte de siempre (más con atium), un rival aturdido (parry) o por la espalda.
+		var behind := (-npc.global_basis.z).dot(-to.normalized()) < -0.4
+		var crit := randf() < Metals.crit_chance(self, npc) or npc.is_stunned() or behind
+		npc.take_hit(to.normalized() * knockback * (1.5 if crit else 1.0), damage * (Metals.CRIT_MULT if crit else 1.0), self)
+		if crit:
+			npc.stun(0.0, global_position)  # el crítico lo saca del aturdimiento y lo tira para atrás
+			Fx.popup(get_tree().current_scene, npc.global_position + Vector3(0, 2.2, 0), "Crítico", Metals.ATIUM_COLOR)
 		var hit_sound := "punch_heavy" if heavy else "punch"
 		if weapon != HumanoidRig.Weapon.NONE:
 			hit_sound = "clash" if npc.is_in_group(&"metal") else "slash"
@@ -2084,12 +2250,17 @@ func roll() -> void:
 	dir.y = 0.0
 	dir = dir.normalized()
 	if is_on_floor():
+		if absf(input.x) > 0.5 and absf(input.y) < 0.5:
+			if not _spend_stamina(ROLL_COST * 0.7):
+				return
+			_start_dodge(signf(input.x))
+			return
 		if not _spend_stamina(ROLL_COST):
 			return
 		_start_roll(dir)
 	else:
 		_roll_buffer = 0.35  # si tocas el suelo enseguida, ruedas al aterrizar
-		if not _air_dash_used:
+		if _air_action_free():
 			if not _spend_stamina(DASH_COST):
 				return
 			# El impulso se reparte en DASH_TIME y el cuerpo gira suave hacia la dirección
@@ -2103,17 +2274,65 @@ func roll() -> void:
 			_roll_cd = 0.3
 
 
+## Paso al costado (side: -1 izquierda, 1 derecha, según la cámara).
+func _start_dodge(side: float) -> void:
+	blocking = false
+	var fwd := aim_direction()
+	visual.rotation.y = atan2(-fwd.x, -fwd.z)
+	_dodge_t = DODGE_TIME
+	_evade_t = EVADE_TIME
+	_roll_cd = DODGE_TIME + 0.1
+	rig.play_spell("dodge_right" if side > 0.0 else "dodge_left", DODGE_TIME)
+	Fx.dust(get_tree().current_scene, global_position, 0.3)
+
+
 func _start_roll(dir: Vector3) -> void:
 	dir.y = 0.0
 	if dir.length() < 0.1:
 		dir = -visual.global_basis.z
 	_roll_dir = dir.normalized()
 	_roll_time = roll_duration
+	_evade_t = EVADE_TIME
+	blocking = false
 	_roll_cd = roll_duration + 0.15
 	visual.rotation.y = atan2(-_roll_dir.x, -_roll_dir.z)
 	rig.play_roll(roll_duration)
 	Sfx.play("roll", global_position)
 	Fx.dust(get_tree().current_scene, global_position, 0.5)
+
+
+## Salto desde el suelo: altura y velocidad horizontal según lo rápido que ibas (ver JUMP_HEIGHT_STAND...).
+## Parado y pulsando una dirección, sale hacia ella.
+func _ground_jump(move: Vector2, speed_mult: float, jump_mult: float) -> void:
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var run := clampf(flat.length() / (walk_speed * speed_mult), 0.0, 1.0)
+	var vy := sqrt(2.0 * _gravity * lerpf(JUMP_HEIGHT_STAND, JUMP_HEIGHT_RUN, run))
+	# Distancia = velocidad horizontal x tiempo en el aire (2 vy / g).
+	var hs := lerpf(JUMP_DIST_STAND, JUMP_DIST_RUN, run) * _gravity / (2.0 * vy) * jump_mult
+	var dir := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
+	dir.y = 0.0
+	if dir.length() > 0.1:
+		flat = dir.normalized() * hs
+	elif flat.length() > hs:
+		flat = flat.normalized() * hs
+	velocity = Vector3(flat.x, vy * jump_mult, flat.z)
+	_jump_hcap = hs
+
+
+## Segundo salto: sube AIR_JUMP_HEIGHT y conserva la velocidad horizontal, girada hacia donde pulsas.
+func _air_jump(move: Vector2) -> void:
+	velocity.y = sqrt(2.0 * _gravity * AIR_JUMP_HEIGHT) * (1.0 + AIR_JUMP_PEWTER * pewter_for(&"pewter_jump"))
+	var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	if push.length() > 0.1:
+		flat = Vector3(push.x, 0.0, push.z).normalized() * flat.length()
+	velocity.x = flat.x
+	velocity.z = flat.z
+
+
+## En el aire se puede hacer una sola acción más: segundo salto, golpe o dash (vuelve a valer al tocar el suelo).
+func _air_action_free() -> bool:
+	return not (_air_jump_used or _air_attack_used or _air_dash_used)
 
 
 ## Delta en tiempo real (inmune al time_scale del atium).
@@ -2164,7 +2383,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	_shot_point = hit
 	_shot_speed = speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
-	rig.play_throw()
+	rig.play_skill("coin_flick", 0.7)
 	Sfx.play("coin_throw", global_position + Vector3(0, 1.2, 0))
 	return coin
 
@@ -2266,7 +2485,7 @@ func fire_coin_burst(aim := Vector3.INF) -> void:
 		var coin := _spawn_coin(start + dir * 0.5)
 		coin.gravity_scale = 0.25  # cae despacio: no queda flotando
 		coin.linear_velocity = dir * speed
-	rig.play_throw()
+	rig.play_skill("coin_wave", 0.9)
 
 
 ## Escudo de monedas (acero 8): monedas del monedero que giran a tu alrededor y dan una probabilidad de desviar cada golpe
@@ -2277,6 +2496,7 @@ var _shield := 0
 var _shield_until_ms := 0
 var _shield_root: Node3D
 var _shield_orbits: Array[Dictionary] = []
+var _shield_spin := 0.0
 
 
 func toggle_coin_shield() -> void:
@@ -2292,6 +2512,7 @@ func toggle_coin_shield() -> void:
 	coins_held -= _shield
 	_shield_until_ms = Time.get_ticks_msec() + int(SkillTree.SHIELD_DURATION * 1000.0)
 	_rebuild_shield()
+	rig.open_arms(0.6, 0.25, 0.4)
 
 
 ## Guarda de nuevo en el monedero las monedas que quedan en el escudo.
@@ -2374,10 +2595,11 @@ func _update_shield(rd: float) -> void:
 		_dismiss_shield()  # se agota solo: las monedas vuelven al monedero
 		notice.emit("Escudo agotado")
 		return
+	_shield_spin -= rd
 	for orbit in _shield_orbits:
 		var node: Variant = orbit["pivot"]
 		if is_instance_valid(node):
-			(node as Node3D).rotate_object_local(Vector3.UP, float(orbit["speed"]) * rd)
+			(node as Node3D).rotate_object_local(Vector3.UP, float(orbit["speed"]) * rd * (6.0 if _shield_spin > 0.0 else 1.0))
 
 
 ## Lanza de acero (acero 20): gasta 5 monedas en un solo proyectil muy rápido y pesado que atraviesa hasta 4 enemigos,
@@ -2396,7 +2618,22 @@ func fire_steel_spear(aim := Vector3.INF) -> void:
 		notice.emit("La lanza necesita %d monedas" % SkillTree.SPEAR_COST)
 		return
 	_spear_ready_ms = now + int(SkillTree.SPEAR_COOLDOWN * 1000.0)
-	coins_held -= SkillTree.SPEAR_COST - 1  # _spawn_coin descuenta la quinta
+	coins_held -= SkillTree.SPEAR_COST  # apartadas ya: no se gastan en otra cosa mientras arranca
+	var dir := _burst_aim(aim)
+	visual.rotation.y = atan2(-dir.x, -dir.z)
+	# Sale cuando las manos empujan hacia delante (a SPEAR_RELEASE de la animación).
+	var gesture := rig.play_skill("steel_push", 0.9)
+	get_tree().create_timer(gesture * SPEAR_RELEASE, false).timeout.connect(_launch_spear.bind(aim))
+
+
+const SPEAR_RELEASE := 0.45
+
+
+func _launch_spear(aim: Vector3) -> void:
+	if dead:
+		coins_held += SkillTree.SPEAR_COST
+		return
+	coins_held += 1  # _spawn_coin descuenta la última
 	var dir := _burst_aim(aim)
 	var spear := _spawn_coin(chest_position() + dir * 0.6) as Coin
 	spear.gravity_scale = 0.0
@@ -2406,7 +2643,6 @@ func fire_steel_spear(aim := Vector3.INF) -> void:
 	spear.hit_power = 2.0
 	spear.linear_velocity = dir * SkillTree.SPEAR_SPEED
 	visual.rotation.y = atan2(-dir.x, -dir.z)
-	rig.play_throw()
 	get_tree().create_timer(3.0).timeout.connect(spear.queue_free)
 
 
@@ -2414,7 +2650,9 @@ func fire_steel_spear(aim := Vector3.INF) -> void:
 ## desvían y vuelven hacia quien los lanzó, con el mismo daño.
 var _field_until_ms := 0
 var _field_ready_ms := 0
-var _field_shell: MeshInstance3D
+## Bruma azul que gira a tu alrededor mientras dura el campo (gira el pivote; las partículas van con él).
+var _field_shell: Node3D
+var _field_layers: Array[GPUParticles3D] = []
 
 
 func activate_magnetic_field() -> void:
@@ -2426,29 +2664,70 @@ func activate_magnetic_field() -> void:
 		return
 	_field_until_ms = now + int(SkillTree.FIELD_DURATION * 1000.0)
 	_field_ready_ms = now + int(SkillTree.FIELD_COOLDOWN * 1000.0)
+	rig.open_arms(0.7, -0.1, 0.6)
 	if _field_shell == null:
-		_field_shell = MeshInstance3D.new()
-		var sphere := SphereMesh.new()
-		sphere.radius = SkillTree.FIELD_RADIUS
-		sphere.height = SkillTree.FIELD_RADIUS * 2.0
-		_field_shell.mesh = sphere
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		mat.albedo_color = Color(0.45, 0.65, 1.0, 0.05)  # apenas visible: no llena la pantalla de ruido
-		_field_shell.material_override = mat
-		_field_shell.position.y = 1.2
+		_field_shell = Node3D.new()
 		add_child(_field_shell)
+		var r := SkillTree.FIELD_RADIUS
+		# Bruma: jirones grandes y suaves en una banda alrededor del cuerpo.
+		_field_layers.append(_field_particles(Color(0.4, 0.55, 0.85, 0.09), false, 45, 1.6, 1.1, r * 0.3, r * 0.5, 0.3))
+		# Destellos: puntitos que brillan entre la bruma.
+		_field_layers.append(_field_particles(Color(0.6, 0.75, 0.95, 0.6), true, 24, 0.8, 0.05, r * 0.3, r * 0.55, 0.8))
 	_field_shell.visible = true
+	for p in _field_layers:
+		p.emitting = true
+	Fx.burst(get_tree().current_scene, chest_position(), Color(0.45, 0.65, 1.0, 0.35), 30, 6.0, 0.6, 0.6, 0.0, false)
+
+
+func _field_particles(color: Color, additive: bool, amount: int, life: float, size: float,
+		inner: float, outer: float, rise: float) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = life
+	p.local_coords = true
+	p.emitting = false
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	pm.emission_ring_axis = Vector3.UP
+	pm.emission_ring_height = 1.8
+	pm.emission_ring_radius = outer
+	pm.emission_ring_inner_radius = inner
+	pm.direction = Vector3.UP
+	pm.spread = 30.0
+	pm.initial_velocity_min = rise * 0.5
+	pm.initial_velocity_max = rise
+	pm.gravity = Vector3.ZERO
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4
+	pm.color_ramp = Fx.fade_ramp(0.3)
+	p.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	var mat := Fx.particle_material(color, additive, 0.0 if additive else 0.5)
+	# Lo que pasa pegado a la cámara se desvanece: si no, tapa la pantalla.
+	mat.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	mat.distance_fade_min_distance = 0.8
+	mat.distance_fade_max_distance = 2.5
+	quad.material = mat
+	p.draw_pass_1 = quad
+	p.position.y = 1.0
+	_field_shell.add_child(p)
+	return p
 
 
 func _update_field() -> void:
 	if _field_shell == null or not _field_shell.visible:
 		return
 	if dead or Time.get_ticks_msec() > _field_until_ms:
-		_field_shell.visible = false
+		# Deja de echar bruma y se apaga cuando se desvanece la última.
+		if _field_layers[0].emitting:
+			for p in _field_layers:
+				p.emitting = false
+			get_tree().create_timer(1.6, false).timeout.connect(func() -> void:
+				if Time.get_ticks_msec() > _field_until_ms:
+					_field_shell.visible = false)
 		return
+	_field_shell.rotate_y(1.6 * get_process_delta_time())
 	var center := chest_position()
 	for n in get_tree().get_nodes_in_group(&"coin"):
 		var coin := n as Coin
@@ -2466,6 +2745,8 @@ func _update_field() -> void:
 		coin.linear_velocity = back * speed * 1.1
 		coin.gravity_scale = 0.0
 		coin.shooter = self
+		Fx.sparks(get_tree().current_scene, coin.global_position, Color(0.45, 0.7, 1.0))
+		Fx.sprite(get_tree().current_scene, "zap-hit", coin.global_position, 1.2, Color(0.45, 0.7, 1.0), center)
 
 
 ## Dirección hacia donde apunta el ratón desde el pecho (la mandó el cliente en red, o se calcula aquí).
@@ -2518,6 +2799,8 @@ func start_gather(aim := Vector3.INF) -> void:
 	_gather_until_ms = Time.get_ticks_msec() + GATHER_MS
 	if _gathering.is_empty():
 		notice.emit("No hay monedas cerca")
+	else:
+		rig.play_skill("pull_heavy", 0.9)
 
 
 ## Mantiene las monedas atraídas yendo hacia ti (sin gravedad); termina al pasar GATHER_MS.

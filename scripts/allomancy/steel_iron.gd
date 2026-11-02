@@ -224,6 +224,9 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.target = t
 		g.active = true
 		Sfx.play("steel_push" if g == push_grip else "iron_pull", player.chest_position())
+		player.rig.play_skill("steel_push" if g == push_grip else "pull_heavy", 0.9)
+		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
+		Fx.sprite(get_tree().current_scene, "zap-hit", center_of(t), 2.0, g.color, origin)
 
 
 ## Tirón sobre una moneda u objeto suelto: va hacia ti siguiendo tu posición (también si te mueves) en vez de

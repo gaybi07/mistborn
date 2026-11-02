@@ -107,6 +107,8 @@ const SHEETS := {
 	"hit-spark": [4, 16, Vector2(44, 64)],
 	"crit-hit": [5, 28, Vector2(84, 106)],
 	"heavy-landing": [5, 49, Vector2(88, 60)],
+	"spin-slash": [4, 25, Vector2(104, 84)],
+	"parry": [5, 31, Vector2(100, 56)],
 }
 static var _sheet_tex := {}
 
@@ -156,6 +158,24 @@ static func sprite(parent: Node, name: String, pos: Vector3, width := 1.0, color
 	var tw := s.create_tween()
 	tw.tween_property(s, "frame", frames - 1, frames / 30.0).from(0)
 	tw.tween_callback(s.queue_free)
+
+
+## Texto que sube y se desvanece en `pos` ("¡Parry!", "Crítico"...).
+static func popup(parent: Node, pos: Vector3, text: String, color: Color) -> void:
+	var l := Label3D.new()
+	l.text = text
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.font_size = 36
+	l.outline_size = 8
+	l.pixel_size = 0.007
+	l.modulate = color
+	parent.add_child(l)
+	l.global_position = pos
+	var tw := l.create_tween()
+	tw.tween_property(l, "global_position:y", pos.y + 0.8, 0.8)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(l.queue_free)
 
 
 static func dust(parent: Node, pos: Vector3, strength := 1.0) -> void:

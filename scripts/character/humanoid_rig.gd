@@ -22,6 +22,8 @@ var aim_target_left: Variant = null
 var panic := 0.0
 var slouch := 0.0
 var stagger := 0.0
+## Con la guardia arriba (ver Player: bloqueo y parry).
+var blocking := false
 ## Congelado del golpe (hit stop, en tiempo real): mientras dure, la pose se queda quieta.
 var hitstop := 0.0
 var _flash_mat: StandardMaterial3D
@@ -85,16 +87,29 @@ func play_spell(_state: String, _duration: float) -> void:
 	pass
 
 
+## Abre los dos brazos hacia los costados durante `duration` s (ver ModelRig). El cuerpo procedural no lo hace.
+func open_arms(_duration: float, _lift := 0.0, _bend := 0.0) -> void:
+	pass
+
+
+## Gesto de un poder (ver ModelRig): el cuerpo procedural hace el de lanzar. Devuelve cuánto dura.
+func play_skill(_state: String, _duration: float) -> float:
+	play_throw()
+	return _throw
+
+
 ## Recoger algo del suelo (bolsa, objeto, frasco). El cuerpo procedural no lo anima.
 func play_pickup() -> void:
 	pass
 
 
 ## Tajo con el brazo derecho (side = 1) o izquierdo (side = 0). step: golpe del combo (0, 1, 2).
-func play_attack(side: int, duration: float, _step := 0) -> void:
+## Devuelve cuánto dura de verdad (la animación puede pedir más que `duration`).
+func play_attack(side: int, duration: float, _step := 0) -> float:
 	_attack_side = side
 	_attack_len = duration
 	_attack = duration
+	return duration
 
 
 func play_roll(duration := 0.5) -> void:
@@ -116,14 +131,25 @@ func play_dash(_duration := 0.45) -> void:
 	pass
 
 
-func play_air_attack(duration: float) -> void:
-	play_attack(1, duration)
+func play_air_attack(duration: float) -> float:
+	return play_attack(1, duration)
 
 
 ## Subir a un borde desde colgado (ver `hanging`).
 ## Devuelve cuánto dura la subida (la animación puede pedir más tiempo que `duration`).
 func play_climb(duration := 0.65) -> float:
 	return duration
+
+
+## Reacción a un golpe que viene de `from` (punto del mundo). heavy: golpe fuerte; stun: aturdido
+## (parry, crítico). El cuerpo procedural solo se tambalea.
+func play_hit(_from: Vector3, _heavy: bool, _stun := false) -> void:
+	stagger = 1.0
+
+
+## Un golpe choca contra la guardia.
+func block_impact() -> void:
+	pass
 
 
 func is_rolling() -> bool:

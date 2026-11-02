@@ -53,6 +53,8 @@ var _soothed_until := -1.0
 var _frenzy_until := -1.0
 ## Se rindió (latón avivado con poca vida): ya no pelea.
 var surrendered := false
+## Aturdido (le hicieron parry): no piensa ni ataca hasta _stun_until.
+var _stun_until := -1.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -189,6 +191,19 @@ func apply_allomantic_impulse(dv: Vector3) -> void:
 	_on_pushed()
 
 
+func is_stunned() -> bool:
+	return _world_time < _stun_until
+
+
+## Aturdido `time` s (0: solo la animación de caer hacia atrás) por un golpe que vino de `from`.
+func stun(time: float, from: Vector3) -> void:
+	_stun_until = _world_time + time if time > 0.0 else -1.0
+	plan_velocity(Vector3.ZERO)
+	_desired = Vector3.ZERO
+	if not down:
+		rig.play_hit(from, true, true)
+
+
 ## Golpe cuerpo a cuerpo o de moneda: empujón, daño y, si se queda sin vida, noqueado un rato.
 ## Pasos de la gente que está cerca de la cámara (los demás no se oirían).
 func _footsteps(delta: float) -> void:
@@ -216,6 +231,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if damage > 0.0:
 		rig.flash()
 		HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
+		if attacker:
+			rig.play_hit(attacker.global_position, damage >= 20.0)
 	health -= damage
 	if health <= 0.0:
 		down = true
@@ -238,7 +255,7 @@ func _physics_process(delta: float) -> void:
 	if down and _world_time >= _down_until:
 		down = false
 		health = max_health
-	if down:
+	if down or is_stunned():
 		_desired = Vector3.ZERO
 		_switch_at = INF
 	else:

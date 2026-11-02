@@ -32,6 +32,7 @@ func _enter_tree() -> void:
 	_mouse(&"attack", MOUSE_BUTTON_LEFT)
 	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)
 	_key(&"roll", KEY_SHIFT)
+	_key(&"block", KEY_CTRL)  # mantener: bloquear; pulsar justo antes del golpe: parry
 	_key(&"hood", KEY_H)
 	_key(&"inventory", KEY_I)
 	_key(&"skill_tree", KEY_K)
