@@ -453,7 +453,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F7:
 		_debug_next_anim()
 		return
-	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _slot_key(event):
+	if event is InputEventKey and not event.echo and (not event.ctrl_pressed or not event.pressed) and _slot_key(event):
 		return
 	if _look(event):
 		if event is InputEventMouseButton:
@@ -461,7 +461,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and not event.echo:
 		var key := event as InputEventKey
 		var group := Allomancy.metals_for_key(key.physical_keycode)
-		if not group.is_empty() and not key.ctrl_pressed:  # Ctrl+F1..F5 son de depuración (escenas, clima)
+		if not group.is_empty() and (not key.ctrl_pressed or not key.pressed):  # Ctrl+F1..F5 son de depuración (escenas, clima)
 			if key.pressed:
 				_metal_key_down(key.physical_keycode, group)
 			else:
@@ -576,7 +576,7 @@ func _move_vector() -> Vector2:
 
 ## En red se mira, rueda y golpea; metales y armas llegan en etapas posteriores.
 func _networked_input(event: InputEvent) -> void:
-	if event is InputEventKey and not event.echo and not event.ctrl_pressed and _net_slot_key(event):
+	if event is InputEventKey and not event.echo and (not event.ctrl_pressed or not event.pressed) and _net_slot_key(event):
 		return
 	if _look(event):
 		return
@@ -858,7 +858,7 @@ func _net_roll() -> void:
 
 ## Metales que funcionan en red por ahora: acero (1), hierro (2) y peltre (3).
 func _is_net_metal_key(event: InputEventKey) -> bool:
-	if event.ctrl_pressed:
+	if event.ctrl_pressed and event.pressed:
 		return false
 	var group := Allomancy.metals_for_key(event.physical_keycode)
 	return group.size() == 1 and NET_METALS.has(group[0])
