@@ -8,6 +8,8 @@ const BLIND_TIME := 1.0
 var player: Player
 ## Encandilado: segundos que quedan (la HUD lo muestra).
 var blinded := 0.0
+## Ver a la gente a través de las paredes (ver TinVision).
+var vision: TinVision
 
 var _blind_rect: ColorRect
 var _weather: Weather
@@ -23,6 +25,9 @@ var _base_dark_mist := 0.09
 
 
 func _ready() -> void:
+	vision = TinVision.new()
+	vision.player = player
+	add_child(vision)
 	var layer := CanvasLayer.new()
 	layer.layer = 6
 	add_child(layer)
@@ -35,7 +40,7 @@ func _ready() -> void:
 
 ## Destello fuerte: si estás avivando estaño, te encandila.
 func flash() -> void:
-	if player.allomancy.is_flaring(&"tin"):
+	if player.allomancy.is_flaring(&"tin") and not player.is_clear_minded():
 		blinded = BLIND_TIME
 
 

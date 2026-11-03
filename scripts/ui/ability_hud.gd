@@ -160,12 +160,12 @@ func _draw_skills(font: Font) -> void:
 	for i in [4, 5]:
 		_skill_box(font, Rect2(x, y, BASIC, BASIC), Progression.slot_skills[i], _key_text(i))
 		x += BASIC + 8.0
-	_skill_box(font, Rect2(x, y, BASIC, BASIC), &"steel_combat_coin", "RMB")
+	_skill_box(font, Rect2(x, y, BASIC, BASIC), &"steel_combat_coin", Progression.key_name(Progression.coin_key))
 
 
 ## Tecla de una ranura, para su etiqueta.
 func _key_text(slot: int) -> String:
-	return OS.get_keycode_string(Progression.slot_keys[slot] as Key)
+	return Progression.key_name(Progression.slot_keys[slot])
 
 
 ## Una casilla con el icono de la habilidad, su recarga y su tecla (que asoma por el borde de abajo).
@@ -202,30 +202,7 @@ func _padlock(c: Vector2) -> void:
 
 ## Icono de una habilidad: el símbolo de su metal y una marca que la distingue de las demás de ese metal.
 func _skill_icon(c: Vector2, half: float, skill: StringName, col: Color) -> void:
-	var light := col.lightened(0.3)
-	var r := half * 0.6
-	MetalGlyph.draw(self, SkillTree.find(skill)["metal"], c, r, light, 2.2)
-	match skill:
-		&"steel_combat_coin":
-			draw_circle(c + Vector2(half * 0.45, half * 0.45), half * 0.2, Color(0.82, 0.58, 0.32))
-			draw_arc(c + Vector2(half * 0.45, half * 0.45), half * 0.2, 0.0, TAU, 14, Color(0.4, 0.26, 0.14), 1.2, true)
-		&"steel_coin_burst":
-			for k in 3:
-				var ang := -PI / 2 + (k - 1) * 0.55
-				draw_circle(c + Vector2(cos(ang), sin(ang)) * half * 0.78, half * 0.1, Color(0.82, 0.58, 0.32))
-		&"steel_coin_shield":
-			draw_arc(c, half * 0.82, 0.0, TAU, 28, Color(0.82, 0.58, 0.32, 0.9), 1.6, true)
-			for k in 5:
-				var ang := TAU * k / 5.0
-				draw_circle(c + Vector2(cos(ang), sin(ang)) * half * 0.82, half * 0.09, Color(0.95, 0.75, 0.45))
-		&"steel_magnetic_field":
-			for k in 6:
-				var a0 := TAU * k / 6.0
-				draw_arc(c, half * 0.85, a0, a0 + 0.55, 6, light, 1.6, true)
-		&"steel_spear":
-			draw_line(c + Vector2(-half * 0.7, half * 0.7), c + Vector2(half * 0.7, -half * 0.7), Color(0.95, 0.9, 0.8), 2.6, true)
-		&"iron_coin_magnet":
-			draw_arc(c + Vector2(0, half * 0.1), half * 0.55, 0.0, PI, 14, Color(0.9, 0.35, 0.3), 3.0, true)
+	SkillIcon.draw(self, c, half, skill, col)
 
 
 # ---------------------------------------------------------------- Buffs y debuffs

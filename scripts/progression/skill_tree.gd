@@ -22,23 +22,28 @@ const SKILLS := [
 	{"id": &"steel_magnetic_field", "metal": &"steel", "level": 12, "kind": Kind.ACTIVE, "name": "Campo magnético"},
 	{"id": &"steel_spear", "metal": &"steel", "level": 20, "kind": Kind.ACTIVE, "name": "Lanza de acero"},
 	{"id": &"iron_pull", "metal": &"iron", "level": 1, "kind": Kind.ACTIVE, "name": "Tirón básico"},
-	{"id": &"iron_light_pull", "metal": &"iron", "level": 4, "kind": Kind.PASSIVE, "name": "Tirón ligero"},
+	{"id": &"iron_drag", "metal": &"iron", "level": 4, "kind": Kind.ACTIVE, "name": "Arrastre"},
 	{"id": &"iron_coin_magnet", "metal": &"iron", "level": 2, "kind": Kind.ACTIVE, "name": "Imán de monedas"},
-	{"id": &"iron_coin_anchor", "metal": &"iron", "level": 8, "kind": Kind.ACTIVE, "name": "Anclaje de monedas"},
-	{"id": &"iron_weapon_pull", "metal": &"iron", "level": 12, "kind": Kind.ACTIVE, "name": "Tirón de armas"},
-	{"id": &"iron_swing", "metal": &"iron", "level": 16, "kind": Kind.PASSIVE, "name": "Balanceo"},
-	{"id": &"iron_mass_pull", "metal": &"iron", "level": 20, "kind": Kind.PASSIVE, "name": "Tirón de masa"},
+	{"id": &"iron_hook", "metal": &"iron", "level": 8, "kind": Kind.ACTIVE, "name": "Gancho"},
+	{"id": &"iron_disarm", "metal": &"iron", "level": 12, "kind": Kind.ACTIVE, "name": "Desarme"},
+	{"id": &"iron_mass_yank", "metal": &"iron", "level": 20, "kind": Kind.ACTIVE, "name": "Atracción masiva"},
 	{"id": &"pewter_endurance", "metal": &"pewter", "level": 1, "kind": Kind.PASSIVE, "name": "Resistencia"},
-	{"id": &"pewter_jump", "metal": &"pewter", "level": 4, "kind": Kind.PASSIVE, "name": "Salto reforzado"},
+	{"id": &"pewter_charge", "metal": &"pewter", "level": 4, "kind": Kind.ACTIVE, "name": "Embestida"},
 	{"id": &"pewter_strike", "metal": &"pewter", "level": 8, "kind": Kind.PASSIVE, "name": "Golpe reforzado"},
-	{"id": &"pewter_landing", "metal": &"pewter", "level": 12, "kind": Kind.PASSIVE, "name": "Aterrizaje seguro"},
-	{"id": &"pewter_second_wind", "metal": &"pewter", "level": 16, "kind": Kind.PASSIVE, "name": "Segundo aliento"},
+	{"id": &"pewter_slam", "metal": &"pewter", "level": 12, "kind": Kind.ACTIVE, "name": "Martillazo"},
+	{"id": &"pewter_last_stand", "metal": &"pewter", "level": 16, "kind": Kind.PASSIVE, "name": "Último aliento"},
 	{"id": &"pewter_fury", "metal": &"pewter", "level": 20, "kind": Kind.ACTIVE, "name": "Furia"},
+	{"id": &"tin_senses", "metal": &"tin", "level": 1, "kind": Kind.PASSIVE, "name": "Sentidos agudos"},
+	{"id": &"tin_focus", "metal": &"tin", "level": 4, "kind": Kind.ACTIVE, "name": "Foco"},
+	{"id": &"tin_ear", "metal": &"tin", "level": 8, "kind": Kind.PASSIVE, "name": "Oído agudo"},
+	{"id": &"tin_mark", "metal": &"tin", "level": 12, "kind": Kind.ACTIVE, "name": "Marca del cazador"},
+	{"id": &"tin_clear_mind", "metal": &"tin", "level": 16, "kind": Kind.ACTIVE, "name": "Mente despejada"},
+	{"id": &"tin_extreme", "metal": &"tin", "level": 20, "kind": Kind.ACTIVE, "name": "Sentidos extremos"},
 ]
 
 
 ## Habilidades que todavía no hacen nada (se ven en el árbol como "próximamente").
-const PENDING: Array[StringName] = [&"iron_coin_anchor", &"iron_weapon_pull", &"iron_swing", &"pewter_fury"]
+const PENDING: Array[StringName] = []
 ## Activas con tecla propia fuera de las ranuras (la moneda de combate es el clic derecho).
 const FIXED_KEY: Array[StringName] = [&"steel_combat_coin"]
 
@@ -110,6 +115,34 @@ static func shield_count(metal_level: int) -> int:
 	return 0 if metal_level < 8 else metal_level
 
 
+## Hierro: recargas (s) del Arrastre, el Gancho, el Desarme y la Atracción masiva; alcance del Gancho y radio de la Atracción (m).
+const DRAG_COOLDOWN := 6.0
+const HOOK_COOLDOWN := 3.0
+const HOOK_RANGE := 25.0
+const DISARM_COOLDOWN := 8.0
+const DISARM_SECONDS := 8.0
+const YANK_COOLDOWN := 20.0
+const YANK_RADIUS := 12.0
+
+## Peltre: recargas (s) de la Embestida, el Martillazo, la Furia y el Último aliento; radio del Martillazo (m); duración de la Furia
+## y del Último aliento (s).
+const CHARGE_COOLDOWN := 8.0
+## Estaño: duración y recarga (s) de Foco, Marca del cazador, Mente despejada y Sentidos extremos.
+const FOCUS_TIME := 5.0
+const FOCUS_COOLDOWN := 20.0
+const MARK_TIME := 15.0
+const MARK_COOLDOWN := 25.0
+const CLEAR_TIME := 12.0
+const CLEAR_COOLDOWN := 30.0
+const EXTREME_TIME := 12.0
+const EXTREME_COOLDOWN := 35.0
+const SLAM_COOLDOWN := 12.0
+const SLAM_RADIUS := 6.0
+const FURY_TIME := 8.0
+const FURY_COOLDOWN := 45.0
+const LAST_STAND_TIME := 3.0
+const LAST_STAND_COOLDOWN := 60.0
+
 ## Escudo de monedas: cuánto dura (s) antes de retirarse solo.
 const SHIELD_DURATION := 5.5
 
@@ -132,17 +165,22 @@ const DESCRIPTIONS := {
 	&"steel_combat_coin": "Clic derecho: lanza una moneda hacia donde apuntas. Si apuntas a algo fijo (suelo, pared, farola) a menos de 25 m, la moneda queda clavada al instante y el empuje empieza ya: sirve para frenar una caída, saltar o desplazarte. Mantén el clic para seguir empujando; si te interpones con algo, el lazo se corta.\nSi apuntas a un enemigo, un objeto suelto o algo más lejos, sale como proyectil rápido (60 m/s) que hiere al chocar.\nTe empuja solo cuando la moneda está clavada en algo fijo o más pesado que tu poder. Entre impulsos hay 1 s de recarga.\nCayendo, la moneda sale siempre hacia abajo (al menos 55° bajo la horizontal). En el aire, un aro suave en la mira te avisa cuando lo que apuntas está a distancia para impulsarte con la moneda.\nMejora: el empuje gana un 3 % de fuerza por nivel de acero.",
 	&"steel_light_push": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo empuja lejos de ti. Lo fijo (farolas, rejas, anclas) o más pesado que tu poder no se mueve: te empuja a ti en sentido contrario. Lo más liviano sale despedido y casi no te mueve.\nTu poder de empuje es tu peso en el nivel 1 y sube un 15 % por nivel: con más niveles mueves cosas cada vez más pesadas que tú.\nLa fuerza también sube un 3 % por nivel.",
 	&"iron_pull": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo trae hacia ti. Lo más liviano que tu poder viene curvando si te mueves; una moneda se guarda al tocarte y otro objeto puede golpearte. Lo fijo o más pesado que tu poder (farolas, rejas, techos) no se mueve: te acerca a él, así puedes subir a un techo.\nAl soltar la tecla, lo que traías cae con la física normal. Al terminar un agarre pasa solo al siguiente metal dentro del círculo.\nTu poder de tirón es tu peso en el nivel 1 y sube un 15 % por nivel; la fuerza sube un 3 % por nivel.",
-	&"iron_light_pull": "Pasiva (hito del nivel 4): el tirón de hierro gana un 10 % de fuerza extra. Se suma al 3 % por nivel y a tu poder de tirón.",
-	&"iron_mass_pull": "Pasiva (hito del nivel 20): el tirón de hierro gana un 25 % de fuerza extra. Se suma al 3 % por nivel y a tu poder de tirón, que en el nivel 20 llega a casi cuatro veces tu peso.",
-	&"iron_swing": "Próximamente: columpiarte de un ancla con más control en el aire.",
-	&"iron_coin_anchor": "Próximamente: clava monedas en paredes y suelo como anclas temporales para columpiarte con hierro.",
-	&"iron_weapon_pull": "Próximamente: arranca el arma metálica de un enemigo y te la trae.",
+	&"iron_drag": "Un toque apuntando a un enemigo que lleve metal: lo arrastra hacia ti durante 1,5 s a 16 m/s y, al llegar a unos 2 m, queda aturdido 1 s. Necesita línea de visión.\nSolo arrastra a quien pese hasta tu poder de tirón (tu peso en el nivel 1 y un 15 % más por nivel).\nRecarga: 6 s.",
+	&"iron_hook": "Un toque apuntando a cualquier superficie fija a menos de 25 m (el mismo alcance que la moneda del clic derecho): clava una moneda ahí (gasta 1) y una soga te tira hacia ella hasta unos 28 m/s. Frenas al llegar y, durante un momento, los golpes casi no te lastiman. Sirve para trepar y cruzar entre techos sin depender de farolas.\nRecarga: 3 s.",
+	&"iron_disarm": "Un toque apuntando a un enemigo con arma metálica: el arma sale despedida y cae al piso a mitad de camino entre él y tú; durante 8 s ese enemigo pega un 70 % menos. Con hierro puedes tirar del arma que cayó.\nRecarga: 8 s.",
+	&"iron_mass_yank": "Un toque: tira de todos los enemigos con metal en 12 m a la vez y los junta en un anillo a tu alrededor; quedan aturdidos 1,2 s. Solo a los que pesan hasta tu poder de tirón.\nRecarga: 20 s.",
 	&"pewter_endurance": "Pasiva: mientras quemas peltre aguantas más: gastas menos aguante, lo recuperas antes y recibes menos daño y menos empujón.\nQuemando: ~40 % menos daño; avivando: ~55 % menos.",
-	&"pewter_jump": "Pasiva: con peltre quemando saltas más alto (+30 %) y el doble salto (Espacio, Espacio en el aire) es mucho más fuerte. Con acero también da un impulso extra al salto recto hacia arriba.",
+	&"pewter_charge": "Un toque: te lanzas hacia donde miras unos 0,4 s a gran velocidad; a quien toques en el camino lo golpeas, lo empujas y lo dejas aturdido 1,5 s. Más fuerte con el peltre encendido.\nRecarga: 8 s.",
 	&"pewter_strike": "Pasiva: con peltre pegas más fuerte y más rápido: +75 % de daño y más empuje cuerpo a cuerpo; avivando, más aún.",
-	&"pewter_landing": "Pasiva: con peltre soportas caídas e impactos: el umbral de daño sube 8 m/s quemando y el daño que sí recibes se reduce.",
-	&"pewter_second_wind": "Pasiva: con peltre quemando recuperas vida mucho más rápido cuando llevas un rato sin recibir daño (triple de velocidad quemando).",
-	&"pewter_fury": "Próximamente: ráfaga de velocidad y daño con peltre.",
+	&"pewter_slam": "Un toque en el suelo: golpeas la tierra con una onda de choque de 6 m que daña, empuja y aturde 1,2 s a todos los que te rodean.\nRecarga: 12 s.",
+	&"pewter_last_stand": "Pasiva: cuando un golpe te dejaría por debajo del 20 % de vida, sobrevives (con 1 de vida como mínimo), eres intocable 3 s y te curas un 40 % de tu vida en ese tiempo. Se activa sola.\nRecarga: 60 s.",
+	&"pewter_fury": "Un toque: durante 8 s el peltre arde avivado sin gastar metal, y pegas un 30 % más fuerte. Al terminar quedas sin aliento un momento.\nRecarga: 45 s.",
+	&"tin_senses": "Pasiva: con estaño quemando ves más lejos y mejor en la bruma y la noche, y te recuperas antes de un golpe (más aún avivando). Es lo que hace el estaño desde el principio.",
+	&"tin_focus": "Un toque: durante 5 s la cámara hace zoom (el campo de visión baja un 40 %) y tienes un 25 % más de probabilidad de crítico.\nRecarga: 20 s.",
+	&"tin_ear": "Pasiva: con estaño quemando «oyes» a la gente cercana (hasta 22 m, más si avivas). Si la ves de frente, solo se remarca su silueta con un borde tenue. Si una pared te la tapa, ves una estela de humo sin forma definida que sale de donde estaba hace 0,5 s.",
+	&"tin_mark": "Un toque apuntando a un enemigo: lo marcas 15 s y recibe un 25 % más de daño tuyo. Si lo ves de frente, su silueta se remarca con fuerza. Si hay una pared, ves un humo más denso y concentrado de donde estaba hace solo 0,2 s.\nEl estaño arde mientras dura.\nRecarga: 25 s.",
+	&"tin_clear_mind": "Un toque: durante 12 s casi nada te descontrola. Los relámpagos no te encandilan, no te aplacan ni te enardecen, los golpes apenas te empujan ni te hacen perder el equilibrio y tu guardia no se rompe. Además se te quita al instante lo que tengas encima.\nRecarga: 30 s.",
+	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }
 
 
@@ -161,6 +199,8 @@ static func tooltip_parts(id: StringName, metal_level: int) -> Dictionary:
 		&"iron_coin_magnet":
 			body = "Atrae las monedas sueltas cercanas hacia donde apunta el ratón; vuelan hacia ti y se guardan al tocarte, sin hacerte daño.\nNivel 2: hasta 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas y el cono se abre; en el nivel 15 atrae todas las de alrededor."
 			now = _fan_now("monedas atraídas", metal_level, FAN_MIN_LEVEL)
+		&"iron_drag", &"iron_mass_yank":
+			now = "Ahora (nivel %d): arrastras a quien pese hasta %d kg." % [metal_level, roundi(power_mass(metal_level))]
 		&"steel_light_push", &"iron_pull":
 			now = "Ahora (nivel %d): mueves objetos de hasta %d kg; lo más pesado o fijo te mueve a ti." % [metal_level, roundi(power_mass(metal_level))]
 		&"steel_coin_shield":

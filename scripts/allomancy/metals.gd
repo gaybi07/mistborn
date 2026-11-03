@@ -94,10 +94,12 @@ static func atium_edge(defender: Node, attacker: Node) -> bool:
 ## exacto en la guardia. Sus golpes, además, no se pueden bloquear (ignoran armadura y peltre).
 const CRIT_MULT := 2.0
 static func crit_chance(attacker: Node, defender: Node) -> float:
+	# Foco (estaño): más probabilidad de crítico mientras dura.
+	var bonus := 0.25 if attacker.has_method(&"is_focused") and attacker.is_focused() else 0.0
 	if not atium_edge(attacker, defender):
-		return 0.05
+		return 0.05 + bonus
 	var a: Allomancy = attacker.get(&"allomancy")
-	return 0.7 if a.is_flaring(&"atium") else 0.45
+	return (0.7 if a.is_flaring(&"atium") else 0.45) + bonus
 
 
 ## Nubes de cobre activas: [centro, radio] de cada alomántico que quema cobre.

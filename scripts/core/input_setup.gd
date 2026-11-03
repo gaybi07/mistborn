@@ -29,7 +29,7 @@ func _enter_tree() -> void:
 	_key(&"anchor", KEY_Y)
 	_wheel(&"weapon_cycle")
 	_mouse(&"attack", MOUSE_BUTTON_LEFT)
-	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)
+	_ensure(&"coin_shot")  # su tecla (por defecto el clic derecho) la elige el jugador en el árbol de habilidades
 	_key(&"roll", KEY_SHIFT)
 	_key(&"block", KEY_CTRL)  # mantener: bloquear; pulsar justo antes del golpe: parry
 	_key(&"hood", KEY_H)
@@ -39,6 +39,8 @@ func _enter_tree() -> void:
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)
 	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, la ranura en E no se activa
+	Progression.load_progress()
+	Progression.apply_coin_binding()
 
 
 func _ensure(action: StringName) -> void:

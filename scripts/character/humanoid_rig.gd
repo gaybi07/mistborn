@@ -156,6 +156,10 @@ func is_rolling() -> bool:
 	return _roll > 0.0
 
 
+## La lanza del guardia (si la lleva): se esconde cuando se la quitan.
+var spear_grip: Node3D
+
+
 ## Desenvaina el arma elegida (o envaina todo con Weapon.NONE).
 func set_weapon(w: Weapon) -> void:
 	weapon = w
@@ -236,6 +240,7 @@ func _build() -> void:
 		if i == 1 and look.get("spear", false):
 			# La lanza es perpendicular al antebrazo: vertical con el codo doblado, horizontal con el brazo recto.
 			var grip := _pivot(el, Vector3(0, -0.29, 0))
+			spear_grip = grip
 			grip.rotation.x = -PI / 2
 			_part(grip, _cylinder(0.018, 0.018, 2.0), Vector3(0, 0.4, 0), _mat(Color(0.3, 0.2, 0.12)))
 			_part(grip, _cylinder(0.0, 0.035, 0.22), Vector3(0, 1.51, 0), metal)

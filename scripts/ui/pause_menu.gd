@@ -12,7 +12,8 @@ var _root: Control
 var _restart_button: Button
 var _reset_button: Button
 var _tabs: TabContainer
-var _coins_button: Button
+var _char_status: Label
+var _character_buttons: Array[Control] = []
 
 
 func _ready() -> void:
@@ -62,6 +63,7 @@ func _ready() -> void:
 	tabs.add_child(_page("Combate", COMBAT))
 	_tabs = tabs
 	tabs.add_child(_world_page())
+	tabs.add_child(_character_page())
 	tabs.add_child(_options_page())
 
 	var buttons := HBoxContainer.new()
@@ -210,6 +212,106 @@ func _apply_world() -> void:
 	WorldSettings.save()
 
 
+## Pestaña Personaje: edición para probar (nivel, monedas, frascos, metales y vida). No está disponible en red.
+func _character_page() -> Control:
+	var page := VBoxContainer.new()
+	page.name = "Personaje"
+	page.add_theme_constant_override("separation", 10)
+	_char_status = Label.new()
+	_char_status.add_theme_color_override("font_color", HudKit.GOLD_LIGHT)
+	page.add_child(_char_status)
+
+	page.add_child(HudKit.section_label("Nivel del personaje"))
+	var level_row := _cheat_row("Nivel")
+	for step: int in [-10, -1, 1, 10]:
+		level_row.add_child(_cheat_button("%+d" % step, func() -> void: _set_level(Progression.level + step)))
+	level_row.add_child(_cheat_button("Nivel 100", func() -> void: _set_level(Progression.MAX_LEVEL)))
+	level_row.add_child(_cheat_button("Nivel 1", func() -> void: _set_level(1)))
+	page.add_child(level_row)
+
+	page.add_child(HudKit.section_label("Monedas y frascos"))
+	var coins_row := _cheat_row("Monedas")
+	var coins_spin := SpinBox.new()
+	coins_spin.min_value = 0
+	coins_spin.max_value = Player.COIN_MAX
+	coins_spin.step = 100
+	coins_spin.value = Player.COIN_START
+	coins_spin.custom_minimum_size.x = 140
+	coins_row.add_child(coins_spin)
+	coins_row.add_child(_cheat_button("Poner monedas", func() -> void:
+		player.coins_held = int(coins_spin.value)
+		_refresh_character()))
+	coins_row.add_child(_cheat_button("+1000", func() -> void:
+		player.coins_held = mini(player.coins_held + 1000, Player.COIN_MAX)
+		_refresh_character()))
+	page.add_child(coins_row)
+	var vials_row := _cheat_row("Frascos")
+	vials_row.add_child(_cheat_button("Llenar frascos", func() -> void:
+		if player.equipment.get("vials", "") == "":
+			player.give_item("glass_vials")
+		player.vial_charges = player.max_vials()
+		_refresh_character()))
+	page.add_child(vials_row)
+
+	page.add_child(HudKit.section_label("Recargas"))
+	var refill_row := _cheat_row("Recargar")
+	refill_row.add_child(_cheat_button("Todos los metales", func() -> void:
+		for m: StringName in Allomancy.METALS:
+			player.allomancy.refill(m, 100000.0)))
+	refill_row.add_child(_cheat_button("Vida y resistencia", func() -> void:
+		player.health = player.max_health
+		player.stamina = player.max_stamina))
+	page.add_child(refill_row)
+	var points_row := _cheat_row("Puntos de alomancia")
+	points_row.add_child(_cheat_button("Devolver todos los puntos", func() -> void:
+		Progression.respec()
+		_refresh_character()))
+	page.add_child(points_row)
+
+	var note := Label.new()
+	note.text = "Pensado para probar: bajar de nivel devuelve los puntos gastados si ya no alcanzan. No disponible en red."
+	note.modulate.a = 0.6
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(note)
+	return page
+
+
+func _cheat_row(label: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var name_label := Label.new()
+	name_label.text = label
+	name_label.custom_minimum_size.x = 210
+	row.add_child(name_label)
+	return row
+
+
+func _cheat_button(text: String, action: Callable) -> Button:
+	var b := _button(text, func() -> void:
+		if not NetworkManager.is_online():
+			action.call()
+			_refresh_character())
+	_character_buttons.append(b)
+	return b
+
+
+func _set_level(value: int) -> void:
+	Progression.level = clampi(value, 1, Progression.MAX_LEVEL)
+	Progression.xp = 0
+	if Progression.points_free() < 0:
+		Progression.respec()
+	Progression.prune_slots()
+	Progression.save()
+
+
+func _refresh_character() -> void:
+	if _char_status == null or player == null:
+		return
+	_char_status.text = "Nivel %d  ·  %d punto%s libre%s  ·  %d monedas  ·  frascos %d/%d" % [
+			Progression.level, Progression.points_free(), "" if Progression.points_free() == 1 else "s",
+			"" if Progression.points_free() == 1 else "s", player.coins_held, player.vial_charges, player.max_vials()]
+
+
 ## Pestaña de opciones: sensibilidad, campo de visión, tamaño del HUD, volumen y pantalla completa
 ## (se guardan solas), y atajos para cambiar de escenario.
 func _options_page() -> Control:
@@ -240,26 +342,6 @@ func _options_page() -> Control:
 		GameSettings.apply_global()
 		GameSettings.save())
 	page.add_child(full)
-	page.add_child(HudKit.section_label("Monedero"))
-	var coins_row := HBoxContainer.new()
-	coins_row.add_theme_constant_override("separation", 10)
-	var coins_label := Label.new()
-	coins_label.text = "Monedas"
-	coins_label.custom_minimum_size.x = 210
-	coins_row.add_child(coins_label)
-	var coins_spin := SpinBox.new()
-	coins_spin.min_value = 0
-	coins_spin.max_value = Player.COIN_MAX
-	coins_spin.step = 100
-	coins_spin.value = Player.COIN_START
-	coins_spin.custom_minimum_size.x = 140
-	coins_row.add_child(coins_spin)
-	_coins_button = _button("Poner monedas", func() -> void:
-		if not NetworkManager.is_online():
-			player.coins_held = int(coins_spin.value))
-	_coins_button.tooltip_text = "Deja el monedero con esa cantidad de monedas (1000 al empezar). No disponible en red."
-	coins_row.add_child(_coins_button)
-	page.add_child(coins_row)
 	page.add_child(HudKit.section_label("Ir a"))
 	var go := HBoxContainer.new()
 	go.add_theme_constant_override("separation", 10)
@@ -344,7 +426,9 @@ func open() -> void:
 	var online := NetworkManager.is_online()
 	_restart_button.disabled = online
 	_reset_button.disabled = online
-	_coins_button.disabled = online
+	for b in _character_buttons:
+		b.disabled = online
+	_refresh_character()
 	player.ui_open = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -406,12 +490,8 @@ Ranura «Tirón básico» (hierro 1, viene puesto en la tecla E): tirar del meta
 Con un solo metal encendido (acero o hierro), E y G hacen lo mismo.
 
 [color=#f28c40][b]PELTRE (3)[/b][/color]  cuerpo reforzado
-Más velocidad, salto, daño y aguante. [b]Espacio, Espacio[/b] sin acero: segundo salto [b]mucho[/b] más fuerte.
+Más velocidad, daño y aguante. Con sus habilidades: embestida, martillazo, Último aliento y Furia (se asignan a una tecla en el árbol, K).
 Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
-
-[color=#ffe9a8][b]ACERO + PELTRE[/b][/color]  el salto máximo
-[b]Espacio, Espacio[/b] sin dirección: salto de acero recto hacia arriba y, encima, el impulso del peltre. Gasta una moneda.
-[b]Espacio + WASD[/b]: el salto de acero direccional (el peltre ya suma por la mayor velocidad).
 
 [color=#fff2c8][b]ATIUM (4)[/b][/color]  esquivás solos los golpes y monedas de quien no lo quema.
 
@@ -427,9 +507,9 @@ const CONTROLS := """[table=2]
 [cell][b]W A S D[/b][/cell][cell]Moverse[/cell]
 [cell][b]Espacio[/b][/cell][cell]Saltar[/cell]
 [cell][b]Espacio + WASD[/b][/cell][cell]Con el acero encendido y monedas: salto de acero en esa dirección, en arco hacia arriba. Mantené Espacio para seguir empujando[/cell]
-[cell][b]Espacio, Espacio[/b][/cell][cell]Sin metales: segundo salto en el aire, más alto (con peltre, mucho más). Con acero y monedas: salto de acero recto hacia arriba (con peltre, además un impulso extra)[/cell]
+[cell][b]Espacio, Espacio[/b][/cell][cell]Sin metales: segundo salto en el aire. Con acero y monedas: salto de acero recto hacia arriba[/cell]
 [cell][b]Shift[/b][/cell][cell]Rodar · en el aire: dash · justo antes de aterrizar: amortigua la caída[/cell]
-[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
+[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño. W o Espacio: subir · S o Shift: soltarte[/cell]
 [cell][color=#f2dca8][b]COMBATE[/b][/color][/cell][cell][/cell]
 [cell][b]Clic izquierdo[/b][/cell][cell]Atacar con el arma elegida (con puños, desenvaina las dagas sola si las tenés) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
 [cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
@@ -450,7 +530,7 @@ const CONTROLS := """[table=2]
 [cell][color=#f2dca8][b]JUEGO[/b][/color][/cell][cell][/cell]
 [cell][b]Esc[/b][/cell][cell]Este menú[/cell]
 [cell][b]P[/b][/cell][cell]Elegir personaje: color del traje y la capucha (negro, blanco, rojo o azul)[/cell]
-[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
+[cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño. W o Espacio: subir · S o Shift: soltarte[/cell]
 [cell][b]Ctrl+F1 / Ctrl+F2[/b][/cell][cell]Ciudad / arena[/cell]
 [cell][b]Ctrl+F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
 [/table]"""

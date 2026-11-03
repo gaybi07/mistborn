@@ -178,12 +178,6 @@ func _grip_input(g: Grip, just: bool) -> bool:
 ## La fuerza del empuje y del tirón crece con el nivel de su metal (+3 % por nivel) y con sus hitos de nivel.
 func level_boost(g: Grip) -> float:
 	var boost := 1.0 + 0.03 * maxi(player.metal_level(g.metal) - 1, 0)
-	# Hitos del tirón de hierro: Tirón ligero (+10 %) y Tirón de masa (+25 %).
-	if g == pull_grip:
-		if player.skill_unlocked(&"iron_light_pull"):
-			boost *= 1.1
-		if player.skill_unlocked(&"iron_mass_pull"):
-			boost *= 1.25
 	return boost
 
 
@@ -507,6 +501,15 @@ func _pick_target(origin: Vector3) -> Node3D:
 
 
 ## Qué agarrar al pulsar: solo lo que está dentro del círculo de la mira (nada más, aunque haya metal cerca).
+## Lo que hay bajo la mira ahora mismo, para los poderes de hierro de un toque (Arrastre, Gancho, Desarme): se calcula en el
+## momento, aunque todavía no haya pasado un fotograma con el metal encendido.
+func aim_target() -> Node3D:
+	_reach = sense_range
+	var origin := player.chest_position()
+	_metals = _metals_in_range(origin, _reach)
+	return _pick_target(origin)
+
+
 func click_target(_is_push: bool, _origin: Vector3) -> Node3D:
 	return target
 

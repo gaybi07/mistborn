@@ -56,32 +56,31 @@ A = activa (ocupa ranura). P = pasiva (automática).
 | Nivel | Habilidad |
 |---|---|
 | 1 | A · Tirón básico (viene puesto en la tecla E): trae monedas y objetos más livianos que tú; si tiras de algo fijo o más pesado (farolas, rejas, techos metálicos), te acerca a ti |
-| 4 | P · Tirón ligero: +10 % de fuerza en el tirón de hierro |
+| 4 | A · Arrastre: tira de un enemigo con metal hacia ti (1,5 s a 16 m/s) y lo deja aturdido 1 s al llegar; solo a quien pese hasta tu poder de tirón. Recarga 6 s |
 | 2 | A · Imán de monedas: atrae nivel + 1 monedas dentro de un abanico hacia adelante; todas alrededor desde el 15 |
-| 8 | A · Anclaje de monedas: clava monedas como anclas temporales para columpiarte (pendiente) |
-| 12 | A · Tirón de armas: arranca el arma metálica de un enemigo (pendiente) |
-| 16 | P · Balanceo: columpiarse de un ancla con más control en el aire (pendiente) |
-| 20 | P · Tirón de masa: +25 % de fuerza en el tirón de hierro |
+| 8 | A · Gancho: clava una moneda en cualquier superficie fija a menos de 25 m y una soga te tira hacia ella; frenas al llegar y los golpes casi no duelen un momento. Gasta 1 moneda. Recarga 3 s |
+| 12 | A · Desarme: el arma del enemigo sale despedida y cae al piso a mitad de camino entre él y tú; 8 s pega un 70 % menos. Recarga 8 s |
+| 20 | A · Atracción masiva: arrastra a todos los enemigos con metal en 12 m a un anillo a tu alrededor y los aturde 1,2 s. Recarga 20 s |
 
 ### Peltre
 | Nivel | Habilidad |
 |---|---|
-| 1 | P · Resistencia: más aguante y menos daño recibido |
-| 4 | P · Salto reforzado (ya existe en Espacio+Espacio) |
+| 1 | P · Resistencia: con peltre encendido, más aguante y menos daño y empuje recibidos |
+| 4 | A · Embestida: te lanzas hacia donde miras 0,4 s; a quien toques lo golpeas, empujas y aturdes 1,5 s. Recarga 8 s |
 | 8 | P · Golpe reforzado: más daño cuerpo a cuerpo |
-| 12 | P · Aterrizaje seguro: sin daño de caída |
-| 16 | P · Segundo aliento: recuperación lenta de vida |
-| 20 | A · Furia: ráfaga de velocidad y daño, con cooldown |
+| 12 | A · Martillazo: onda de choque de 6 m en el suelo que daña, empuja y aturde 1,2 s. Recarga 12 s |
+| 16 | P · Último aliento: si un golpe te dejaría bajo el 20 % de vida, sobrevives, eres intocable 3 s y te curas un 40 %. Se activa sola. Recarga 60 s |
+| 20 | A · Furia: 8 s con el peltre avivado sin gastar metal y +30 % de daño; luego quedas sin aliento. Recarga 45 s |
 
 ### Estaño
 | Nivel | Habilidad |
 |---|---|
-| 1 | P · Sentidos agudos (ya existe) |
-| 4 | P · Visión nocturna |
-| 8 | P · Oído agudo: ver pasos y enemigos tras paredes |
-| 12 | A · Anticipación: marca el ataque inminente |
-| 16 | A · Sentidos extremos: resalta a todos los enemigos en un rango |
-| 20 | P · Percepción total: ve en 360° |
+| 1 | P · Sentidos agudos: el efecto base del estaño (ver más lejos en la bruma y la noche, recuperarte antes de un golpe) |
+| 4 | A · Foco: 5 s de zoom (campo de visión −40 %) y +25 % de probabilidad de crítico. Recarga 20 s |
+| 8 | P · Oído agudo: con estaño quemando ves a la gente cercana (22 m) tras las paredes como siluetas de humo con 0,5 s de retraso y estelas |
+| 12 | A · Marca del cazador: marcas a un enemigo 15 s; lo ves tras paredes nítido (0,2 s de retraso) y recibe +25 % de daño tuyo. Recarga 25 s |
+| 16 | A · Mente despejada: 12 s casi inmune a encandilar, aplacar/enardecer, empujones, tambaleo y guardia rota; limpia lo que tengas. Recarga 30 s |
+| 20 | A · Sentidos extremos: 12 s viendo a todos hasta 45 m tras paredes, en tiempo real y más marcados. Recarga 35 s |
 
 ### Cinc
 | Nivel | Habilidad |
@@ -160,7 +159,7 @@ Total: 51 habilidades base + 36 combinadas = 87. Se propone implementarlas por f
 ## Estado de la fase 4
 
 - Funcionan: ranuras (12, teclas reasignables), Tirón básico, Empuje ligero, Ráfaga de monedas, Imán de monedas, la moneda de combate (clic derecho), los límites de masa por nivel y las pasivas de peltre (Resistencia, Salto, Golpe, Aterrizaje, Segundo aliento).
-- Pendientes (se ven como "próximamente"): Anclaje de monedas, Tirón de armas, Balanceo y Furia. Cada habilidad tiene un tooltip en el árbol (K) con lo que hace y cómo mejora.
+- Pendientes (se ven como "próximamente"): Furia. Cada habilidad tiene un tooltip en el árbol (K) con lo que hace y cómo mejora.
 - Tirón básico y Empuje ligero se comportan igual con el objetivo (el que está dentro del círculo de la mira, con reselección automática; el agarre se suelta al salir del alcance útil de ese objeto). Poder de empuje y de tirón = tu peso (70 kg) en el nivel 1, +15 % por nivel (143 kg en el 8, 270 kg en el 20): lo más liviano que ese poder sale despedido y casi no te mueve; lo fijo o más pesado te mueve a ti. La fuerza sube un 3 % por nivel y con los hitos Tirón ligero y Tirón de masa (hierro). La moneda de combate solo te empuja cuando choca con algo fijo o más pesado que tu poder.
 - Teclas que cambiaron: anclar pasó a `Y` y la bolsa a `B`, porque `R` y `F` son ranuras por defecto.
 - En red (fase 5): el cliente manda su nivel y el de cada metal al servidor, que lo acota a lo que pagan sus puntos y lo guarda por jugador. Las ranuras se envían como habilidad + objetivo y el servidor comprueba que esté desbloqueada. Quedan fuera por ahora la XP en red (matar a otro jugador no da experiencia) y el guardado en el servidor: cada cliente guarda su propio archivo.

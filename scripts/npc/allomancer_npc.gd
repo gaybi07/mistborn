@@ -320,6 +320,11 @@ func _think(delta: float) -> void:
 	_apply_grips(delta)
 
 
+## Los matones y los nacidos de la bruma pelean con arma de metal.
+func is_armed() -> bool:
+	return (kind == Kind.THUG or kind == Kind.MISTBORN) and not is_disarmed()
+
+
 func _set_combat(on: bool) -> void:
 	if on == _in_combat:
 		return
@@ -511,6 +516,8 @@ func _think_mistborn() -> void:
 
 ## Golpe cuerpo a cuerpo con arma o puños; el peltre lo hace más rápido, fuerte y potente.
 func _melee(damage: float, knockback: float, reach: float, cooldown: float) -> void:
+	if is_disarmed():
+		damage *= 0.3  # sin su arma pega poco
 	var pewter := allomancy.strength(&"pewter")
 	_melee_cd = cooldown / (1.0 + 0.5 * pewter)
 	var to := _to_target()

@@ -374,6 +374,36 @@ static func metal_crate(size: Vector3, pos: Vector3, mass: float, mat: Material,
 const COIN_SCALE := 0.55
 
 
+## Un arma de metal tirada en el suelo (ver Player.start_disarm): se puede empujar y tirar con acero y hierro, y desaparece sola.
+static func dropped_weapon() -> RigidBody3D:
+	var body := RigidBody3D.new()
+	body.mass = 2.0
+	body.collision_layer = LAYER_PROPS
+	body.collision_mask = LAYER_WORLD | LAYER_PROPS
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(0.1, 0.05, 1.0)
+	col.shape = shape
+	body.add_child(col)
+	var steel := material(Color(0.68, 0.7, 0.76), 1.0, 0.3)
+	var blade := MeshInstance3D.new()
+	var blade_mesh := BoxMesh.new()
+	blade_mesh.size = Vector3(0.06, 0.02, 0.8)
+	blade.mesh = blade_mesh
+	blade.material_override = steel
+	blade.position.z = -0.1
+	body.add_child(blade)
+	var guard := MeshInstance3D.new()
+	var guard_mesh := BoxMesh.new()
+	guard_mesh.size = Vector3(0.22, 0.03, 0.04)
+	guard.mesh = guard_mesh
+	guard.material_override = steel
+	guard.position.z = 0.3
+	body.add_child(guard)
+	body.add_to_group(&"metal")
+	return body
+
+
 static func coin() -> Coin:
 	var body := Coin.new()
 	body.mass = 0.05
