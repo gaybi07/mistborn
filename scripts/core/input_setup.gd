@@ -1,6 +1,6 @@
 extends Node
 ## Registra las acciones de entrada por código (así no hace falta tocar el Mapa de Entrada)
-## y cambia de escenario: Ctrl+F1 ciudad, Ctrl+F2 arena.
+## y cambia de escenario: Ctrl+F1 ciudad, Ctrl+F2 arena, Ctrl+F6 sala de combate, Ctrl+F7 pista de navegación.
 ## Las teclas de metales (F1 a F9) se leen directamente en player.gd.
 
 
@@ -14,6 +14,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		scene = "res://scenes/main.tscn"
 	elif event.keycode == KEY_F2:
 		scene = "res://scenes/arena.tscn"
+	elif event.keycode == KEY_F6:
+		scene = "res://scenes/combat_room.tscn"
+	elif event.keycode == KEY_F7:
+		scene = "res://scenes/nav_course.tscn"
 	if scene != "" and get_tree().current_scene.scene_file_path != scene:
 		Engine.time_scale = 1.0
 		get_tree().change_scene_to_file(scene)
@@ -32,6 +36,7 @@ func _enter_tree() -> void:
 	_mouse(&"coin_shot", MOUSE_BUTTON_RIGHT)
 	_key(&"roll", KEY_SHIFT)
 	_key(&"block", KEY_CTRL)  # mantener: bloquear; pulsar justo antes del golpe: parry
+	_key(&"crouch", KEY_ALT)  # alterna agachado o parado
 	_key(&"hood", KEY_H)
 	_key(&"inventory", KEY_I)
 	_key(&"skill_tree", KEY_K)

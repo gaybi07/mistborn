@@ -63,10 +63,12 @@ class Retargeter:
 			_entries.append(e)
 		_entries.sort_custom(func(a, b): return a["dst"] < b["dst"])  # padres antes que hijos
 
-	func apply() -> void:
+	## keep_pose: copia solo sus huesos sobre la pose que ya hay (la capa superior de ModelRig).
+	func apply(keep_pose := false) -> void:
 		var src_basis := src.global_basis.orthonormalized()
 		var dst_basis := dst.global_basis.orthonormalized()
-		dst.reset_bone_poses()
+		if not keep_pose:
+			dst.reset_bone_poses()
 		for e in _entries:
 			var d: int = e["dst"]
 			var s: int = e["src"]

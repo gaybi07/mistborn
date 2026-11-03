@@ -1,7 +1,7 @@
 class_name Citizen
 extends Npc
 ## Gente de Luthadel: skaa (ropa gris, encorvados) y algún noble (colores, sombrero de copa).
-## Pasean, se paran y huyen despavoridos cuando el alomántico usa sus poderes cerca.
+## Pasean, se paran y huyen despavoridos cuando el alomántico usa sus poderes cerca, de un koloss o de quien les pegue.
 
 enum Mode { IDLE, WALK, FLEE }
 
@@ -21,6 +21,11 @@ var _until := 0.0
 var _replan_at := 0.0
 var _goal := Vector3.ZERO
 var _player: Player
+## De quién huye (el jugador si no hay otro).
+var _threat: Node3D
+## Modelo de skaa: un SkaaWorker que dejó de trabajar (ver SkaaWorker._flee).
+var skaa := false
+const KOLOSS_FEAR := 14.0
 
 
 func _make_look() -> Dictionary:
@@ -48,6 +53,8 @@ func _make_look() -> Dictionary:
 
 
 func _role() -> String:
+	if skaa:
+		return "skaa"
 	return "noble" if noble else "citizen"
 
 
@@ -55,7 +62,7 @@ func _setup() -> void:
 	loot_coins = Vector2i(2, 5)
 	loot_vial_chance = 0.08
 	rig.slouch = 0.0 if noble else randf_range(0.2, 0.5)
-	walk_speed = randf_range(1.1, 1.6)
+	walk_speed = 0.72 if skaa else randf_range(1.1, 1.6)  # la de sad_walk
 	run_speed = randf_range(4.0, 5.5)
 	_until = randf_range(0.0, 3.0)
 
@@ -81,7 +88,7 @@ func _think(delta: float) -> void:
 				plan_velocity(Vector3.ZERO)
 			elif _world_time >= _replan_at:
 				_replan_at = _world_time + 0.8
-				var away := global_position - _player.global_position
+				var away := global_position - (_threat if is_instance_valid(_threat) else _player).global_position
 				away.y = 0.0
 				if is_on_wall():
 					away = away.rotated(Vector3.UP, randf_range(-1.8, 1.8))
@@ -127,7 +134,9 @@ func _brawl() -> void:
 	if best_d < 1.4 and _world_time >= _until:
 		_until = _world_time + 1.2
 		rig.play_attack(1, 0.5)
-		best.take_hit(to.normalized() * 4.0, 0.0)
+		get_tree().create_timer(rig.impact_delay(), false).timeout.connect(func() -> void:
+			if is_instance_valid(best) and not down:
+				best.take_hit(to.normalized() * 4.0, 0.0))
 
 
 func _head_to_goal() -> void:
@@ -138,9 +147,14 @@ func _head_to_goal() -> void:
 
 
 func _is_threatened() -> bool:
+	for k: Npc in get_tree().get_nodes_in_group(&"koloss"):
+		if not k.down and k.global_position.distance_to(global_position) < KOLOSS_FEAR:
+			_threat = k
+			return true
 	var d := global_position.distance_to(_player.global_position)
 	if d > 12.0:
 		return false
+	_threat = _player
 	if _player.steel_iron.applying_force:
 		return true
 	return _player.velocity.length() > 10.0 and d < 7.0
@@ -150,3 +164,12 @@ func _on_pushed() -> void:
 	mode = Mode.FLEE
 	_until = _world_time + 4.0
 	_replan_at = _world_time + 0.7
+
+
+func _on_hit(attacker: Node3D) -> void:
+	if attacker == null or is_rioted():
+		return
+	_threat = attacker
+	mode = Mode.FLEE
+	_until = _world_time + 5.0
+	_replan_at = 0.0

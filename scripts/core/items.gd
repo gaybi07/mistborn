@@ -10,9 +10,9 @@ class_name Items
 ## metal: true si es metal. Llevar algo de metal encima (o la bolsa de monedas) deja que los
 ## alománticos enemigos te empujen y tiren de ti.
 
-const SLOTS := ["cloak", "body", "boots", "daggers", "sword", "vials"]
+const SLOTS := ["cloak", "body", "boots", "daggers", "sword", "shield", "vials"]
 const SLOT_NAMES := {"cloak": "Capa", "body": "Ropa", "boots": "Botas", "daggers": "Dagas",
-		"sword": "Espada", "vials": "Frascos"}
+		"sword": "Espada", "shield": "Escudo", "vials": "Frascos"}
 
 const DB := {
 	# --- Capas
@@ -58,6 +58,10 @@ const DB := {
 		"stats": {"damage": 0.7, "knockback": 1.6}},
 	"steel_sword": {"slot": "sword", "name": "Espada de acero", "color": Color(0.65, 0.68, 0.72), "metal": true,
 		"desc": "Una buena espada de soldado. Metal.", "stats": {"damage": 1.3, "reach": 0.2}},
+	# --- Escudos
+	"round_shield": {"slot": "shield", "name": "Escudo redondo", "color": Color(0.42, 0.3, 0.18), "metal": true,
+		"desc": "Madera con refuerzos de hierro. Se lleva con la espada: cambia su combo y bloquea mejor (más arco, casi sin daño, gasta menos resistencia).",
+		"stats": {}},
 	# --- Frascos
 	"glass_vials": {"slot": "vials", "name": "Frascos de vidrio", "color": Color(0.45, 0.7, 1.0), "metal": true,
 		"desc": "Tapón y cierre de estaño: un alomántico puede tirar de tu cinturón.",
@@ -74,7 +78,7 @@ const DB := {
 ## mochila: se la pone desde el inventario.
 const START_EQUIPPED := {"cloak": "", "body": "mistborn_suit", "boots": "soft_boots",
 		"daggers": "obsidian_daggers", "sword": "obsidian_sword", "vials": "glass_vials"}
-const START_BAG := ["skaa_clothes", "mistcloak"]
+const START_BAG := ["skaa_clothes", "mistcloak", "round_shield"]
 
 ## Nombre de cada stat y si "más" es mejor (para las comparaciones del inventario).
 const STAT_INFO := {

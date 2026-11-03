@@ -81,13 +81,13 @@ func _make_portrait() -> void:
 func _process(delta: float) -> void:
 	var rd := delta / Engine.time_scale
 	if player.health < _last_health:
-		_trail_hold = 0.45
+		_trail_hold = 0.7
 	_last_health = player.health
 	_trail_hold -= rd
 	if player.health > _trail:
 		_trail = player.health
 	elif _trail_hold <= 0.0:
-		_trail = move_toward(_trail, player.health, rd * maxf(25.0, (_trail - player.health) * 6.0))
+		_trail = move_toward(_trail, player.health, rd * maxf(20.0, (_trail - player.health) * 2.5))
 	var s := HudKit.ui_scale(self)
 	scale = Vector2(s, s)
 	queue_redraw()
@@ -260,18 +260,18 @@ func _draw_bars(font: Font) -> void:
 	var hp := clampf(player.health / hp_max, 0.0, 1.0)
 	var low := hp < 0.3
 	var green := GREEN if not low else GREEN.lerp(Color(0.85, 0.15, 0.1), 0.6 + 0.4 * sin(Time.get_ticks_msec() / 1000.0 * 8.0))
-	_bar(font, Rect2(BAR_X, 120.0, BAR_W, 22.0), hp, clampf(_trail / hp_max, 0.0, 1.0), green, "%d / %d" % [ceili(player.health), int(hp_max)])
+	_bar(font, Rect2(BAR_X, 120.0, BAR_W, 22.0), hp, clampf(_trail / hp_max, 0.0, 1.0), green, "%d / %d" % [ceili(_trail), int(hp_max)])
 	var sp := clampf(player.stamina / player.max_stamina, 0.0, 1.0)
 	var tired := player.is_exhausted()
 	var blue := BLUE if not tired else Color(0.95, 0.55, 0.2)
 	_bar(font, Rect2(BAR_X, 146.0, BAR_W, 18.0), sp, sp, blue, "Sin aliento" if tired else "%d / %d" % [ceili(player.stamina), int(player.max_stamina)])
 
 
-## Barra rellena con degradado y brillo, y la estela clara de la vida recién perdida.
+## Barra rellena con degradado y brillo, y la estela blanca de la vida recién perdida.
 func _bar(font: Font, rect: Rect2, frac: float, trail: float, fill: Color, text: String) -> void:
 	draw_rect(rect, Color(0.02, 0.022, 0.03, 0.9))
 	if trail > frac:
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x * trail, rect.size.y)), Color(0.98, 0.9, 0.75, 0.55))
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x * trail, rect.size.y)), Color(1.0, 1.0, 1.0, 0.9))
 	if frac > 0.0:
 		var f := Rect2(rect.position, Vector2(rect.size.x * frac, rect.size.y))
 		draw_rect(f, fill.darkened(0.3))

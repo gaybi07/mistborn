@@ -157,7 +157,9 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 		rig.retarget_from = KAYKIT % "Rogue"
 		rig.retarget_map = PLAYER_MODELS[player_model][1]
 		# Gestos con monedas bajados de Mixamo (tools/blender/mixamo_to_glb.py).
-		rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
+		# MixamoCombat: golpes de puños, dagas y espada con escudo.
+		rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE],
+				["res://assets/mixamo/MixamoCombat.glb", BoneTools.MIXAMO_TO_UE]]
 		return rig
 	if not SETS.has(style):
 		return _procedural(look)
@@ -182,11 +184,16 @@ static func skaa_rig() -> ModelRig:
 	rig.retarget_from = KAYKIT % "Rogue"
 	rig.retarget_map = BoneTools.KAYKIT_TO_UE
 	rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
-	rig.anim_overrides = {"idle": ["sad_idle", "idle"], "walk": ["sad_walk", "walk"]}
+	# Tranquilo camina encorvado; huyendo corre como el Mistborn (no con el clip chibi de KayKit).
+	rig.anim_overrides = {"idle": ["sad_idle", "idle"], "walk": ["sad_walk", "walk"], "flee": ["sprint"]}
 	return rig
 
 
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
+	if role == "skaa":
+		return skaa_rig()
+	if role.begins_with("koloss"):
+		return koloss_fighter_rig(role == "koloss_axes")
 	if npc_use_koloss:
 		return koloss_rig()
 	if not SETS.has(style):
@@ -210,7 +217,31 @@ static func koloss_rig() -> ModelRig:
 	rig.retarget_from = KOLOSS_ANIMS
 	rig.retarget_map = BoneTools.UE_TO_UE
 	rig.target_height = NPC_MIN_HEIGHT + (NPC_MAX_HEIGHT - NPC_MIN_HEIGHT) * pow(randf(), 1.4)
+	rig.stride_scale = rig.target_height / 1.8
 	rig.tint = Color.WHITE.darkened(randf_range(0.0, 0.25))
+	return rig
+
+
+## El koloss que pelea (ver Koloss): con espadón a dos manos o con un hacha en cada mano.
+static func koloss_fighter_rig(axes: bool) -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = KOLOSS
+	rig.flip = true
+	# KolossMoves primero: esquives y golpes del mismo donante, así se mezclan sin cortes.
+	rig.retarget_from = "res://assets/koloss/KolossMoves.glb"
+	rig.retarget_map = BoneTools.MIXAMO_TO_UE
+	rig.extra_donors = [[KOLOSS_ANIMS, BoneTools.UE_TO_UE]]
+	rig.target_height = randf_range(2.0, 3.2)
+	rig.stride_scale = rig.target_height / 1.8
+	rig.ignore_light_hits = true
+	rig.tint = Color.WHITE.darkened(randf_range(0.0, 0.2))
+	rig.held_weapons = ["res://assets/weapons/koloss_axe.glb", "res://assets/weapons/koloss_axe.glb"] if axes 			else ["res://assets/weapons/koloss_greatsword.glb"]
+	var style := "mt" if axes else "gs"
+	var idle := ["%s_idle" % style]
+	var run := ["%s_run" % style]
+	rig.anim_overrides = {"idle": idle, "idle_armed": idle, "walk": ["%s_walk" % style], "run": run, "sprint": run,
+			"flee": run, "hit": ["gs_hit"], "hit_head": ["gs_hit"], "hit_knockback": ["hit_front"], "down": ["mt_die"],
+			"block": ["gs_block"]}
 	return rig
 
 

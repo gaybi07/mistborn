@@ -160,12 +160,35 @@ func _physics_process(delta: float) -> void:
 				continue
 			var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp() * level_boost(g), g.dir_sign, delta, _reach, base_force, power_mass(g))
 			player.add_allomantic_acceleration(accel, player.real_delta(delta))
+			if g == push_grip:
+				_cap_push_height(strength)
 			applying_force = true
 
 	if Input.is_action_just_pressed(&"anchor"):
 		anchor_pressed()
 	for g in grips():
 		g.input_just = false
+
+
+## Techo del empujón: subís como mucho esto sobre lo que tengas debajo (lo que el impulso te lleve al soltar,
+## incluido): frena lo justo para que la subida termine ahí. Avivando, el 50 % más.
+const PUSH_MAX_HEIGHT := 40.0
+
+
+## Velocidad de subida que todavía deja llegar a `top` m estando a `height` y sin pasarse (caída libre).
+static func capped_rise(rise: float, height: float, top: float, gravity: float) -> float:
+	return minf(rise, sqrt(2.0 * gravity * maxf(top - height, 0.0)))
+
+
+func _cap_push_height(strength: float) -> void:
+	if player.velocity.y <= 0.0:
+		return
+	var top := PUSH_MAX_HEIGHT * (1.0 + 0.5 * (strength - 1.0))
+	var from := player.global_position
+	var query := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * top, Props.LAYER_WORLD, [player.get_rid()])
+	var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
+	var height: float = from.y - (hit["position"] as Vector3).y if hit else top
+	player.velocity.y = capped_rise(player.velocity.y, height, top, player._gravity)
 
 
 ## Si se pulsa la ranura con la habilidad de este agarre (tirón básico o empuje ligero; ver Player._skill_key).
@@ -226,7 +249,7 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.target = t
 		g.active = true
 		Sfx.play("steel_push" if g == push_grip else "iron_pull", player.chest_position())
-		player.rig.play_skill("steel_push" if g == push_grip else "pull_heavy", 0.9)
+		player.rig.play_skill("steel_push" if g == push_grip else "pull_heavy", 0.9, 0.3 if g == push_grip else 0.0)
 		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
 		Fx.sprite(get_tree().current_scene, "zap-hit", center_of(t), 2.0, g.color, origin)
 
@@ -329,6 +352,8 @@ func _net_physics(delta: float) -> void:
 			continue
 		var accel := Metals.push_pull(origin, player.body_mass, g.target, strength * g.ramp() * level_boost(g), g.dir_sign, delta, _reach, base_force, power_mass(g))
 		player.add_allomantic_acceleration(accel, player.real_delta(delta))
+		if g == push_grip:
+			_cap_push_height(strength)
 		applying_force = true
 	_net_publish()
 

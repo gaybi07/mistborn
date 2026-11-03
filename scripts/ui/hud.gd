@@ -224,9 +224,16 @@ func _process(delta: float) -> void:
 func _update_enemy_bars() -> void:
 	var cam := player.camera
 	var used := 0
+	var rd := get_process_delta_time() / Engine.time_scale
 	for n in get_tree().get_nodes_in_group(&"npc"):
 		var npc := n as Npc
-		if npc == null or npc.down or not npc.in_combat():
+		if npc == null:
+			continue
+		if npc.health > npc.health_trail:
+			npc.health_trail = npc.health
+		elif Time.get_ticks_msec() >= npc.trail_hold_ms:
+			npc.health_trail = move_toward(npc.health_trail, npc.health, rd * maxf(npc.max_health * 0.25, (npc.health_trail - npc.health) * 2.5))
+		if npc.down or not npc.in_combat():
 			continue
 		var head := npc.global_position + Vector3(0, npc.head_y(), 0)
 		if cam.is_position_behind(head) or head.distance_to(cam.global_position) > 50.0:
@@ -234,6 +241,13 @@ func _update_enemy_bars() -> void:
 		if used == _enemy_bars.size():
 			var b := _bar(1.0, Color.WHITE)
 			add_child(b)
+			# Detrás, la vida recién perdida en blanco; la barra de arriba queda sin fondo para que se vea.
+			(b.get_theme_stylebox(&"background") as StyleBoxFlat).bg_color = Color.TRANSPARENT
+			var ghost := _bar(1.0, Color(1, 1, 1, 0.9))
+			ghost.custom_minimum_size = Vector2.ZERO
+			ghost.show_behind_parent = true
+			b.add_child(ghost)
+			ghost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			_enemy_bars.append(b)
 		var bar := _enemy_bars[used]
 		bar.custom_minimum_size = Vector2(70, 7) * _ui_scale
@@ -242,6 +256,9 @@ func _update_enemy_bars() -> void:
 		(bar.get_theme_stylebox(&"fill") as StyleBoxFlat).bg_color = Color(0.8, 0.12, 0.1) if hostile else Color(0.85, 0.6, 0.2)
 		bar.max_value = npc.max_health
 		bar.value = npc.health
+		var trail := bar.get_child(0) as ProgressBar
+		trail.max_value = npc.max_health
+		trail.value = npc.health_trail
 		bar.size = bar.custom_minimum_size
 		bar.position = cam.unproject_position(head) - bar.size * 0.5
 		bar.visible = true

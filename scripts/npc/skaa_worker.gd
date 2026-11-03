@@ -12,6 +12,9 @@ const TASKS := ["dig", "push_heavy", "pull_heavy", "iron_pull", "lift_heavy", "k
 const WITH_CRATE := ["push_heavy", "pull_heavy", "lift_heavy"]
 const CARRY_SPEED := 1.1  # a la velocidad a la que pisa carry_walk (si no, patina)
 const WALK_SPEED := 0.72  # la de sad_walk
+## Un koloss a esta distancia, o el jugador pegando a esta otra: suelta el trabajo y huye.
+const KOLOSS_FEAR := 12.0
+const PLAYER_FEAR := 3.5
 
 var task := ""
 var route := Vector3.ZERO
@@ -23,6 +26,7 @@ var _big_at := 0.6  # segundos de animación antes de medir las manos
 var _start := Vector3.ZERO
 var _step := 0  # cargador: 0 levanta, 1 lleva, 2 deja, 3 vuelve
 var _loaded_at := 0.0
+var _check_in := randf_range(0.0, 0.3)
 
 
 func _ready() -> void:
@@ -44,6 +48,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_check_in -= delta
+	if _check_in <= 0.0:
+		_check_in = 0.3
+		if _threatened():
+			_flee()
+			return
 	if route == Vector3.ZERO:
 		if rig._spell <= 0.0:
 			rig.play_spell(task, 60.0)  # duración larga: a su velocidad natural, y se vuelve a empezar
@@ -71,6 +81,27 @@ func _process(delta: float) -> void:
 	if _crate.visible:
 		# La caja va entre las manos (las sostiene de los costados).
 		_crate.global_position = _hands_mid()
+
+
+func _threatened() -> bool:
+	for k: Npc in get_tree().get_nodes_in_group(&"koloss"):
+		if not k.down and k.global_position.distance_to(global_position) < KOLOSS_FEAR:
+			return true
+	var p := get_tree().get_first_node_in_group(&"player") as Player
+	return p != null and p._attack_cd > 0.0 and p.global_position.distance_to(global_position) < PLAYER_FEAR
+
+
+## Sigue como un Citizen: ese choca, recibe golpes y corre. Este nodo es solo la animación de trabajo.
+func _flee() -> void:
+	var c := Citizen.new()
+	c.skaa = true
+	c.home = global_position
+	c.position = position + Vector3.UP * 0.05
+	c.rotation = rotation
+	get_parent().add_child(c)
+	c._on_pushed()
+	c._replan_at = 0.0
+	queue_free()
 
 
 func _begin(step: int) -> void:

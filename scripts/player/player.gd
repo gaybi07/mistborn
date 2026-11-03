@@ -51,13 +51,17 @@ signal notice(text: String)
 ## combo: golpes encadenados [duración, × daño, × empuje]; el último es el remate (con estocada).
 const WEAPONS := [
 	{"name": "Puños", "damage": 8.0, "knockback": 4.0, "reach": 1.6,
-		"combo": [[0.45, 1.0, 1.0], [0.5, 1.1, 1.2], [0.7, 1.7, 2.5]]},
+		"combo": [[0.45, 1.0, 1.0], [0.5, 1.1, 1.2], [0.55, 1.2, 1.2], [0.7, 1.7, 2.5]]},
 	# Dagas: cuatro golpes distintos; el cuarto, un tajo doble que empuja lejos.
 	{"name": "Dagas de obsidiana", "damage": 14.0, "knockback": 3.0, "reach": 1.8,
 		"combo": [[0.42, 1.0, 1.0], [0.46, 1.05, 1.0], [0.5, 1.15, 1.2], [0.78, 2.1, 3.2]]},
 	{"name": "Espada", "damage": 30.0, "knockback": 7.0, "reach": 2.4,
 		"combo": [[0.55, 1.0, 1.0], [0.6, 1.1, 1.2], [0.85, 1.8, 3.0]]},
 ]
+## Espada con escudo: su propio combo; el remate es un golpe de escudo que empuja lejos.
+const SHIELD_COMBO := [[0.5, 1.0, 1.0], [0.55, 1.1, 1.2], [0.8, 1.5, 3.5]]
+## Al golpear en el suelo el cuerpo frena a esta aceleración (m/s²): de correr a parado en ~0,2 s.
+const ATTACK_BRAKE := 28.0
 ## Tiempo extra tras un golpe para encadenar el siguiente del combo.
 const COMBO_WINDOW := 0.45
 ## Segundos sin pelear tras los que se considera que el combate terminó.
@@ -201,7 +205,13 @@ const IFRAMES := 0.4
 const BLOCK_ARC := 1.2
 const BLOCK_DAMAGE := 0.2
 const BLOCK_STAMINA := 1.2
-const BLOCK_SPEED := 0.45
+const BLOCK_SPEED := 0.3  # 1,8 m/s: lo más que da la caminata sin que los pies patinen
+## Agachado (Alt alterna): a esta fracción de tu velocidad, a la que pisa crouch_walk.
+const CROUCH_SPEED := 0.2
+## Bloqueando con escudo.
+const SHIELD_BLOCK_ARC := 1.8
+const SHIELD_BLOCK_DAMAGE := 0.05
+const SHIELD_BLOCK_STAMINA := 0.7
 const PARRY_WINDOW_MS := 200
 const PARRY_STUN := 1.5
 var blocking := false
@@ -219,6 +229,11 @@ var _combo := 0
 var _combo_window := 0.0
 ## Pulsaste atacar justo antes de poder: el golpe sale en cuanto se pueda.
 var _attack_buffered := false
+## Hasta que pega el golpe o sale el poder no se empieza otra acción (las de escape sí la cortan: _cancel_action).
+var _commit_t := 0.0
+var _queued_skill := &""
+## Sube al empezar o cortar una acción: lo que tenía que pasar en el impacto ve que ya no vale.
+var _action_id := 0
 var _combat_ms := -1000000
 ## Moneda que se empuja sola (clic derecho o salto de acero), y cómo estaba el acero antes.
 var _coin_push_steel := Allomancy.State.OFF
@@ -451,7 +466,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		drink_vial()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F7:
-		_debug_next_anim()
+		if event.shift_pressed:
+			_debug_spawn_koloss()
+		else:
+			_debug_next_anim()
 		return
 	if event is InputEventKey and not event.echo and (not event.ctrl_pressed or not event.pressed) and _slot_key(event):
 		return
@@ -492,6 +510,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		roll()
 	elif event.is_action_pressed(&"hood") and rig.cloak:
 		rig.cloak.set_hood(not rig.cloak.hood_up)
+	elif event.is_action_pressed(&"crouch"):
+		rig.crouched = not rig.crouched
 
 
 ## Mover la cámara con el ratón o recapturarlo con un clic. Devuelve true si el evento era de ratón.
@@ -949,6 +969,7 @@ func _metal_key_down(key: Key, group: Array[StringName]) -> void:
 			if not (m == &"pewter" and _pewter_drag > 0.0):
 				allomancy.set_state(m, Allomancy.State.FLARE)
 		_flare_held[key] = group
+		_metal_gesture(group)
 		return
 	_last_tap_key = key
 	_last_tap_ms = now
@@ -957,6 +978,14 @@ func _metal_key_down(key: Key, group: Array[StringName]) -> void:
 		if m == &"pewter" and _pewter_drag > 0.0:
 			continue  # con arrastre de peltre no puedes volver a quemarlo
 		allomancy.set_state(m, Allomancy.State.OFF if any_on else Allomancy.State.BURN)
+	if not any_on:
+		_metal_gesture(group)
+
+
+## Acero y hierro no: su gesto es el del poder que uses. Sin aprender o sin reserva tampoco: no se encendió.
+func _metal_gesture(group: Array[StringName]) -> void:
+	if group.any(func(m: StringName) -> bool: return m != &"steel" and m != &"iron" and allomancy.is_burning(m)):
+		rig.burn_gesture(&"pewter" in group)
 
 
 ## Clic sobre el icono de un metal en el HUD: igual que apretar o soltar su tecla (doble clic y mantener: avivar).
@@ -1144,6 +1173,9 @@ func _slot_key(key: InputEventKey) -> bool:
 
 
 func _skill_press(skill: StringName) -> void:
+	if _commit_t > 0.0 and not skill in [&"iron_pull", &"steel_light_push"]:
+		_queued_skill = skill
+		return
 	match skill:
 		&"iron_pull":
 			_grip_skill(steel_iron.pull_grip, &"iron", true)
@@ -1365,9 +1397,16 @@ func _physics_process(delta: float) -> void:
 	_update_block()
 	if blocking:
 		speed_mult *= BLOCK_SPEED
+	elif rig.crouched and is_on_floor():
+		speed_mult *= CROUCH_SPEED
 
 	_collect_coins()
 	_ledge_cd -= rd
+	_commit_t -= rd
+	if _commit_t <= 0.0 and _queued_skill != &"":
+		var queued := _queued_skill
+		_queued_skill = &""
+		_skill_press(queued)
 	var was_swimming := _swimming
 	_swimming = _in_deep_water()
 	if _swimming and not was_swimming:
@@ -1413,8 +1452,10 @@ func _physics_process(delta: float) -> void:
 			_air_jump(move)
 			rig.play_jump()
 		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
+			_cancel_action()
 			_ground_jump(move, speed_mult, jump_mult)
 			jumped = true
+			rig.crouched = false
 			rig.play_jump()
 			Sfx.play("jump", global_position)
 
@@ -1428,7 +1469,7 @@ func _physics_process(delta: float) -> void:
 	var being_pushed := _allomantic_accel > 2.0 or _shoved > 0.0
 	_attack_cd -= rd
 	_combo_window -= rd
-	if _attack_buffered and _attack_cd <= 0.0:
+	if _attack_buffered and _attack_cd <= 0.0 and _commit_t <= 0.0:
 		_attack_buffered = false
 		attack()
 	_roll_cd -= rd
@@ -1456,6 +1497,8 @@ func _physics_process(delta: float) -> void:
 		_roll_time -= rd
 		if is_on_floor():
 			hv = Vector2(_roll_dir.x, _roll_dir.z) * roll_speed * (1.0 + 0.3 * pewter)
+	elif is_on_floor() and _attack_cd > 0.0 and not being_pushed and not jumped:
+		hv = hv.move_toward(Vector2.ZERO, ATTACK_BRAKE * rd)
 	elif (is_on_floor() or _swimming) and not being_pushed and not jumped:
 		hv = hv.move_toward(target * (SWIM_SPEED if _swimming else 1.0), ground_accel * rd)
 	elif input != Vector2.ZERO:
@@ -1691,7 +1734,7 @@ func _update_rig(hv: Vector2, rd: float) -> void:
 		var to := Vector2(aim.x - global_position.x, aim.z - global_position.z)
 		if to.length() > 1.0:
 			face = to.normalized() * 10.0
-	if face.length() > 0.5:
+	if face.length() > 0.5 and _attack_cd <= 0.0:
 		visual.rotation.y = lerp_angle(visual.rotation.y, atan2(-face.x, -face.y), 12.0 * rd)
 
 
@@ -1830,6 +1873,9 @@ func weapon_stats(w: int) -> Dictionary:
 		stats["damage"] *= Items.stat(id, "damage", 1.0)
 		stats["knockback"] *= Items.stat(id, "knockback", 1.0)
 		stats["reach"] += Items.stat(id, "reach", 0.0)
+	if w == HumanoidRig.Weapon.SWORD and equipment.get("shield", "") != "":
+		stats["name"] += " y escudo"
+		stats["combo"] = SHIELD_COMBO
 	return stats
 
 
@@ -1854,6 +1900,7 @@ func _apply_equipment() -> void:
 	var body := Items.get_item(equipment.get("body", ""))
 	rig.set_equipment(body.get("dark", false), equipment.get("cloak", "") != "",
 			equipment.get("vials", "") != "", equipment.get("daggers", "") != "")
+	rig.shield_owned = equipment.get("shield", "") != ""
 	rig.set_weapon(weapon)
 	_update_metal_group()
 	equipment_changed.emit()
@@ -1873,6 +1920,14 @@ const DEBUG_ANIMS := ["coin_wave", "coin_shield", "steel_push", "iron_pull", "co
 var _debug_anim := -1
 
 
+## shortcut: Mayús+F7 trae un koloss para probarlo; borrarla cuando aparezcan solos a menudo.
+func _debug_spawn_koloss() -> void:
+	var k := Koloss.new()
+	k.home = global_position
+	k.position = global_position - visual.global_basis.z * 14.0 + Vector3.UP * 0.5
+	get_tree().current_scene.add_child(k)
+
+
 func _debug_next_anim() -> void:
 	_debug_anim = (_debug_anim + 1) % DEBUG_ANIMS.size()
 	var anim: String = DEBUG_ANIMS[_debug_anim]
@@ -1882,7 +1937,14 @@ func _debug_next_anim() -> void:
 
 ## Bebe un frasco: recupera de cada metal salvo atium (según el tipo de frasco).
 func drink_vial() -> void:
-	if dead or equipment.get("vials", "") == "" or vial_charges <= 0:
+	if dead or equipment.get("vials", "") == "" or vial_charges <= 0 or _commit_t > 0.0:
+		return
+	_cast("drink", 1.2, 0.2, _finish_drink, 0.42)
+
+
+## La mano llegó a la boca (si cortaste antes con una voltereta, el frasco no se gasta).
+func _finish_drink() -> void:
+	if vial_charges <= 0:
 		return
 	vial_charges -= 1
 	Sfx.play("drink")
@@ -1930,7 +1992,7 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 			_parry(attacker)
 			return
 		if blocking:
-			if _spend_stamina(damage * BLOCK_STAMINA):
+			if _spend_stamina(damage * (SHIELD_BLOCK_STAMINA if rig.shield_up() else BLOCK_STAMINA)):
 				_block_hit(attacker, impulse, damage)
 				return
 			_guard_broken = true  # sin resistencia: la guardia cede y el golpe entra entero
@@ -1955,6 +2017,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 		attacker.mark_combat()
 	HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
 	if attacker:
+		if damage >= 20.0 or _guard_broken:
+			_cancel_action()
 		rig.play_hit(attacker.global_position, damage >= 20.0 or _guard_broken)
 	take_damage(damage / (1.0 + 0.6 * pewter))
 
@@ -1969,7 +2033,7 @@ func _facing(attacker: Node3D) -> bool:
 	to.y = 0.0
 	var fwd := -visual.global_basis.z
 	fwd.y = 0.0
-	return to.length() < 0.1 or fwd.angle_to(to) <= BLOCK_ARC
+	return to.length() < 0.1 or fwd.angle_to(to) <= (SHIELD_BLOCK_ARC if rig.shield_up() else BLOCK_ARC)
 
 
 ## Ctrl: guardia mientras lo mantienes (en el suelo, sin rodar ni atacar). Pulsarlo abre la ventana de parry.
@@ -1979,8 +2043,10 @@ func _update_block() -> void:
 		_block_pressed_ms = Time.get_ticks_msec()
 	if not held:
 		_guard_broken = false
-	blocking = held and not _guard_broken and is_on_floor() and _roll_time <= 0.0 and _dodge_t <= 0.0 \
-			and _attack_cd <= 0.0 and not _hanging
+	var was_blocking := blocking
+	blocking = held and not _guard_broken and is_on_floor() and _roll_time <= 0.0 and _dodge_t <= 0.0 and not _hanging
+	if blocking and not was_blocking:
+		_cancel_action()
 	rig.blocking = blocking
 
 
@@ -2003,12 +2069,14 @@ func _block_hit(attacker: Node3D, impulse: Vector3, damage: float) -> void:
 	var at := chest_position() + (Metals.center_of(attacker) - chest_position()).normalized() * 0.4
 	Fx.sparks(get_tree().current_scene, at, Color(1.0, 0.75, 0.45))
 	HumanoidRig.hit_stop([rig, attacker.get(&"rig")], damage * 0.5)
+	if attacker.get(&"rig"):
+		attacker.get(&"rig").recoil(global_position, 0.35)
 	velocity += impulse * 0.3
 	_shoved = 0.15
 	rig.block_impact()
 	Sfx.play("clash", at)
 	mark_combat()
-	take_damage(damage * BLOCK_DAMAGE)
+	take_damage(damage * (SHIELD_BLOCK_DAMAGE if rig.shield_up() else BLOCK_DAMAGE))
 
 
 func _update_camera_boom(rd: float) -> void:
@@ -2076,7 +2144,7 @@ func attack() -> void:
 		return
 	if blocking:
 		return
-	if _attack_cd > 0.0:
+	if _attack_cd > 0.0 or _commit_t > 0.0:
 		_attack_buffered = _attack_cd < 0.3
 		return
 	if not _spend_stamina(ATTACK_COST):
@@ -2102,7 +2170,10 @@ func attack() -> void:
 		_attack_side = 1
 	# El ritmo del golpe (cuándo pega, cuándo se puede encadenar) sigue a la animación de verdad.
 	duration = rig.play_attack(_attack_side, duration, _combo)
-	_attack_cd = duration * 0.85
+	var impact := rig.impact_delay()
+	# Encadenar se puede pasado el impacto, sin esperar a que termine la recuperación.
+	_attack_cd = maxf(impact + 0.1, duration * 0.6)
+	_commit_t = impact
 	_combo_window = duration + COMBO_WINDOW
 	# Golpea hacia donde mira la cámara.
 	var fwd := aim_direction()
@@ -2112,11 +2183,37 @@ func attack() -> void:
 	# Remate: el último golpe de un combo (un arma de un solo golpe no tiene remate).
 	var finisher := combo.size() > 1 and _combo == combo.size() - 1
 	if finisher and is_on_floor():
-		velocity += fwd * 4.0  # el remate va con una estocada hacia delante
+		# El remate da un paso corto hacia delante, en vez de sumarse a la carrera.
+		velocity.x = fwd.x * 4.0
+		velocity.z = fwd.z * 4.0
 		_shoved = 0.15
 	Sfx.play("swing", global_position + Vector3(0, 1.2, 0))
-	get_tree().create_timer(duration * (0.55 if finisher else 0.4), true, false, true).timeout.connect(
-			_resolve_hit.bind(stats, pewter, step[1], step[2], 1.2, 0.0, finisher))
+	_after(impact, _resolve_hit.bind(stats, pewter, step[1], step[2], 1.2, 0.0, finisher))
+
+
+## Corre `effect` en el impacto, salvo que antes hayan cortado la acción.
+func _after(delay: float, effect: Callable) -> void:
+	_action_id += 1
+	var id := _action_id
+	get_tree().create_timer(delay, true, false, true).timeout.connect(func() -> void:
+		if id == _action_id and not dead:
+			effect.call())
+
+
+## Gesto de un poder y su efecto cuando la mano llega (from: ver ModelRig.play_skill).
+func _cast(state: String, duration: float, from: float, effect: Callable, to := 1.0) -> void:
+	rig.play_skill(state, duration, from, to)
+	_commit_t = rig.impact_delay()
+	_after(_commit_t, effect)
+
+
+func _cancel_action() -> void:
+	_action_id += 1
+	_commit_t = 0.0
+	_attack_cd = 0.0
+	_attack_buffered = false
+	_queued_skill = &""
+	rig.cancel_action()
 
 
 const AIR_ATTACK_TIME := 0.55
@@ -2124,6 +2221,7 @@ const AIR_ATTACK_TIME := 0.55
 func _air_attack(stats: Dictionary, pewter: float) -> void:
 	_air_attack_used = true
 	var duration := rig.play_air_attack(AIR_ATTACK_TIME / (1.0 + 0.3 * pewter))
+	_commit_t = rig.impact_delay()
 	_attack_cd = duration * 0.9
 	_combo_window = 0.0
 	var fwd := aim_direction()
@@ -2134,8 +2232,7 @@ func _air_attack(stats: Dictionary, pewter: float) -> void:
 	velocity += fwd * 2.5
 	Fx.burst(get_tree().current_scene, chest_position(), Color(0.75, 0.8, 0.9, 0.35), 18, 4.0, 0.5, 0.5, 0.0, false)
 	_shield_spin = ModelRig.SPIN_TIME + 0.2  # las monedas del escudo giran con el cuerpo
-	get_tree().create_timer(duration * 0.45, true, false, true).timeout.connect(
-			_resolve_hit.bind(stats, pewter, 1.4, 1.8, PI, 0.8, true))
+	_after(_commit_t, _resolve_hit.bind(stats, pewter, 1.4, 1.8, PI, 0.8, true))
 
 
 ## arc: medio ángulo (rad) del golpe hacia delante (PI = todo alrededor). heavy: remate (sacude la cámara).
@@ -2163,7 +2260,11 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		npc.take_hit(to.normalized() * knockback * (1.5 if crit else 1.0), damage * (Metals.CRIT_MULT if crit else 1.0), self)
 		if crit:
 			npc.stun(0.0, global_position)  # el crítico lo saca del aturdimiento y lo tira para atrás
-			Fx.popup(get_tree().current_scene, npc.global_position + Vector3(0, 2.2, 0), "Crítico", Metals.ATIUM_COLOR)
+			Fx.popup(get_tree().current_scene, npc.global_position + Vector3(0, npc.head_y() + 0.5, 0), "¡Crítico!", Color(1.0, 0.85, 0.35), 1.5)
+			# Se nota más que un golpe común: todo se congela un poco más y el golpeado brilla.
+			npc.rig.flash(Color(1.0, 0.9, 0.55))
+			npc.rig.hitstop = 0.2
+			rig.hitstop = 0.15
 		var hit_sound := "punch_heavy" if heavy else "punch"
 		if weapon != HumanoidRig.Weapon.NONE:
 			hit_sound = "clash" if npc.is_in_group(&"metal") else "slash"
@@ -2215,6 +2316,7 @@ func roll() -> void:
 				return
 			# El impulso se reparte en DASH_TIME y el cuerpo gira suave hacia la dirección
 			# (lo hace _update_rig siguiendo la velocidad).
+			_cancel_action()
 			_air_dash_used = true
 			_dash_dir = dir
 			_dash_speed = air_dash_speed * (1.0 + 0.3 * allomancy.strength(&"pewter"))
@@ -2226,6 +2328,7 @@ func roll() -> void:
 
 ## Paso al costado (side: -1 izquierda, 1 derecha, según la cámara).
 func _start_dodge(side: float) -> void:
+	_cancel_action()
 	blocking = false
 	var fwd := aim_direction()
 	visual.rotation.y = atan2(-fwd.x, -fwd.z)
@@ -2237,6 +2340,7 @@ func _start_dodge(side: float) -> void:
 
 
 func _start_roll(dir: Vector3) -> void:
+	_cancel_action()
 	dir.y = 0.0
 	if dir.length() < 0.1:
 		dir = -visual.global_basis.z
@@ -2321,6 +2425,8 @@ const LANDING_COIN_PITCH := 55.0
 ## Moneda de combate (clic derecho): ancla instantánea sobre lo fijo hasta ANCHOR_RANGE (m), con ANCHOR_COOLDOWN_MS entre
 ## impulsos, y proyectil rápido (COIN_SHOT_SPEED m/s) para enemigos, objetos sueltos y lo lejano.
 const COIN_SHOT_SPEED := 60.0
+## La moneda de combate sale en el acto (sirve para frenar una caída): el gesto arranca con la mano ya en camino.
+const COIN_FLICK_FROM := 0.35
 const ANCHOR_RANGE := 25.0
 const ANCHOR_COOLDOWN_MS := 1000
 var _anchor_ready_ms := 0
@@ -2446,7 +2552,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 			_shot_point = fixed["position"]
 			_shot_speed = 0.0
 			visual.rotation.y = atan2(-dir.x, -dir.z)
-			rig.play_throw()
+			rig.play_skill("coin_flick", 0.7, COIN_FLICK_FROM)
 			return anchor
 	var coin := _spawn_coin(start + dir * 0.35)
 	coin.gravity_scale = 0.0  # vuela en línea recta hasta el punto apuntado (se restaura en _end_coin_push)
@@ -2454,7 +2560,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	_shot_point = hit
 	_shot_speed = speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
-	rig.play_skill("coin_flick", 0.7)
+	rig.play_skill("coin_flick", 0.7, COIN_FLICK_FROM)
 	Sfx.play("coin_throw", global_position + Vector3(0, 1.2, 0))
 	return coin
 
@@ -2523,12 +2629,21 @@ const RADIAL_BURST_TILT := 70.0
 
 
 func fire_coin_burst(aim := Vector3.INF) -> void:
-	if dead or not _check_coins():
+	if dead or (_shield <= 0 and not _check_coins()):
 		return
 	var now := Time.get_ticks_msec()
 	if now < _net_coin_ready_ms:
 		return
 	_net_coin_ready_ms = now + COIN_BURST_COOLDOWN_MS
+	if _shield > 0:
+		_cast("coin_wave", 0.9, 0.25, _shield_nova)
+		return
+	_cast("coin_wave", 0.9, 0.25, _release_burst.bind(aim))
+
+
+func _release_burst(aim: Vector3) -> void:
+	if not _check_coins():
+		return
 	# Todo sale hacia donde apunta el ratón, también hacia arriba o abajo (no a la altura del cuerpo). El abanico se
 	# abre a izquierda y derecha de esa dirección, vista desde la cámara; el radial (nivel 15) es una moneda hacia
 	# donde apuntas y el resto en un anillo ancho alrededor de esa dirección.
@@ -2555,7 +2670,6 @@ func fire_coin_burst(aim := Vector3.INF) -> void:
 		var coin := _spawn_coin(start + dir * 0.5)
 		coin.gravity_scale = 0.08  # casi recta: cae muy despacio, para que acierte donde apuntas
 		coin.linear_velocity = dir * speed
-	rig.play_skill("coin_wave", 0.9)
 
 
 ## Escudo de monedas (acero 8): monedas del monedero que giran a tu alrededor y dan una probabilidad de desviar cada golpe
@@ -2578,11 +2692,67 @@ func toggle_coin_shield() -> void:
 		return
 	if not _check_coins():
 		return
+	rig.open_arms(0.6, 0.25, 0.4)
+	_after(ARMS_OPEN_TIME, _raise_shield)
+
+
+## Lo que tardan los brazos en abrirse (ver ModelRig.open_arms): recién ahí nace el efecto.
+const ARMS_OPEN_TIME := 0.18
+
+
+func _raise_shield() -> void:
 	_shield = mini(SkillTree.shield_count(metal_level(&"steel")), coins_held)
 	coins_held -= _shield
 	_shield_until_ms = Time.get_ticks_msec() + int(SkillTree.SHIELD_DURATION * 1000.0)
 	_rebuild_shield()
-	rig.open_arms(0.6, 0.25, 0.4)
+
+
+## Combinación: Ráfaga o Campo magnético con el escudo puesto. El escudo revienta: sus monedas y NOVA_EXTRA_COINS más del monedero
+## salen en todas direcciones, con una onda magnética que hiere y empuja alrededor.
+const NOVA_EXTRA_COINS := 40
+const NOVA_RADIUS := 8.0
+const NOVA_DAMAGE := 25.0
+const NOVA_FORCE := 14.0
+func _shield_nova() -> void:
+	var center := chest_position()
+	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
+	var orbiting := _shield
+	coins_held += orbiting
+	_shield = 0
+	_rebuild_shield()
+	var count := mini(orbiting + NOVA_EXTRA_COINS, coins_held)
+	for i in count:
+		# Espiral de Fibonacci: reparte las direcciones parejo; solo roza el suelo, casi todo sale por encima.
+		var y := lerpf(0.75, -0.25, (i + 0.5) / count)
+		var around := i * 2.39996
+		var flat := sqrt(1.0 - y * y)
+		var dir := Vector3(cos(around) * flat, y, sin(around) * flat)
+		var coin := _spawn_coin(center + dir * 0.5)
+		coin.gravity_scale = 0.08
+		coin.linear_velocity = dir * speed
+	_magnetic_wave(center, NOVA_RADIUS, NOVA_DAMAGE, NOVA_FORCE)
+	notice.emit("¡El escudo revienta!")
+
+
+## Onda de choque magnética: hiere y empuja a todos en `radius` (menos cuanto más lejos).
+func _magnetic_wave(center: Vector3, radius: float, damage: float, force: float) -> void:
+	var color := Color(0.45, 0.7, 1.0)
+	Fx.shockwave(get_tree().current_scene, global_position + Vector3(0, 0.3, 0), radius, color)
+	Fx.shockwave(get_tree().current_scene, center, radius * 0.7, color, 0.35)
+	Fx.sprite(get_tree().current_scene, "zap-hit", center, 3.0, color)
+	Fx.burst(get_tree().current_scene, center, Color(0.45, 0.65, 1.0, 0.35), 40, 9.0, 0.6, 0.6, 0.0, false)
+	add_trauma(0.5)
+	mark_combat()
+	for n in get_tree().get_nodes_in_group(&"combatant"):
+		var other := n as Node3D
+		if other == self or other == null or (other.has_method(&"is_down") and other.is_down()):
+			continue
+		var to := other.global_position - global_position
+		var dist := to.length()
+		if dist > radius:
+			continue
+		var k := 1.0 - 0.6 * dist / radius
+		other.take_hit((to.normalized() + Vector3.UP * 0.35) * force * k, damage * k, self)
 
 
 ## Guarda de nuevo en el monedero las monedas que quedan en el escudo.
@@ -2597,6 +2767,8 @@ func _shield_block(attacker: Node3D) -> void:
 	mark_combat()
 	if attacker != null and attacker.has_method(&"mark_combat"):
 		attacker.mark_combat()
+	if attacker != null and attacker.get(&"rig"):
+		attacker.get(&"rig").recoil(global_position)
 	notice.emit("¡Bloqueado!")
 
 
@@ -2688,22 +2860,15 @@ func fire_steel_spear(aim := Vector3.INF) -> void:
 		notice.emit("La lanza necesita %d monedas" % SkillTree.SPEAR_COST)
 		return
 	_spear_ready_ms = now + int(SkillTree.SPEAR_COOLDOWN * 1000.0)
-	coins_held -= SkillTree.SPEAR_COST  # apartadas ya: no se gastan en otra cosa mientras arranca
 	var dir := _burst_aim(aim)
 	visual.rotation.y = atan2(-dir.x, -dir.z)
-	# Sale cuando las manos empujan hacia delante (a SPEAR_RELEASE de la animación).
-	var gesture := rig.play_skill("steel_push", 0.9)
-	get_tree().create_timer(gesture * SPEAR_RELEASE, false).timeout.connect(_launch_spear.bind(aim))
-
-
-const SPEAR_RELEASE := 0.45
+	_cast("steel_push", 0.9, 0.25, _launch_spear.bind(aim))
 
 
 func _launch_spear(aim: Vector3) -> void:
-	if dead:
-		coins_held += SkillTree.SPEAR_COST
+	if coins_held < SkillTree.SPEAR_COST:
 		return
-	coins_held += 1  # _spawn_coin descuenta la última
+	coins_held -= SkillTree.SPEAR_COST - 1  # _spawn_coin descuenta la última
 	var dir := _burst_aim(aim)
 	var spear := _spawn_coin(_coin_origin(aim.is_finite()) + dir * 0.6) as Coin
 	spear.gravity_scale = 0.0
@@ -2732,9 +2897,13 @@ func activate_magnetic_field() -> void:
 	if now < _field_ready_ms:
 		notice.emit("Campo magnético recargando (%d s)" % ceili((_field_ready_ms - now) / 1000.0))
 		return
-	_field_until_ms = now + int(SkillTree.FIELD_DURATION * 1000.0)
+	_field_until_ms = now + int(SkillTree.FIELD_DURATION * 1000.0 + ARMS_OPEN_TIME * 1000.0)
 	_field_ready_ms = now + int(SkillTree.FIELD_COOLDOWN * 1000.0)
 	rig.open_arms(0.7, -0.1, 0.6)
+	_after(ARMS_OPEN_TIME, _raise_field)
+
+
+func _raise_field() -> void:
 	if _field_shell == null:
 		_field_shell = Node3D.new()
 		add_child(_field_shell)
@@ -2747,6 +2916,8 @@ func activate_magnetic_field() -> void:
 	for p in _field_layers:
 		p.emitting = true
 	Fx.burst(get_tree().current_scene, chest_position(), Color(0.45, 0.65, 1.0, 0.35), 30, 6.0, 0.6, 0.6, 0.0, false)
+	if _shield > 0:
+		_shield_nova()
 
 
 func _field_particles(color: Color, additive: bool, amount: int, life: float, size: float,
@@ -2846,9 +3017,10 @@ func start_gather(aim := Vector3.INF) -> void:
 		return
 	_stop_gather()
 	var chest := chest_position()
+	var blast := _field_shell != null and _field_shell.visible and Time.get_ticks_msec() < _field_until_ms
 	# Imán de monedas: las más cercanas dentro del abanico hacia adelante (nivel de hierro + 1; todas si es radial).
 	var level := metal_level(&"iron")
-	var angle := SkillTree.fan_angle(level)
+	var angle := TAU if blast else SkillTree.fan_angle(level)
 	var base := _burst_aim(aim)  # el abanico apunta hacia donde apunta el ratón
 	var front := Vector3(base.x, 0.0, base.z)
 	front = front.normalized() if front.length() > 0.1 else -visual.global_basis.z
@@ -2876,6 +3048,38 @@ func start_gather(aim := Vector3.INF) -> void:
 		notice.emit("No hay monedas cerca")
 	else:
 		rig.play_skill("pull_heavy", 0.9)
+		_gather_blast_ms = Time.get_ticks_msec() + BLAST_WAIT_MS if blast else 0
+
+
+## Combinación: Imán con el Campo puesto. Todas las monedas cerca vienen y se juntan contra el campo; cuando llegan
+## (o pasados BLAST_WAIT_MS) rebotan hacia afuera con daño, el campo se rompe y sale una onda de choque.
+const BLAST_WAIT_MS := 1100
+const BLAST_DAMAGE := 20.0
+const BLAST_FORCE := 16.0
+const BLAST_COIN_SPEED := 34.0
+var _gather_blast_ms := 0
+
+
+func _field_blast() -> void:
+	var center := chest_position()
+	var sparks := 0
+	for coin in _gathering:
+		if not is_instance_valid(coin):
+			continue
+		var out := (coin.global_position - center).normalized()
+		coin.pull_owner = null
+		coin.shooter = self
+		coin.gravity_scale = 0.08
+		coin.linear_velocity = out * BLAST_COIN_SPEED
+		if sparks < 15:
+			sparks += 1
+			Fx.sparks(get_tree().current_scene, coin.global_position, Color(0.45, 0.7, 1.0))
+	_gathering.clear()
+	_gather_blast_ms = 0
+	_field_until_ms = Time.get_ticks_msec()
+	_magnetic_wave(center, SkillTree.FIELD_RADIUS * 2.0, BLAST_DAMAGE, BLAST_FORCE)
+	rig.open_arms(0.5, 0.1, 0.1)
+	notice.emit("¡El campo se rompe!")
 
 
 ## Mantiene las monedas atraídas yendo hacia ti (sin gravedad); termina al pasar GATHER_MS.
@@ -2887,14 +3091,22 @@ func _update_gather() -> void:
 		return
 	var chest := chest_position()
 	var alive: Array[Coin] = []
+	var waiting := false
 	for coin in _gathering:
 		if not is_instance_valid(coin):
 			continue
 		alive.append(coin)
 		coin.set_deferred(&"freeze", false)
 		coin.gravity_scale = 0.0
-		coin.linear_velocity = (chest - coin.global_position).normalized() * GATHER_SPEED
+		var to := chest - coin.global_position
+		if _gather_blast_ms > 0 and to.length() < SkillTree.FIELD_RADIUS * 0.6:
+			coin.linear_velocity = Vector3.ZERO  # queda pegada al campo hasta que reviente
+		else:
+			waiting = true
+			coin.linear_velocity = to.normalized() * GATHER_SPEED
 	_gathering = alive
+	if _gather_blast_ms > 0 and not alive.is_empty() and (not waiting or Time.get_ticks_msec() > _gather_blast_ms):
+		_field_blast()
 
 
 func _stop_gather() -> void:
@@ -2902,6 +3114,7 @@ func _stop_gather() -> void:
 		if is_instance_valid(coin):
 			coin.gravity_scale = 1.0
 	_gathering.clear()
+	_gather_blast_ms = 0
 
 ## Recoge las monedas quietas del suelo que tengas bajo los pies.
 ## No recoge las que estás usando (agarradas con acero/hierro) ni las que acabas de soltar o lanzar y

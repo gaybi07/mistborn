@@ -14,10 +14,10 @@ Uso (desde la carpeta del proyecto):
   cápsula). La altura en sí se respeta: arrodillado o sentado quedan abajo.
 - Texturas reducidas a TEXTURE_SIZE para que el juego no pese de más.
 """
-import bpy, os, sys
+import bpy, os, re, sys
 
 TEXTURE_SIZE = 1024
-PREFIX = "mixamorig:"
+PREFIX = r"mixamorig[0-9]*:"  # Mixamo a veces numera el prefijo (mixamorig1:)
 
 out_path, model_path, *anim_paths = sys.argv[sys.argv.index("--") + 1:]
 
@@ -44,7 +44,7 @@ def import_fbx(path):
 def clean_action(action, name, scale):
     action.name = name
     for fc in fcurves(action):
-        fc.data_path = fc.data_path.replace(PREFIX, "")
+        fc.data_path = re.sub(PREFIX, "", fc.data_path)
         if fc.data_path.endswith(".location"):
             # El esqueleto venía a escala 0,01 (centímetros): pasar los desplazamientos a metros.
             for k in fc.keyframe_points:
@@ -81,10 +81,10 @@ def clean_action(action, name, scale):
 bpy.ops.wm.read_factory_settings(use_empty=True)
 objs, arm, first_action = import_fbx(model_path)
 for b in arm.data.bones:
-    b.name = b.name.replace(PREFIX, "")
+    b.name = re.sub(PREFIX, "", b.name)
 for o in objs:
     for vg in getattr(o, "vertex_groups", []):
-        vg.name = vg.name.replace(PREFIX, "")
+        vg.name = re.sub(PREFIX, "", vg.name)
 arm.name = "Armature"
 # Mixamo trae el esqueleto girado 90° y a escala 0,01: aplicarlo para que todo quede en metros
 # y sin transformaciones (si no, el juego mide mal la altura del modelo).
@@ -106,7 +106,7 @@ def bake_onto_model(src_arm, action, name):
     cuadro. Los FBX bajados sin malla traen otra pose de reposo: copiar sus giros locales tal cual
     deja los brazos cruzados dentro del cuerpo."""
     for b in src_arm.data.bones:
-        b.name = b.name.replace(PREFIX, "")
+        b.name = re.sub(PREFIX, "", b.name)
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.mode_set(mode="POSE")
     for pb in arm.pose.bones:

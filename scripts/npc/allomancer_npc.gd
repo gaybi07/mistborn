@@ -517,9 +517,10 @@ func _melee(damage: float, knockback: float, reach: float, cooldown: float) -> v
 	rotation.y = atan2(-to.x, -to.z)
 	rig.play_attack(1, 0.55 / (1.0 + 0.4 * pewter))
 	var t := target
-	var windup := 0.25 / (1.0 + 0.4 * pewter)
+	var windup := rig.impact_delay()
 	get_tree().create_timer(windup, false).timeout.connect(func() -> void:
-		if down or not is_instance_valid(t) or t.is_down():
+		# Parado o aturdido antes de llegar: el golpe no sale.
+		if down or is_stunned() or rig._attack <= 0.0 or not is_instance_valid(t) or t.is_down():
 			return
 		var now := t.global_position - global_position
 		now.y = 0.0

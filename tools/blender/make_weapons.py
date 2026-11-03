@@ -31,6 +31,8 @@ MATERIALS = {
     "obsidian": ((0.015, 0.014, 0.02), 0.0, 0.06, 1.0),
     "glass": ((0.55, 0.75, 0.8), 0.0, 0.04, 0.45),
     "steel": ((0.62, 0.64, 0.68), 1.0, 0.25, 1.0),
+    "rough_iron": ((0.34, 0.3, 0.27), 0.35, 0.68, 1.0),
+    "rust": ((0.3, 0.13, 0.07), 0.6, 0.85, 1.0),
     "dark_steel": ((0.22, 0.22, 0.24), 1.0, 0.45, 1.0),
     "brass": ((0.78, 0.56, 0.26), 1.0, 0.35, 1.0),
     "bronze": ((0.62, 0.38, 0.2), 1.0, 0.4, 1.0),
@@ -189,6 +191,48 @@ def sword(variant):
     return r
 
 
+def jagged(name, material, parent, outline, thick):
+    """Placa de hierro con el contorno dado (x, z) y el filo afinado a cero: hoja tosca de koloss."""
+    bm = bmesh.new()
+    front = [bm.verts.new((x * 0.8, thick, z)) for x, z in outline]
+    back = [bm.verts.new((x * 0.8, -thick, z)) for x, z in outline]
+    edge = [bm.verts.new((x, 0, z)) for x, z in outline]
+    n = len(outline)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((front[i], front[j], edge[j], edge[i]))
+        bm.faces.new((back[j], back[i], edge[i], edge[j]))
+    bm.faces.new(front)
+    bm.faces.new(list(reversed(back)))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return new_object(name, bm, material, parent)
+
+
+def koloss_greatsword():
+    """Espadón a dos manos: una plancha de hierro mellada, sin guarda fina ni canal."""
+    r = root("koloss_greatsword")
+    right = [(0.075, 0.1), (0.082, 0.3), (0.06, 0.34), (0.083, 0.38), (0.086, 0.62), (0.055, 0.68), (0.08, 0.72), (0.07, 0.95), (0.03, 1.12)]
+    left = [(-0.02, 1.2), (-0.066, 1.0), (-0.08, 0.8), (-0.05, 0.76), (-0.08, 0.7), (-0.086, 0.45), (-0.062, 0.4), (-0.082, 0.36), (-0.075, 0.1)]
+    jagged(f"{r.name}_blade", "rough_iron", r, right + left, 0.012)
+    box(f"{r.name}_guard", (0.24, 0.05, 0.05), (0, 0, 0.08), "rust", r, bevel=0.006)
+    wrapped_grip(f"{r.name}_grip", "wrap", r, -0.3, 0.36, 0.021, bands=14)
+    lathe(f"{r.name}_pommel", [(0, -0.36), (0.03, -0.35), (0.038, -0.325), (0.026, -0.305), (0.016, -0.3)],
+          "rust", r, segs=10)
+    return r
+
+
+def koloss_axe():
+    """Hacha de una mano, pesada: mango grueso y cabeza de hierro con el filo mellado."""
+    r = root("koloss_axe")
+    lathe(f"{r.name}_haft", [(0.02, -0.2), (0.019, 0.2), (0.022, 0.52)], "dark_wood", r, segs=10)
+    wrapped_grip(f"{r.name}_grip", "leather", r, -0.17, 0.26, 0.023, bands=9)
+    head = [(0.03, 0.34), (0.1, 0.3), (0.22, 0.22), (0.26, 0.28), (0.235, 0.34), (0.27, 0.42), (0.245, 0.5), (0.26, 0.58),
+            (0.2, 0.62), (0.1, 0.54), (0.03, 0.52), (-0.04, 0.52), (-0.07, 0.48), (-0.07, 0.38), (-0.04, 0.34)]
+    jagged(f"{r.name}_head", "rough_iron", r, head, 0.02)
+    lathe(f"{r.name}_cap", [(0, 0.56), (0.025, 0.545), (0.027, 0.525)], "rust", r, segs=8)
+    return r
+
+
 def cane():
     """Bastón de duelo: madera oscura lustrada, puño de latón y regatón de acero."""
     r = root("dueling_cane")
@@ -257,6 +301,8 @@ BUILDERS = [
     ("dagger_steel", lambda: dagger("steel")),
     ("sword_obsidian", lambda: sword("obsidian")),
     ("sword_steel", lambda: sword("steel")),
+    ("koloss_greatsword", koloss_greatsword),
+    ("koloss_axe", koloss_axe),
     ("dueling_cane", cane),
     ("shield", shield),
     ("vial", vial),

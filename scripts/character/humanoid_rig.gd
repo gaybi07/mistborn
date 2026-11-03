@@ -24,6 +24,8 @@ var slouch := 0.0
 var stagger := 0.0
 ## Con la guardia arriba (ver Player: bloqueo y parry).
 var blocking := false
+## Agachado (Alt, ver Player).
+var crouched := false
 ## Congelado del golpe (hit stop, en tiempo real): mientras dure, la pose se queda quieta.
 var hitstop := 0.0
 var _flash_mat: StandardMaterial3D
@@ -55,6 +57,7 @@ static var _materials := {}
 static var _meshes := {}
 
 var weapon := Weapon.NONE
+var shield_owned := false
 ## Si lleva las dagas encima (inventario). Sin ellas no se ven envainadas.
 var daggers_owned := true
 
@@ -93,9 +96,24 @@ func open_arms(_duration: float, _lift := 0.0, _bend := 0.0) -> void:
 
 
 ## Gesto de un poder (ver ModelRig): el cuerpo procedural hace el de lanzar. Devuelve cuánto dura.
-func play_skill(_state: String, _duration: float) -> float:
+func play_skill(_state: String, _duration: float, _from := 0.0, _to := 1.0) -> float:
 	play_throw()
 	return _throw
+
+
+func burn_gesture(_pewter: bool) -> void:
+	pass
+
+
+## Cuánto falta para que pegue o salga el poder del último golpe o gesto que empezó.
+func impact_delay() -> float:
+	return _attack_len * 0.4
+
+
+## Corta el golpe o gesto en curso (voltereta, bloqueo, golpe fuerte).
+func cancel_action() -> void:
+	_attack = 0.0
+	_throw = 0.0
 
 
 ## Recoger algo del suelo (bolsa, objeto, frasco). El cuerpo procedural no lo anima.
@@ -147,6 +165,11 @@ func play_hit(_from: Vector3, _heavy: bool, _stun := false) -> void:
 	stagger = 1.0
 
 
+## Retroceso del torso sin cambiar de animación (p. ej. te bloquearon el golpe).
+func recoil(_from: Vector3, _amount := 0.0) -> void:
+	pass
+
+
 ## Un golpe choca contra la guardia.
 func block_impact() -> void:
 	pass
@@ -164,6 +187,10 @@ func set_weapon(w: Weapon) -> void:
 			n.visible = key == w
 		for n in _weapon_nodes[key]["sheathed"]:
 			n.visible = key != w and (key != Weapon.DAGGERS or daggers_owned)
+
+
+func shield_up() -> bool:
+	return shield_owned and weapon == Weapon.SWORD
 
 
 ## Equipo visible del inventario. outfit: traje oscuro de nacido de la bruma.

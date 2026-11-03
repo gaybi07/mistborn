@@ -14,6 +14,9 @@ extends CharacterBody3D
 @export var knockout_time := 8.0
 
 var health := 60.0
+## Vida "fantasma" que baja despacio tras un golpe (la barra de Hud), y hasta cuándo se queda quieta.
+var health_trail := -1.0
+var trail_hold_ms := 0
 ## Noqueado: tumbado en el suelo hasta que se recupera.
 var down := false
 var _down_until := 0.0
@@ -233,6 +236,10 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		HumanoidRig.hit_stop([rig, attacker.get(&"rig") if attacker else null], damage)
 		if attacker:
 			rig.play_hit(attacker.global_position, damage >= 20.0)
+		health_trail = maxf(health_trail, health)
+		trail_hold_ms = Time.get_ticks_msec() + 700
+		if attacker is Player:
+			Fx.popup(get_tree().current_scene, global_position + Vector3(randf_range(-0.3, 0.3), head_y() + 0.1, randf_range(-0.3, 0.3)), str(roundi(damage)), Color.WHITE)
 	health -= damage
 	if health <= 0.0:
 		down = true

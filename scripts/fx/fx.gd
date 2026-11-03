@@ -161,14 +161,14 @@ static func sprite(parent: Node, name: String, pos: Vector3, width := 1.0, color
 
 
 ## Texto que sube y se desvanece en `pos` ("¡Parry!", "Crítico"...).
-static func popup(parent: Node, pos: Vector3, text: String, color: Color) -> void:
+static func popup(parent: Node, pos: Vector3, text: String, color: Color, size := 1.0) -> void:
 	var l := Label3D.new()
 	l.text = text
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
 	l.font_size = 36
 	l.outline_size = 8
-	l.pixel_size = 0.007
+	l.pixel_size = 0.007 * size
 	l.modulate = color
 	parent.add_child(l)
 	l.global_position = pos
@@ -176,6 +176,29 @@ static func popup(parent: Node, pos: Vector3, text: String, color: Color) -> voi
 	tw.tween_property(l, "global_position:y", pos.y + 0.8, 0.8)
 	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8)
 	tw.tween_callback(l.queue_free)
+
+
+## Onda de choque: un aro que se abre hasta `radius` y se desvanece.
+static func shockwave(parent: Node, pos: Vector3, radius: float, color: Color, time := 0.45) -> void:
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.9
+	torus.outer_radius = 1.0
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = color
+	torus.material = m
+	var ring := MeshInstance3D.new()
+	ring.mesh = torus
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(ring)
+	ring.global_position = pos
+	ring.scale = Vector3(0.2, 0.3, 0.2)
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3(radius, 0.3, radius), time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.parallel().tween_property(m, "albedo_color:a", 0.0, time)
+	tw.tween_callback(ring.queue_free)
 
 
 static func dust(parent: Node, pos: Vector3, strength := 1.0) -> void:

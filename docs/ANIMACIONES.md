@@ -49,6 +49,16 @@ Todo lo que el modelo no traiga lo toma de KayKit automáticamente. Para añadir
 nueva: bájala de Mixamo, añádela al comando del paso 3 y pon su nombre (el del archivo, con `_`
 en vez de espacios) **primero** en la lista de su estado en `ModelRig.ANIMS`.
 
+### Koloss que pelean (`assets/koloss/KolossMoves.glb`)
+
+Clips de Mixamo (packs *Great Sword* y *Mutant*, más esquives y golpes), armados con
+`mixamo_to_glb.py` y usados como donante con `BoneTools.MIXAMO_TO_UE` (ver `Art.koloss_fighter_rig`):
+`gs_*` para el espadón y `mt_*` para las hachas y los poderes (`mt_roar`, `mt_flex`, `mt_jump_attack`).
+Los clips van en el lugar: los que viajan los acompaña `Koloss` moviendo el cuerpo. `ANIM_STRIDE` de
+`gs_*`/`mt_*` es para 1,8 m (`stride_scale` lo escala); sale de zancada del FBX × cadera del koloss /
+cadera del clip (0,99 / 1,334). Con el espadón, `ModelRig._update_two_hand` lleva la mano izquierda al
+mango. Se prueba con `tools/anim_check/koloss_check.gd` y, en el juego, con Mayús+F7.
+
 ## Lo que hay ahora
 
 Origen: **AF** = ActionForge, propia del modelo (`Mistborn.glb`) · **KayKit** = prestada con
@@ -69,8 +79,9 @@ Las dagas de obsidiana y la espada se enganchan a los huesos de las manos (`Mode
 | Dash en el aire | `dash` | `sword_dash` | AF | Estocada hacia delante. |
 | Colgado de un borde | `hang` | `Jump_Idle` + brazos con IK | KayKit + código | Provisional. |
 | Subir el borde | `climb` | `Jump_Start` | KayKit | Provisional. |
-| Puños 1 / 2 / remate | `attack_fist`, `_1`, `_2` | `Unarmed_Melee_Attack_Punch_A`, `Punch_A`, `Unarmed_Melee_Attack_Kick` | KayKit | Golpes 1 y 2 son el mismo puñetazo. |
-| Dagas 1 / 2 / 3 / remate | `attack_daggers`, `_1`, `_2`, `_3` | `sword_regular_a`, `_b`, `sword_attack`, `sword_regular_c` | AF | |
+| Puños 1 / 2 / 3 / remate | `attack_fist`, `_1`, `_2`, `_3` | `fist_jab`, `fist_cross`, `fist_uppercut`, `fist_roundhouse` | Mixamo | |
+| Dagas 1 / 2 / 3 / remate | `attack_daggers`, `_1`, `_2`, `_3` | `dagger_lead`, `dagger_rear`, `fist_hook`, `dagger_double` | Mixamo | Puñaladas, el gancho como tajo cruzado y puñalada doble. |
+| Espada y escudo 1 / 2 / remate | `attack_shield`, `_1`, `_2` | `shield_cross`, `shield_down`, `shield_kick` | Mixamo | |
 | Espada 1 / 2 / remate | `attack_sword`, `_1`, `_2` | `sword_regular_a`, `_b`, `_c` | AF | Combo de 3 golpes (`player.gd`, `WEAPONS`). |
 | Ataque en el aire | `attack_air` | `2H_Melee_Attack_Spinning` | KayKit | Giro de arma a dos manos. |
 | Lanzar moneda | `throw` | `spell_simple_enter` | AF | Brazo extendido como lanzando un hechizo. |
@@ -78,7 +89,9 @@ Las dagas de obsidiana y la espada se enganchan a los huesos de las manos (`Mode
 | Nadar / flotar quieto | `swim`, `swim_idle` | `swim_fwd`, `swim_idle` | AF | En el río donde el agua cubre más de 1,3 m (`Player._in_deep_water`). |
 | Resbalar por una pendiente de más de 45° | `slide` | `slide` | AF | Godot cuenta esas pendientes como pared (`floor_max_angle`). |
 | Empujar (acero) / tirar (hierro) | `allomancy` | `spell_simple_idle` + brazos con IK | AF + código | El brazo apunta al metal en código. |
-| Recibir golpe | `hit` | `hit_chest` | AF | |
+| Recibir golpe flojo de frente | `hit_head`, `hit` | `hit_head`, `hit_chest` | AF | Se alternan. |
+| Recibir golpe flojo de costado o espalda | `hit_left`, `hit_right`, `hit_back` | los mismos, tramo 0 a 0,2 | Mixamo | Capa superior: no empuja ni frena las piernas. |
+| Recibir golpe fuerte | `hit_front`, `hit_back`, `hit_left`, `hit_right` | los mismos | Mixamo | Con avance del root. Aturdido: `hit_knockback`. |
 | Muerto / noqueado | `down` | `death01` | AF | Cae de espaldas. |
 
 Ya en el modelo pero sin usar (falta la mecánica): `hit_head`, `hit_knockback`, `laytoidle`
@@ -88,18 +101,30 @@ Ya en el modelo pero sin usar (falta la mecánica): `hit_head`, `hit_knockback`,
 En `Escritorio\Mistborn` y fuera del modelo: `sword_block` (no hay bloqueo), `sword_regular_a_rec` /
 `b_rec` (recuperación al cortar el combo), `sword_regular_combo`, `walk_formal_loop`.
 
+## Golpes de Mixamo (`assets/mixamo/MixamoCombat.glb`)
+
+Se arma con `mixamo_to_glb.py`: los FBX sin piel más uno como modelo (donante con `BoneTools.MIXAMO_TO_UE`, en
+`Art.player_rig`). De cada clip se usa solo el tramo del golpe (`ModelRig.ATTACK_CUT`, desde y hasta) e `IMPACT` dice
+cuándo pega; para acelerar o frenar un golpe se cambia su duración en `Player.WEAPONS` o `SHIELD_COMBO`.
+
+## Tiempos y mezcla (cómo está armado)
+
+- **Impacto:** `ModelRig.IMPACT` guarda en qué fracción de cada clip pega el golpe (pico de velocidad de la mano o el
+  pie, medido sobre el `.glb`). Los del koloss están en `Koloss.SWORD_BLOWS`. Clip nuevo de ataque: medirlo y agregarlo.
+- **Capa superior:** `ModelRig.play_skill(clip, duración, desde, hasta)` juega el gesto solo en torso y brazos, sobre lo
+  que hagan las piernas. Con `desde` y `hasta` se usa un tramo de un clip largo: `drink` (0,2 a 0,42), `burn_focus`
+  (0,05 a 0,2), `pewter_flex` (0,25 a 0,68).
+- **Clips sin desplazamiento propio:** los del koloss van en el lugar; `Koloss._strike` avanza el cuerpo hasta el último
+  golpe del clip. Los de `ROOT_MOTION` sí traen el avance en el hueso root.
+- **Quién le pega a quién:** el koloss a todo lo que no sea de su bando (`Koloss._victims`), el guardia a los koloss y a
+  vos si lo provocaste, y la gente huye. El skaa que trabaja pasa a ser un `Citizen` al huir (`SkaaWorker._flee`).
+
 ## Lo que falta
 
 | Acción | Estado actual | Buscar | Estado en `ANIMS` |
 |---|---|---|---|
 | Colgado de un borde | Pose de salto + IK | `braced hang`, `hanging idle` | `hang` |
-| Subir el borde | Inicio de salto | `climbing`, `climb up` | `climb` |
-| Caer (distinto de subir) | `jump` para todo | `falling idle` | `air` |
-| Ataque en el aire | Giro de KayKit | `jump attack` | `attack_air` |
-| Puños | KayKit | `punch`, `kick` | `attack_fist`, `_1`, `_2` |
-| Aterrizaje fuerte (caída larga con peltre) | Mismo aterrizaje | `hard landing` | nuevo estado |
-| Tirar con hierro | Igual que empujar | `pull` | nuevo estado `pull` |
-| Beber frasco | Ninguna | `drinking` | nuevo estado |
+| Ataque en el aire | `sword_regular_c` con giro | `jump attack` | `attack_air` |
 | Arrastre de peltre (agotado) | Camina normal | `injured walk`, `tired` | nuevo estado |
 | Dagas envainadas | No se ven sin desenvainar | — | código (engancharlas a `pelvis`) |
 

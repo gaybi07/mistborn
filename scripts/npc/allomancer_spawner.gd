@@ -16,6 +16,9 @@ const WEIGHTS := {
 	AllomancerNpc.Kind.MISTBORN: 10, AllomancerNpc.Kind.SOOTHER: 8, AllomancerNpc.Kind.RIOTER: 8,
 }
 
+## Probabilidad de que en vez de alománticos venga una banda de koloss.
+const KOLOSS_CHANCE := 0.25
+
 var _next := 0.0
 
 
@@ -37,6 +40,13 @@ func _process(delta: float) -> void:
 func spawn_group() -> void:
 	var player := get_tree().get_first_node_in_group(&"player") as Node3D
 	var center := _spawn_point(player.global_position if player else Vector3.ZERO)
+	if randf() < KOLOSS_CHANCE and get_tree().get_node_count_in_group(&"koloss") < 4:
+		for i in randi_range(2, 3):
+			var k := Koloss.new()
+			k.home = center
+			k.position = center + Vector3(i * 2.5, 0.1, i * 1.5)
+			get_tree().current_scene.add_child(k)
+		return
 	var aggressive := randf() < 0.6
 	var kinds: Array = []
 	if randf() < 0.3:

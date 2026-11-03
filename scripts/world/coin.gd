@@ -120,9 +120,9 @@ func _on_body_entered(body: Node) -> void:
 			return
 		body._receive_net_hit(impulse, damage, shooter.net_peer_id if shooter != null and shooter.get(&"net_peer_id") != null else 0)
 	elif body.is_in_group(&"player"):
-		body.take_hit(impulse, damage, shooter, true)  # proyectil: el escudo de monedas no lo para
+		body.take_hit(impulse, damage, shooter if is_instance_valid(shooter) else null, true)  # proyectil: el escudo de monedas no lo para
 	else:
-		body.take_hit(impulse, damage, shooter)
+		body.take_hit(impulse, damage, shooter if is_instance_valid(shooter) else null)
 	Fx.sparks(get_tree().current_scene, global_position, Color(1.0, 0.75, 0.45))
 	Fx.effect(get_tree().current_scene, "ef_fire01", global_position, 0.2)
 	if pierce_left > 0:

@@ -266,6 +266,8 @@ func _options_page() -> Control:
 	page.add_child(go)
 	go.add_child(_button("Ciudad (Ctrl+F1)", _go_to.bind("res://scenes/main.tscn")))
 	go.add_child(_button("Arena (Ctrl+F2)", _go_to.bind("res://scenes/arena.tscn")))
+	go.add_child(_button("Sala de combate (Ctrl+F6)", _go_to.bind("res://scenes/combat_room.tscn")))
+	go.add_child(_button("Pista de navegación (Ctrl+F7)", _go_to.bind("res://scenes/nav_course.tscn")))
 	var note := Label.new()
 	note.text = "Reiniciar el mundo, empezar de cero y cambiar de escenario no están disponibles mientras estás conectado en red."
 	note.modulate.a = 0.6
@@ -445,6 +447,7 @@ const CONTROLS := """[table=2]
 [cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]
 [cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
+[cell][b]Alt[/b][/cell][cell]Agacharse o pararse[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
 [cell][b]I[/b][/cell][cell]Inventario: capa, ropa, botas, dagas, espada y frascos. Doble clic para equipar o quitar[/cell]
 [cell][color=#f2dca8][b]JUEGO[/b][/color][/cell][cell][/cell]
@@ -452,6 +455,7 @@ const CONTROLS := """[table=2]
 [cell][b]P[/b][/cell][cell]Elegir personaje: color del traje y la capucha (negro, blanco, rojo o azul)[/cell]
 [cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño (el peltre aguanta más). W o Espacio: subir · S o Shift: soltarte[/cell]
 [cell][b]Ctrl+F1 / Ctrl+F2[/b][/cell][cell]Ciudad / arena[/cell]
+[cell][b]Ctrl+F6 / Ctrl+F7[/b][/cell][cell]Sala de combate / pista de navegación. Retroceso: repetir · en la sala, Av Pág / Re Pág: cambiar de oleada[/cell]
 [cell][b]Ctrl+F3 F4 F5[/b][/cell][cell]Día/noche · clima · niebla[/cell]
 [/table]"""
 

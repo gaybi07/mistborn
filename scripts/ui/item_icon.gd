@@ -55,6 +55,10 @@ func _draw() -> void:
 			var mid := a.lerp(b, 0.22)
 			var perp := (b - a).normalized().orthogonal() * 16.0 * u
 			draw_line(mid - perp, mid + perp, col.darkened(0.3), 6.0 * u)
+		"shield":
+			draw_circle(c, 32.0 * u, col)
+			draw_arc(c, 32.0 * u, 0.0, TAU, 32, lit, 4.0 * u)
+			draw_circle(c, 10.0 * u, lit)
 		"vials":
 			for k in 3:
 				var x := (k - 1) * 22.0
