@@ -95,6 +95,8 @@ func _threatened() -> bool:
 func _flee() -> void:
 	var c := Citizen.new()
 	c.skaa = true
+	c.skaa_model = rig.model_path
+	c.stay_in_plaza = false
 	c.home = global_position
 	c.position = position + Vector3.UP * 0.05
 	c.rotation = rotation

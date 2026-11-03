@@ -53,6 +53,13 @@ const ANIMS := {
 	"block_shield_hit": ["Block_Hit", "block"],
 	"throw": ["spell_simple_enter", "Throw", "Punch"],
 	"pickup": ["pickup_table", "PickUp", "Interact"],
+	# Golpes de Lord Legislador e Inquisidores (ver Champion): clips propios de Meshy.
+	"Double_Combo_Attack": ["Double_Combo_Attack"],
+	"Weapon_Combo": ["Weapon_Combo"],
+	"Triple_Combo_Attack": ["Triple_Combo_Attack"],
+	"Attack": ["Attack"],
+	"Left_Slash": ["Left_Slash"],
+	"Weapon_Combo_1": ["Weapon_Combo_1"],
 	"swim": ["swim_fwd"],
 	"swim_idle": ["swim_idle", "swim_fwd"],
 	"slide": ["slide", "Jump_Idle"],
@@ -123,7 +130,7 @@ const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint",
 const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swim": 2.0, "crouch_walk": 0.7}
 ## Lo mismo por nombre de animación, para las que se apartan del valor de su estado (ActionForge).
 const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7, "sad_walk": 0.72, "carry_walk": 1.1, "crouch_walk": 0.7,
-		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51}
+		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.4, "Running": 4.9}
 ## Por encima de esta velocidad (peltre) se esprinta.
 const SPRINT_SPEED := 8.0
 ## Golpes con dagas o espada: a esta fracción de la velocidad a la que entrarían en su duración.

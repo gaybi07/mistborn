@@ -188,6 +188,26 @@ const MIXAMO_TO_UE := [
 	["foot_r", "RightFoot", "RightToeBase", "aim"],
 ]
 
+## Clips del Mistborn (fuente) en un esqueleto de Mixamo (destino): los personajes de Meshy.
+const UE_TO_MIXAMO := [
+	["Hips", "pelvis", "", "root"],
+	["Spine", "spine_01", "spine_03", "aim"],
+	["Spine2", "spine_03", "Head", "aim"],
+	["Head", "Head", "", "rot"],
+	["LeftArm", "upperarm_l", "lowerarm_l", "aim"],
+	["LeftForeArm", "lowerarm_l", "hand_l", "aim"],
+	["LeftHand", "hand_l", "", "rot"],
+	["RightArm", "upperarm_r", "lowerarm_r", "aim"],
+	["RightForeArm", "lowerarm_r", "hand_r", "aim"],
+	["RightHand", "hand_r", "", "rot"],
+	["LeftUpLeg", "thigh_l", "calf_l", "aim"],
+	["LeftLeg", "calf_l", "foot_l", "aim"],
+	["LeftFoot", "foot_l", "ball_l", "aim"],
+	["RightUpLeg", "thigh_r", "calf_r", "aim"],
+	["RightLeg", "calf_r", "foot_r", "aim"],
+	["RightFoot", "foot_r", "ball_r", "aim"],
+]
+
 ## Mapeo KayKit (fuente) -> Quaternius (destino).
 const KAYKIT_TO_QUATERNIUS := [
 	["Body", "hips", "", "root"],

@@ -25,11 +25,13 @@ var _player: Player
 var _threat: Node3D
 ## Modelo de skaa: un SkaaWorker que dejó de trabajar (ver SkaaWorker._flee).
 var skaa := false
+var skaa_model := ""  # el del SkaaWorker que huye, para que no cambie de cara
+var meshy_model := ""  # personaje de Art.meshy_rig en vez de skaa o noble (los obligadores)
 const KOLOSS_FEAR := 14.0
 
 
 func _make_look() -> Dictionary:
-	noble = randf() < 0.2
+	noble = not skaa
 	var look := {
 		"skin": SKIN.pick_random(),
 		"hair": HAIR.pick_random(),
@@ -53,8 +55,10 @@ func _make_look() -> Dictionary:
 
 
 func _role() -> String:
+	if meshy_model != "":
+		return "meshy:" + meshy_model
 	if skaa:
-		return "skaa"
+		return "skaa:" + skaa_model
 	return "noble" if noble else "citizen"
 
 
