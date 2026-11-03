@@ -107,6 +107,13 @@ Se arma con `mixamo_to_glb.py`: los FBX sin piel más uno como modelo (donante c
 `Art.player_rig`). De cada clip se usa solo el tramo del golpe (`ModelRig.ATTACK_CUT`, desde y hasta) e `IMPACT` dice
 cuándo pega; para acelerar o frenar un golpe se cambia su duración en `Player.WEAPONS` o `SHIELD_COMBO`.
 
+## Skaa en los barrios obreros (`scripts/npc/skaa_crews.gd`)
+
+Cuadrillas por tipo de trabajo (`SkaaCrews.CREWS`) y barrio (`SkaaCrews.WORK`), con los clips `dig`, `kneel_*`,
+`push_heavy`, `pull_heavy`, `lift_heavy`, `pick_up`/`carry_walk`/`put_down`, `sad_idle` y `warm_hands`. Modelos en
+`Art.SKAA_MODELS`, armados con `rig_like_mistborn.py`. En los puestos de descanso, una nena (`SkaaGirl`,
+modelo `SkaaPilgrim.glb`) con sus propios clips: `Walking_Woman` y `Arise`, que al revés es sentarse.
+
 ## Tiempos y mezcla (cómo está armado)
 
 - **Impacto:** `ModelRig.IMPACT` guarda en qué fracción de cada clip pega el golpe (pico de velocidad de la mano o el
@@ -130,3 +137,15 @@ cuándo pega; para acelerar o frenar un golpe se cambia su duración en `Player.
 
 Las de "nuevo estado" y las que ya están en el modelo sin usar necesitan código (llamarlas desde
 el `Player`); las demás funcionan solo con convertir el modelo y poner el nombre primero en su lista.
+
+### Personajes de Meshy (`assets/meshy/`)
+
+Con esqueleto de Mixamo (zip "All animation"): `tools/blender/meshy_to_glb.py`, varias tandas de clips del mismo personaje en un
+solo `.glb`. Sin esqueleto (Kelsier, Vin; zip "texture", pose T): FBX a GLB y `tools/blender/rig_like_mistborn.py`, que les da el
+esqueleto y todos los clips del Mistborn. Se usan con `Art.meshy_rig`; lo que un modelo no traiga sale de `MistbornHood.glb` y del
+Mistborn. Para jugar un clip con `play_spell` tiene que estar en `ModelRig.ANIMS`. `Walking` y `Running` pisan a 1,4 y 4,9 m/s para
+1,8 m de alto (`ANIM_STRIDE`).
+
+Afuera de las puertas (`GateForces`, solo con el jugador cerca): koloss al este, Lord Legislador al oeste, inquisidores al sur (por
+ahora con el modelo encapuchado, ver `Champion`). Los golpes de `Champion.KITS` usan como `hits` los picos de velocidad de la mano,
+medidos en cada clip. Kelsier, Vin y el terrisano están listos en `Art.MESHY_HEIGHT` pero no aparecen en la ciudad.

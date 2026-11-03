@@ -176,10 +176,14 @@ const NPC_MAX_HEIGHT := 3.0
 static var npc_use_koloss := true
 
 
+const SKAA_MODELS := ["res://assets/skaa/Skaa.glb", "res://assets/skaa/SkaaObrero.glb"]
+
+
 ## Skaa de Meshy con el esqueleto y las animaciones del Mistborn; lo que le falte, de KayKit y Mixamo.
-static func skaa_rig() -> ModelRig:
+## Sin model, uno al azar.
+static func skaa_rig(model := "") -> ModelRig:
 	var rig := ModelRig.new()
-	rig.model_path = "res://assets/skaa/Skaa.glb"
+	rig.model_path = model if model != "" else SKAA_MODELS.pick_random()
 	rig.flip = true
 	rig.retarget_from = KAYKIT % "Rogue"
 	rig.retarget_map = BoneTools.KAYKIT_TO_UE
@@ -189,9 +193,64 @@ static func skaa_rig() -> ModelRig:
 	return rig
 
 
+## Nena skaa: modelo de Meshy ya riggeado (huesos de Mixamo), con sus propios clips.
+static func skaa_girl_rig() -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = "res://assets/skaa/SkaaPilgrim.glb"
+	rig.anim_overrides = {"walk": ["Walking_Woman"], "idle": ["Alert"], "get_up": ["Arise"]}
+	return rig
+
+
+const MESHY := "res://assets/meshy/%s.glb"
+const MESHY_HOOD := "res://assets/meshy/MistbornHood.glb"
+## Altos (m) de los personajes de Meshy listos para usar.
+const MESHY_HEIGHT := {"Obligador": 1.9, "GordoNoble": 1.7, "Terrisano": 2.0, "Kelsier": 1.8, "Vin": 1.55,
+		"LordRuler": 1.95, "MistbornHood": 1.8}
+
+
+## Mismo esqueleto de Mixamo en origen y destino: el clip se copia tal cual.
+static func _mixamo_same() -> Array:
+	return BoneTools.MIXAMO_TO_UE.map(func(m: Array) -> Array: return [m[1], m[1], m[2], m[3]])
+
+
+## Personaje de Meshy. Kelsier y Vin llevan el esqueleto del Mistborn con todos sus clips (rig_like_mistborn.py). Los
+## demás, el de Mixamo: lo que no traigan sale del encapuchado (también Mixamo) y del Mistborn.
+static func meshy_rig(model: String) -> ModelRig:
+	var rig := ModelRig.new()
+	rig.model_path = MESHY % model
+	rig.flip = true
+	rig.target_height = MESHY_HEIGHT[model]
+	rig.stride_scale = rig.target_height / 1.8
+	if model in ["Kelsier", "Vin"]:
+		rig.retarget_from = KAYKIT % "Rogue"
+		rig.retarget_map = BoneTools.KAYKIT_TO_UE
+		return rig
+	rig.retarget_from = KOLOSS_ANIMS
+	rig.retarget_map = BoneTools.UE_TO_MIXAMO
+	rig.extra_donors = [[MESHY_HOOD, _mixamo_same()]]
+	var run := ["Running"]
+	rig.anim_overrides = {"walk": ["Walking"], "run": run, "sprint": run, "flee": run, "down": ["Dead"]}
+	return rig
+
+
+static func champion_rig(kit: String) -> ModelRig:
+	var rig := meshy_rig(kit)
+	rig.ignore_light_hits = true
+	rig.held_weapons = [Champion.KITS[kit]["weapon"]]
+	rig.anim_overrides.merge({"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "hit": ["hit_chest"], "hit_head": ["hit_chest"],
+			"hit_knockback": ["hit_front"]})
+	return rig
+
+
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
-	if role == "skaa":
-		return skaa_rig()
+	if role.begins_with("meshy:"):
+		return meshy_rig(role.trim_prefix("meshy:"))
+	if role == "noble":
+		return meshy_rig("GordoNoble")
+	if role.begins_with("champion:"):
+		return champion_rig(role.trim_prefix("champion:"))
+	if role.begins_with("skaa"):
+		return skaa_rig(role.trim_prefix("skaa").trim_prefix(":"))
 	if role.begins_with("koloss"):
 		return koloss_fighter_rig(role == "koloss_axes")
 	if npc_use_koloss:
@@ -225,13 +284,13 @@ static func koloss_rig() -> ModelRig:
 ## El koloss que pelea (ver Koloss): con espadón a dos manos o con un hacha en cada mano.
 static func koloss_fighter_rig(axes: bool) -> ModelRig:
 	var rig := ModelRig.new()
-	rig.model_path = KOLOSS
+	rig.target_height = randf_range(1.6, 3.2)
+	rig.model_path = MESHY % ("KolossJoven" if rig.target_height < 2.2 else "KolossAdulto")
 	rig.flip = true
 	# KolossMoves primero: esquives y golpes del mismo donante, así se mezclan sin cortes.
 	rig.retarget_from = "res://assets/koloss/KolossMoves.glb"
-	rig.retarget_map = BoneTools.MIXAMO_TO_UE
-	rig.extra_donors = [[KOLOSS_ANIMS, BoneTools.UE_TO_UE]]
-	rig.target_height = randf_range(2.0, 3.2)
+	rig.retarget_map = _mixamo_same()
+	rig.extra_donors = [[KOLOSS_ANIMS, BoneTools.UE_TO_MIXAMO]]
 	rig.stride_scale = rig.target_height / 1.8
 	rig.ignore_light_hits = true
 	rig.tint = Color.WHITE.darkened(randf_range(0.0, 0.2))

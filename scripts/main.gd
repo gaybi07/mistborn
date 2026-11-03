@@ -906,26 +906,26 @@ func _vial(pos: Vector3, kind: StringName) -> void:
 	add_child(v)
 
 
+## Obligadores en la plaza.
+func _spawn_obligators() -> void:
+	for i in 5:
+		var o := Citizen.new()
+		o.meshy_model = "Obligador"
+		var ang := TAU * i / 5.0
+		o.home = Vector3(cos(ang) * 14.0, 0, sin(ang) * 14.0)
+		o.home.y = _ground(o.home)
+		o.roam_radius = 10.0
+		o.position = o.home + Vector3(0, 0.1, 0)
+		add_child(o)
+
+
 func _spawn_people() -> void:
-	# Cuadrilla de skaa trabajando cerca de donde aparece el jugador, y dos que acarrean cajas.
-	var tasks := ["dig", "push_heavy", "pull_heavy", "iron_pull", "lift_heavy", "kneel_pull", "kneel_inspect"]
-	for i in tasks.size():
-		var w := SkaaWorker.new()
-		w.task = tasks[i]
-		var p := Vector3(-9.0 + (i % 4) * 2.6, 0, 15.0 + (i / 4) * 3.0)
-		p.y = _ground(p)
-		w.position = p
-		w.rotation.y = randf_range(-0.5, 0.5)
-		add_child(w)
-	for i in 2:
-		var c := SkaaWorker.new()
-		var p := Vector3(-10.0, 0, 21.0 + i * 1.6)
-		p.y = _ground(p)
-		c.position = p
-		c.route = Vector3(8.0, _ground(p + Vector3(8, 0, 0)) - p.y, 0)
-		add_child(c)
+	add_child(SkaaCrews.new())
+	add_child(GateForces.new())
+	_spawn_obligators()
 	for i in 22:
 		var c := Citizen.new()
+		c.skaa = i % 5 != 0  # uno de cada cinco, noble
 		var home := Vector3(_rng.randf_range(-30, 30), 0, _rng.randf_range(-30, 30))
 		if home.distance_to(Vector3(0, 0, -2)) < 9.0:
 			home.x += 12.0
