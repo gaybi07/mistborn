@@ -41,6 +41,11 @@ func _role() -> String:
 	return "guard"
 
 
+## El guardia lleva una lanza de metal.
+func is_armed() -> bool:
+	return not is_disarmed()
+
+
 func _setup() -> void:
 	xp_reward = 180
 	loot_coins = Vector2i(4, 8)

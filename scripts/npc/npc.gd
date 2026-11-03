@@ -58,6 +58,8 @@ var _frenzy_until := -1.0
 var surrendered := false
 ## Aturdido (le hicieron parry): no piensa ni ataca hasta _stun_until.
 var _stun_until := -1.0
+## Desarmado con hierro: hasta _disarmed_until pega mucho menos.
+var _disarmed_until := -1.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -194,6 +196,42 @@ func apply_allomantic_impulse(dv: Vector3) -> void:
 	_on_pushed()
 
 
+## Lleva un arma de metal que se le puede quitar (lo definen los que pelean con ella).
+func is_armed() -> bool:
+	return false
+
+
+func is_disarmed() -> bool:
+	return _world_time < _disarmed_until
+
+
+## Vuelve a empuñar el arma cuando se acaba el desarme.
+func _rearm_check() -> void:
+	if _disarmed_until > 0.0 and _world_time >= _disarmed_until:
+		_disarmed_until = -1.0
+		if rig.spear_grip != null:
+			rig.spear_grip.visible = true
+
+
+## Se le quita el arma `time` s (ver Player.start_disarm): la guarda y pega mucho menos.
+func disarm(time: float) -> void:
+	_disarmed_until = _world_time + time
+	rig.set_weapon(HumanoidRig.Weapon.NONE)
+	if rig.spear_grip != null:
+		rig.spear_grip.visible = false
+
+
+## Arrastre de hierro: lo lleva hacia `dir` (en horizontal) a `speed`, sin que su propio movimiento lo frene.
+func pull_toward(dir: Vector3, speed: float, delta: float) -> void:
+	var flat := Vector3(dir.x, 0.0, dir.z)
+	if flat.length() < 0.01:
+		return
+	var want := flat.normalized() * speed
+	velocity.x = move_toward(velocity.x, want.x, 90.0 * delta)
+	velocity.z = move_toward(velocity.z, want.z, 90.0 * delta)
+	_knockback = 0.3
+
+
 func is_stunned() -> bool:
 	return _world_time < _stun_until
 
@@ -230,6 +268,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		_soothed_until = -1.0  # un golpe rompe la calma
 	if is_rioted():
 		damage *= 1.25
+	if attacker != null and attacker.has_method(&"mark_bonus"):
+		damage *= attacker.mark_bonus(self)  # Marca del cazador (estaño)
 	_on_hit(attacker)
 	if damage > 0.0:
 		rig.flash()
@@ -259,6 +299,7 @@ func random_point_near_home() -> Vector3:
 
 func _physics_process(delta: float) -> void:
 	_world_time += delta
+	_rearm_check()
 	if down and _world_time >= _down_until:
 		down = false
 		health = max_health

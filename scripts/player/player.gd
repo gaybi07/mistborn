@@ -249,13 +249,10 @@ const JUMP_DIST_STAND := 2.0
 const JUMP_HEIGHT_RUN := 1.5
 const JUMP_DIST_RUN := 3.0
 ## Segundo salto en el aire (Espacio dos veces, sin acero): una vez por salto. Sube AIR_JUMP_HEIGHT m más
-## (más AIR_JUMP_PEWTER por punto de peltre) y conserva tu velocidad horizontal: alarga el salto ~1 m.
+## y conserva tu velocidad horizontal: alarga el salto ~1 m.
 const AIR_JUMP_HEIGHT := 0.5
-const AIR_JUMP_PEWTER := 1.1
 ## Velocidad horizontal máxima que da el control en el aire tras un salto normal (INF: sin límite).
 var _jump_hcap := INF
-## Acero + peltre en el doble Espacio: impulso vertical extra (múltiplo del salto) por punto de peltre.
-const PEWTER_STEEL_KICK := 1.0
 var _air_jump_used := false
 ## Último toque de Espacio (ms), para detectar el doble toque.
 var _last_jump_ms := -100000
@@ -1018,7 +1015,7 @@ func _metal_key_up(key: Key) -> void:
 ## Latón o cinc de un enemigo (strength 2 = avivado). El cobre te protege: devuelve false.
 ## Aplacado: no puedes avivar. Enardecido: pegas +15 % pero recibes +25 %.
 func apply_emotion(metal: StringName, _strength: float, _source: Node3D) -> bool:
-	if dead or allomancy.is_burning(&"copper"):
+	if dead or allomancy.is_burning(&"copper") or is_clear_minded():
 		return false
 	var until := Time.get_ticks_msec() + 2000
 	if metal == &"zinc":
@@ -1191,6 +1188,28 @@ func _skill_press(skill: StringName) -> void:
 			_tap_skill(&"steel", activate_magnetic_field, SKILL_TAP_BURN_MS)
 		&"iron_coin_magnet":
 			_tap_skill(&"iron", start_gather, GATHER_MS + 200)
+		&"iron_drag":
+			_tap_skill(&"iron", start_iron_drag, SKILL_TAP_BURN_MS)
+		&"iron_hook":
+			_tap_skill(&"iron", start_iron_hook, SKILL_TAP_BURN_MS)
+		&"iron_disarm":
+			_tap_skill(&"iron", start_disarm, SKILL_TAP_BURN_MS)
+		&"iron_mass_yank":
+			_tap_skill(&"iron", start_mass_yank, SKILL_TAP_BURN_MS)
+		&"pewter_charge":
+			_tap_skill(&"pewter", start_charge, SKILL_TAP_BURN_MS)
+		&"pewter_slam":
+			_tap_skill(&"pewter", start_slam, SKILL_TAP_BURN_MS)
+		&"pewter_fury":
+			start_fury()
+		&"tin_focus":
+			_timed_skill(&"tin", start_focus, int(SkillTree.FOCUS_TIME * 1000.0))
+		&"tin_mark":
+			_timed_skill(&"tin", start_mark, int(SkillTree.MARK_TIME * 1000.0))
+		&"tin_clear_mind":
+			_timed_skill(&"tin", start_clear_mind, int(SkillTree.CLEAR_TIME * 1000.0))
+		&"tin_extreme":
+			_timed_skill(&"tin", start_extreme, int(SkillTree.EXTREME_TIME * 1000.0))
 
 
 func _skill_release(skill: StringName) -> void:
@@ -1216,6 +1235,19 @@ func _grip_skill(g: SteelIron.Grip, metal: StringName, pressed: bool) -> void:
 func _tap_skill(metal: StringName, action: Callable, burn_ms: int) -> void:
 	_skill_burn_on(metal)
 	action.call()
+	_skill_off_ms[metal] = Time.get_ticks_msec() + burn_ms
+	get_tree().create_timer(burn_ms / 1000.0).timeout.connect(func() -> void:
+		if Time.get_ticks_msec() >= int(_skill_off_ms.get(metal, 0)):
+			_skill_burn_off(metal))
+
+
+## Habilidad con duración (Foco, Marca, Mente despejada, Sentidos extremos): enciende su metal al empezar y lo apaga cuando
+## termina. Si no llega a empezar (recarga, sin objetivo), no lo deja encendido. `action` devuelve si empezó.
+func _timed_skill(metal: StringName, action: Callable, burn_ms: int) -> void:
+	_skill_burn_on(metal)
+	if not action.call():
+		_skill_burn_off(metal)
+		return
 	_skill_off_ms[metal] = Time.get_ticks_msec() + burn_ms
 	get_tree().create_timer(burn_ms / 1000.0).timeout.connect(func() -> void:
 		if Time.get_ticks_msec() >= int(_skill_off_ms.get(metal, 0)):
@@ -1383,11 +1415,13 @@ func _physics_process(delta: float) -> void:
 	_update_shield(rd)
 	_update_field()
 	_update_landing_cue()
+	_update_iron_powers(delta, rd)
+	_update_pewter_powers(rd)
 	_update_pewter_drag(rd)
 	allomancy.flare_blocked = is_soothed()
 	var pewter := allomancy.strength(&"pewter")
 	var speed_mult := (1.0 + 0.6 * pewter) * gear_stat("speed")  # peltre: 1.6x quemando, 2.2x avivando
-	var jump_mult := 1.0 + 0.3 * pewter_for(&"pewter_jump")
+	var jump_mult := 1.0
 	if _pewter_drag > 0.0:
 		speed_mult = 0.6
 		jump_mult = 0.7
@@ -1441,12 +1475,8 @@ func _physics_process(delta: float) -> void:
 			_start_coin_push(back.normalized() * STEEL_JUMP_BACK)
 			_jump_push = steel_iron.auto_push != null
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
-			# Acero + peltre en el doble Espacio: además del empuje de la moneda, el cuerpo reforzado da un impulso.
-			if double_tap and move == Vector2.ZERO and pewter_for(&"pewter_jump") > 0.0 and _jump_push:
-				velocity.y = maxf(velocity.y, 0.0) + jump_velocity * PEWTER_STEEL_KICK * pewter_for(&"pewter_jump")
-				_air_jump_used = true
 		elif double_tap and not is_on_floor() and not _swimming and _air_action_free() and _spend_stamina(JUMP_COST):
-			# Doble Espacio en el aire sin acero: segundo salto (el peltre lo hace mucho más fuerte).
+			# Doble Espacio en el aire sin acero: segundo salto.
 			_air_jump_used = true
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
 			_air_jump(move)
@@ -1492,6 +1522,9 @@ func _physics_process(delta: float) -> void:
 		_dodge_t -= rd
 		if is_on_floor():
 			hv = Vector2.ZERO
+	elif _charge_t > 0.0:
+		_charge_t -= rd
+		hv = Vector2(_charge_dir.x, _charge_dir.z) * CHARGE_SPEED * (1.0 + 0.3 * pewter)
 	elif _roll_time > 0.0:
 		# Durante la voltereta mantienes la dirección y velocidad del impulso.
 		_roll_time -= rd
@@ -1565,6 +1598,8 @@ func _physics_process(delta: float) -> void:
 	_update_rig(hv, rd)
 
 	var target_fov := base_fov + 5.0 * pewter + 12.0 * atium.intensity
+	if is_focused():
+		target_fov *= FOCUS_FOV
 	camera.fov = lerpf(camera.fov, target_fov, 6.0 * rd)
 
 	if global_position.y < -40.0:
@@ -1748,7 +1783,9 @@ func _process(delta: float) -> void:
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():
-		health = minf(health + regen_rate * (1.0 + 2.0 * pewter_for(&"pewter_second_wind")) * rd, max_health)
+		health = minf(health + regen_rate * rd, max_health)
+	if not dead and Time.get_ticks_msec() < _last_stand_until_ms:
+		health = minf(health + max_health * LAST_STAND_HEAL / SkillTree.LAST_STAND_TIME * rd, max_health)
 	# El estaño (el dolor te despeja) te recupera antes de un golpe: avivado, el triple de rápido.
 	var recover := rd * 3.0 * (1.0 + allomancy.strength(&"tin"))
 	if rig is ModelRig:
@@ -1775,12 +1812,12 @@ func _process(delta: float) -> void:
 		_update_remote_rig()
 
 
-## Daño que haría un impacto a esa velocidad. El peltre sube el umbral y reduce el daño
-## (quemando: 20 m/s y la mitad; avivando: 28 m/s y un tercio); las botas suben el umbral.
+## Daño que haría un impacto a esa velocidad; las botas suben el umbral.
 func impact_damage_for(impact_speed: float) -> float:
-	var pewter := pewter_for(&"pewter_landing")
-	var safe := safe_impact_speed + 8.0 * pewter + gear_stat("impact", true)
-	return maxf(impact_speed - safe, 0.0) * impact_damage / (1.0 + pewter)
+	if Time.get_ticks_msec() < _hook_safe_ms:
+		impact_speed *= 0.7  # recién llegaste con el gancho: la soga te frenó un poco
+	var safe := safe_impact_speed + gear_stat("impact", true)
+	return maxf(impact_speed - safe, 0.0) * impact_damage
 
 
 func _check_impact(impact_speed: float) -> void:
@@ -1992,7 +2029,7 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 			_parry(attacker)
 			return
 		if blocking:
-			if _spend_stamina(damage * (SHIELD_BLOCK_STAMINA if rig.shield_up() else BLOCK_STAMINA)):
+			if _spend_stamina(damage * (SHIELD_BLOCK_STAMINA if rig.shield_up() else BLOCK_STAMINA)) or is_clear_minded():
 				_block_hit(attacker, impulse, damage)
 				return
 			_guard_broken = true  # sin resistencia: la guardia cede y el golpe entra entero
@@ -2010,8 +2047,10 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 	# El peltre endurece el cuerpo: menos daño y menos empujón (quemando ~40 %, avivando ~55 %).
 	var pewter := 0.0 if unblockable else pewter_for(&"pewter_endurance")
 	impulse /= 1.0 + 0.5 * pewter
+	if is_clear_minded():
+		impulse *= 0.3  # Mente despejada: casi no te empujan
 	velocity += impulse + Vector3.UP * impulse.length() * 0.2
-	_shoved = 0.35
+	_shoved = 0.1 if is_clear_minded() else 0.35
 	mark_combat()
 	if attacker and attacker.has_method(&"mark_combat"):
 		attacker.mark_combat()
@@ -2113,11 +2152,20 @@ func add_trauma(amount: float) -> void:
 func take_damage(amount: float, impact_speed := 0.0) -> void:
 	if dead:
 		return
+	var now := Time.get_ticks_msec()
+	if now < _last_stand_until_ms:
+		return  # Último aliento: nada te toca
+	if now >= _last_stand_ready_ms and skill_unlocked(&"pewter_last_stand") and health - amount < max_health * LAST_STAND_HEALTH:
+		_last_stand_until_ms = now + int(SkillTree.LAST_STAND_TIME * 1000.0)
+		_last_stand_ready_ms = now + int(SkillTree.LAST_STAND_COOLDOWN * 1000.0)
+		amount = minf(amount, maxf(health - 1.0, 0.0))
+		notice.emit("¡Último aliento!")
+		Fx.burst(get_tree().current_scene, chest_position(), Color(0.95, 0.6, 0.3, 0.5), 24, 4.0, 0.6, 0.6, 0.0, false)
 	health -= amount
 	Sfx.play("hurt", global_position + Vector3(0, 1.2, 0))
 	_since_damage = 0.0
 	add_trauma(clampf(amount / 40.0, 0.3, 0.8))
-	rig.stagger = 1.0
+	rig.stagger = 0.2 if is_clear_minded() else 1.0
 	rig.flash()
 	damaged.emit(amount, impact_speed)
 	if health <= 0.0:
@@ -2247,6 +2295,7 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		damage *= 0.6
 	if is_rioted():
 		damage *= 1.15
+	damage *= _fury_mult()
 	var knockback: float = stats["knockback"] * knockback_mult * (1.0 + 1.0 * pewter)
 	for n in get_tree().get_nodes_in_group(&"npc"):
 		var npc := n as Npc
@@ -2375,7 +2424,7 @@ func _ground_jump(move: Vector2, speed_mult: float, jump_mult: float) -> void:
 
 ## Segundo salto: sube AIR_JUMP_HEIGHT y conserva la velocidad horizontal, girada hacia donde pulsas.
 func _air_jump(move: Vector2) -> void:
-	velocity.y = sqrt(2.0 * _gravity * AIR_JUMP_HEIGHT) * (1.0 + AIR_JUMP_PEWTER * pewter_for(&"pewter_jump"))
+	velocity.y = sqrt(2.0 * _gravity * AIR_JUMP_HEIGHT)
 	var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
 	var flat := Vector3(velocity.x, 0.0, velocity.z)
 	if push.length() > 0.1:
@@ -2467,6 +2516,18 @@ func active_effects() -> Array[Dictionary]:
 		out.append({"id": &"shield", "name": "Escudo de monedas", "buff": true, "left": maxf((_shield_until_ms - now) / 1000.0, 0.0), "total": SkillTree.SHIELD_DURATION, "metal": &"steel"})
 	if _field_shell != null and _field_shell.visible:
 		out.append({"id": &"field", "name": "Campo magnético", "buff": true, "left": maxf((_field_until_ms - now) / 1000.0, 0.0), "total": SkillTree.FIELD_DURATION, "metal": &"steel"})
+	if is_focused():
+		out.append({"id": &"focus", "name": "Foco", "buff": true, "left": maxf((_focus_until_ms - now) / 1000.0, 0.0), "total": SkillTree.FOCUS_TIME, "metal": &"tin"})
+	if is_clear_minded():
+		out.append({"id": &"clear_mind", "name": "Mente despejada", "buff": true, "left": maxf((_clear_until_ms - now) / 1000.0, 0.0), "total": SkillTree.CLEAR_TIME, "metal": &"tin"})
+	if is_extreme_senses():
+		out.append({"id": &"extreme", "name": "Sentidos extremos", "buff": true, "left": maxf((_extreme_until_ms - now) / 1000.0, 0.0), "total": SkillTree.EXTREME_TIME, "metal": &"tin"})
+	if marked_npc() != null:
+		out.append({"id": &"mark", "name": "Marca del cazador", "buff": true, "left": maxf((_marked_until_ms - now) / 1000.0, 0.0), "total": SkillTree.MARK_TIME, "metal": &"tin"})
+	if _fury_until_ms > 0:
+		out.append({"id": &"fury", "name": "Furia", "buff": true, "left": maxf((_fury_until_ms - now) / 1000.0, 0.0), "total": SkillTree.FURY_TIME, "metal": &"pewter"})
+	if now < _last_stand_until_ms:
+		out.append({"id": &"last_stand", "name": "Último aliento", "buff": true, "left": maxf((_last_stand_until_ms - now) / 1000.0, 0.0), "total": SkillTree.LAST_STAND_TIME, "metal": &"pewter"})
 	if net_protected:
 		out.append({"id": &"protected", "name": "Protegido", "buff": true, "left": -1.0, "total": 0.0, "metal": &"pewter"})
 	if pewter_drag() > 0.0:
@@ -2494,6 +2555,28 @@ func skill_cooldown(skill: StringName) -> float:
 			return clampf(float(_spear_ready_ms - now) / (SkillTree.SPEAR_COOLDOWN * 1000.0), 0.0, 1.0)
 		&"steel_magnetic_field":
 			return clampf(float(_field_ready_ms - now) / (SkillTree.FIELD_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"iron_drag":
+			return clampf(float(_drag_ready_ms - now) / (SkillTree.DRAG_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"iron_hook":
+			return clampf(float(_hook_ready_ms - now) / (SkillTree.HOOK_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"iron_disarm":
+			return clampf(float(_disarm_ready_ms - now) / (SkillTree.DISARM_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"iron_mass_yank":
+			return clampf(float(_yank_ready_ms - now) / (SkillTree.YANK_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"pewter_charge":
+			return clampf(float(_charge_ready_ms - now) / (SkillTree.CHARGE_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"pewter_slam":
+			return clampf(float(_slam_ready_ms - now) / (SkillTree.SLAM_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"pewter_fury":
+			return clampf(float(_fury_ready_ms - now) / (SkillTree.FURY_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"tin_focus":
+			return clampf(float(_focus_ready_ms - now) / (SkillTree.FOCUS_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"tin_mark":
+			return clampf(float(_mark_ready_ms - now) / (SkillTree.MARK_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"tin_clear_mind":
+			return clampf(float(_clear_ready_ms - now) / (SkillTree.CLEAR_COOLDOWN * 1000.0), 0.0, 1.0)
+		&"tin_extreme":
+			return clampf(float(_extreme_ready_ms - now) / (SkillTree.EXTREME_COOLDOWN * 1000.0), 0.0, 1.0)
 	return 0.0
 
 
@@ -2510,6 +2593,18 @@ func skill_active(skill: StringName) -> bool:
 			return _field_shell != null and _field_shell.visible
 		&"steel_combat_coin":
 			return _coin_shot
+		&"pewter_fury":
+			return _fury_until_ms > 0
+		&"tin_focus":
+			return is_focused()
+		&"tin_clear_mind":
+			return is_clear_minded()
+		&"tin_extreme":
+			return is_extreme_senses()
+		&"tin_mark":
+			return marked_npc() != null
+		&"pewter_charge":
+			return _charge_t > 0.0
 	return false
 
 
@@ -2517,6 +2612,10 @@ func skill_active(skill: StringName) -> bool:
 ## impulsarte con la moneda (ANCHOR_RANGE) y no hay que esperar la recarga. Avisa con tiempo para que lances la moneda.
 func _update_landing_cue() -> void:
 	landing_cue = 0.0
+	if is_local_player() and not dead and coins_held > 0 and Time.get_ticks_msec() >= _hook_ready_ms \
+			and Progression.slot_of(&"iron_hook") >= 0 and skill_unlocked(&"iron_hook") and not _hook_aim().is_empty():
+		landing_cue = 1.0  # puedes engancharte ahí (Gancho)
+		return
 	if not is_local_player() or dead or is_on_floor() or coins_held <= 0:
 		return
 	if Time.get_ticks_msec() < _anchor_ready_ms:
@@ -2842,6 +2941,498 @@ func _update_shield(rd: float) -> void:
 		var node: Variant = orbit["pivot"]
 		if is_instance_valid(node):
 			(node as Node3D).rotate_object_local(Vector3.UP, float(orbit["speed"]) * rd * (6.0 if _shield_spin > 0.0 else 1.0))
+
+
+## Poderes de estaño (solo en una partida de un jugador): Foco, Marca del cazador, Mente despejada y Sentidos extremos. Los dos
+## primeros y el último se ven con TinVision (siluetas a través de las paredes).
+const FOCUS_FOV := 0.6
+const MARK_BONUS := 1.25
+const MARK_RANGE := 80.0
+var _focus_until_ms := 0
+var _focus_ready_ms := 0
+var _mark_ready_ms := 0
+var _marked: Npc
+var _marked_until_ms := 0
+var _clear_until_ms := 0
+var _clear_ready_ms := 0
+var _extreme_until_ms := 0
+var _extreme_ready_ms := 0
+
+
+func is_focused() -> bool:
+	return Time.get_ticks_msec() < _focus_until_ms
+
+
+func is_clear_minded() -> bool:
+	return Time.get_ticks_msec() < _clear_until_ms
+
+
+func is_extreme_senses() -> bool:
+	return Time.get_ticks_msec() < _extreme_until_ms
+
+
+## El enemigo marcado por la Marca del cazador (null si no hay o ya se acabó).
+func marked_npc() -> Npc:
+	if not is_instance_valid(_marked) or Time.get_ticks_msec() >= _marked_until_ms or _marked.down:
+		return null
+	return _marked
+
+
+## Multiplicador del daño que le haces a ese enemigo (lo usa Npc.take_hit).
+func mark_bonus(npc: Node) -> float:
+	return MARK_BONUS if npc == marked_npc() else 1.0
+
+
+## El enemigo más cerca de la mira (dentro de unos 9°), o null.
+func _aim_npc(max_dist: float) -> Npc:
+	var from := camera.global_position
+	var dir := aim_direction()
+	var best: Npc = null
+	var best_angle := deg_to_rad(9.0)
+	for n in get_tree().get_nodes_in_group(&"npc"):
+		var npc := n as Npc
+		if npc == null or npc.down:
+			continue
+		var to := npc.global_position + Vector3(0, 1.0, 0) - from
+		if to.length() > max_dist:
+			continue
+		var angle := dir.angle_to(to)
+		if angle < best_angle:
+			best = npc
+			best_angle = angle
+	return best
+
+
+func start_focus() -> bool:
+	if dead or not _iron_ready(_focus_ready_ms, "Foco"):
+		return false
+	var now := Time.get_ticks_msec()
+	_focus_ready_ms = now + int(SkillTree.FOCUS_COOLDOWN * 1000.0)
+	_focus_until_ms = now + int(SkillTree.FOCUS_TIME * 1000.0)
+	notice.emit("Foco")
+	return true
+
+
+func start_mark() -> bool:
+	if dead or not _iron_ready(_mark_ready_ms, "Marca del cazador"):
+		return false
+	var npc := _aim_npc(MARK_RANGE)
+	if npc == null:
+		notice.emit("Apunta a un enemigo")
+		return false
+	var now := Time.get_ticks_msec()
+	_mark_ready_ms = now + int(SkillTree.MARK_COOLDOWN * 1000.0)
+	_marked = npc
+	_marked_until_ms = now + int(SkillTree.MARK_TIME * 1000.0)
+	notice.emit("Enemigo marcado")
+	return true
+
+
+## Mente despejada: se te quita al instante lo que te descontrole y por un rato casi nada puede hacerlo.
+func start_clear_mind() -> bool:
+	if dead or not _iron_ready(_clear_ready_ms, "Mente despejada"):
+		return false
+	var now := Time.get_ticks_msec()
+	_clear_ready_ms = now + int(SkillTree.CLEAR_COOLDOWN * 1000.0)
+	_clear_until_ms = now + int(SkillTree.CLEAR_TIME * 1000.0)
+	_soothed_ms = 0
+	_rioted_ms = 0
+	_shoved = 0.0
+	_guard_broken = false
+	rig.stagger = 0.0
+	if senses != null:
+		senses.blinded = 0.0
+	notice.emit("Mente despejada")
+	return true
+
+
+func start_extreme() -> bool:
+	if dead or not _iron_ready(_extreme_ready_ms, "Sentidos extremos"):
+		return false
+	var now := Time.get_ticks_msec()
+	_extreme_ready_ms = now + int(SkillTree.EXTREME_COOLDOWN * 1000.0)
+	_extreme_until_ms = now + int(SkillTree.EXTREME_TIME * 1000.0)
+	notice.emit("Sentidos extremos")
+	return true
+
+
+## Poderes de peltre (solo en una partida de un jugador): Embestida, Martillazo y Furia, y el efecto del Último aliento
+## (que se activa solo al recibir un golpe, ver take_damage).
+const CHARGE_SPEED := 19.0
+const CHARGE_TIME := 0.4
+const CHARGE_DAMAGE := 18.0
+const SLAM_DAMAGE := 26.0
+const FURY_DAMAGE := 1.3
+## Último aliento: vida (fracción) por debajo de la cual salta, y la fracción de la vida máxima que te cura.
+const LAST_STAND_HEALTH := 0.2
+const LAST_STAND_HEAL := 0.4
+var _charge_t := 0.0
+var _charge_dir := Vector3.ZERO
+var _charge_hit: Array = []
+var _charge_ready_ms := 0
+var _slam_ready_ms := 0
+var _fury_ready_ms := 0
+var _fury_until_ms := 0
+var _fury_was_burning := false
+var _last_stand_until_ms := 0
+var _last_stand_ready_ms := 0
+
+
+func _fury_mult() -> float:
+	return FURY_DAMAGE if _fury_until_ms > 0 else 1.0
+
+
+## Embestida: te lanzas hacia donde miras y llevas por delante a quien toques (golpe, empujón y aturdimiento).
+func start_charge() -> void:
+	if dead or _swimming or _hanging or not _iron_ready(_charge_ready_ms, "Embestida"):
+		return
+	_charge_ready_ms = Time.get_ticks_msec() + int(SkillTree.CHARGE_COOLDOWN * 1000.0)
+	var dir := aim_direction()
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length() > 0.1 else -visual.global_basis.z
+	_charge_dir = dir
+	_charge_t = CHARGE_TIME
+	_charge_hit.clear()
+	visual.rotation.y = atan2(-dir.x, -dir.z)
+	rig.play_dash(CHARGE_TIME + 0.1)
+	Sfx.play("roll", global_position)
+	Fx.burst(get_tree().current_scene, chest_position(), Color(0.72, 0.77, 0.88, 0.25), 14, 2.0, 0.8, 0.5, 0.0, false)
+
+
+## Martillazo: una onda de choque en el suelo que daña, empuja y aturde a todos los que te rodean.
+func start_slam() -> void:
+	if dead or not _iron_ready(_slam_ready_ms, "Martillazo"):
+		return
+	if not is_on_floor():
+		notice.emit("El Martillazo se hace en el suelo")
+		return
+	_slam_ready_ms = Time.get_ticks_msec() + int(SkillTree.SLAM_COOLDOWN * 1000.0)
+	rig.play_land(1.0)
+	get_tree().create_timer(0.3, true, false, true).timeout.connect(_slam_hit)
+
+
+func _slam_hit() -> void:
+	if dead:
+		return
+	var strength := (1.0 + 0.75 * allomancy.strength(&"pewter")) * _fury_mult()
+	var scene := get_tree().current_scene
+	for n in get_tree().get_nodes_in_group(&"npc"):
+		var npc := n as Npc
+		if npc == null or npc.down:
+			continue
+		var to := npc.global_position - global_position
+		if absf(to.y) > 2.5:
+			continue
+		to.y = 0.0
+		if to.length() > SkillTree.SLAM_RADIUS:
+			continue
+		var away := to.normalized() if to.length() > 0.1 else -visual.global_basis.z
+		npc.take_hit(away * 16.0, SLAM_DAMAGE * strength, self)
+		npc.stun(1.2, global_position)
+		Fx.sprite(scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
+	for n in get_tree().get_nodes_in_group(&"metal"):
+		var rb := n as RigidBody3D
+		if rb != null and rb.global_position.distance_to(global_position) <= SkillTree.SLAM_RADIUS:
+			rb.apply_central_impulse((rb.global_position - global_position).normalized() * minf(rb.mass, 20.0) * 8.0)
+	Sfx.play("land_heavy", global_position)
+	Fx.dust(scene, global_position, 1.5)
+	Fx.sprite(scene, "heavy-landing", global_position, 6.0, Color.WHITE, null, false)
+	add_trauma(0.8)
+	mark_combat()
+
+
+## Furia: durante SkillTree.FURY_TIME el peltre arde avivado sin gastar metal y pegas más fuerte; al terminar quedas sin aliento.
+func start_fury() -> void:
+	if dead or not _iron_ready(_fury_ready_ms, "Furia"):
+		return
+	if _pewter_drag > 0.0:
+		notice.emit("No puedes quemar peltre ahora")
+		return
+	var now := Time.get_ticks_msec()
+	_fury_ready_ms = now + int(SkillTree.FURY_COOLDOWN * 1000.0)
+	_fury_until_ms = now + int(SkillTree.FURY_TIME * 1000.0)
+	_fury_was_burning = allomancy.is_burning(&"pewter")
+	notice.emit("¡Furia!")
+	add_trauma(0.5)
+	Fx.burst(get_tree().current_scene, chest_position(), Color(0.95, 0.5, 0.2, 0.5), 30, 5.0, 0.7, 0.6, 0.0, false)
+
+
+## Cada fotograma: la embestida golpea a lo que toca y la Furia mantiene el peltre avivado y lleno.
+func _update_pewter_powers(rd: float) -> void:
+	var now := Time.get_ticks_msec()
+	if _charge_t > 0.0:
+		var strength := (1.0 + 0.75 * allomancy.strength(&"pewter")) * _fury_mult()
+		for n in get_tree().get_nodes_in_group(&"npc"):
+			var npc := n as Npc
+			if npc == null or npc.down or npc in _charge_hit:
+				continue
+			var to := npc.global_position - global_position
+			if absf(to.y) > 2.0:
+				continue
+			to.y = 0.0
+			if to.length() > 1.8 or (to.length() > 0.3 and _charge_dir.dot(to.normalized()) < 0.2):
+				continue
+			_charge_hit.append(npc)
+			npc.take_hit(_charge_dir * 14.0, CHARGE_DAMAGE * strength, self)
+			npc.stun(1.5, global_position)
+			Sfx.play("punch_heavy", npc.global_position + Vector3(0, 1.2, 0))
+			Fx.sprite(get_tree().current_scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
+			add_trauma(0.3)
+			mark_combat()
+	if _fury_until_ms > 0:
+		if now < _fury_until_ms and not dead:
+			allomancy.reserve[&"pewter"] = float(Allomancy.METALS[&"pewter"]["max"])
+			if not allomancy.is_flaring(&"pewter"):
+				allomancy.set_state(&"pewter", Allomancy.State.FLARE)
+		else:
+			_fury_until_ms = 0
+			allomancy.set_state(&"pewter", Allomancy.State.BURN if _fury_was_burning and not dead else Allomancy.State.OFF)
+			if not dead:
+				stamina = 0.0
+				_exhausted = true
+				notice.emit("La Furia se apaga")
+
+
+## Poderes de hierro de un toque (solo en una partida de un jugador, como el escudo): Arrastre, Gancho, Desarme y
+## Atracción masiva. Las recargas son SkillTree.*_COOLDOWN.
+const DRAG_SPEED := 16.0
+const DRAG_TIME_MS := 1500
+const DRAG_STOP := 2.0
+const DRAG_STUN := 1.0
+const YANK_STOP := 3.0
+const YANK_STUN := 1.2
+const HOOK_TIME_MS := 1600
+const HOOK_ACCEL := 80.0
+const HOOK_MAX_SPEED := 28.0
+const HOOK_EXIT_SPEED := 12.0
+const HOOK_SAFE_MS := 1000
+## Velocidad de caída (m/s) a la que la soga te retiene, y cuánto frena por segundo (el umbral sin daño es 12 m/s).
+const HOOK_FALL_CAP := 16.0
+const HOOK_FALL_BRAKE := 45.0
+var _hook_safe_ms := 0
+var _hook_rope: MeshInstance3D
+var _drag_ready_ms := 0
+var _hook_ready_ms := 0
+var _disarm_ready_ms := 0
+var _yank_ready_ms := 0
+var _drags: Array[Dictionary] = []
+var _hook_pos := Vector3.INF
+var _hook_until_ms := 0
+
+
+## True si ya puede usarse; si no, avisa de cuánto falta.
+func _iron_ready(ready_ms: int, what: String) -> bool:
+	var now := Time.get_ticks_msec()
+	if now < ready_ms:
+		notice.emit("%s recargando (%d s)" % [what, ceili((ready_ms - now) / 1000.0)])
+		return false
+	return true
+
+
+## Un enemigo que se puede arrastrar: con metal, en pie, que pese hasta tu poder de tirón y con línea de visión.
+func _can_yank(n: Node3D, announce: bool) -> bool:
+	var npc := n as Npc
+	if npc == null or npc.down or not npc.is_in_group(&"metal"):
+		return false
+	if Metals.movable_mass(npc) > SkillTree.power_mass(metal_level(&"iron"), body_mass):
+		if announce:
+			notice.emit("Pesa demasiado para tu poder de tirón")
+		return false
+	var query := PhysicsRayQueryParameters3D.create(chest_position(), npc.global_position + Vector3(0, 1.0, 0), Props.LAYER_WORLD, [get_rid()])
+	if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+		if announce:
+			notice.emit("Algo se interpone")
+		return false
+	return true
+
+
+func _begin_drag(npc: Npc, stop: float, stun_time: float) -> void:
+	for d in _drags:
+		if d["npc"] == npc:
+			_drags.erase(d)
+			break
+	_drags.append({"npc": npc, "until_ms": Time.get_ticks_msec() + DRAG_TIME_MS, "stop": stop, "stun": stun_time})
+
+
+## Arrastre: tira del enemigo que apuntas hacia ti y lo deja aturdido al llegar.
+func start_iron_drag() -> void:
+	if dead or not _iron_ready(_drag_ready_ms, "Arrastre"):
+		return
+	var t := steel_iron.aim_target()
+	if t == null or not (t is Npc):
+		notice.emit("Apunta a un enemigo con metal")
+		return
+	if not _can_yank(t, true):
+		return
+	_drag_ready_ms = Time.get_ticks_msec() + int(SkillTree.DRAG_COOLDOWN * 1000.0)
+	_begin_drag(t as Npc, DRAG_STOP, DRAG_STUN)
+
+
+## Atracción masiva: arrastra a todos los enemigos con metal cercanos hasta un anillo a tu alrededor.
+func start_mass_yank() -> void:
+	if dead or not _iron_ready(_yank_ready_ms, "Atracción masiva"):
+		return
+	var got := 0
+	for n in get_tree().get_nodes_in_group(&"metal"):
+		var npc := n as Npc
+		if npc != null and npc.global_position.distance_to(global_position) <= SkillTree.YANK_RADIUS and _can_yank(npc, false):
+			_begin_drag(npc, YANK_STOP, YANK_STUN)
+			got += 1
+	if got == 0:
+		notice.emit("No hay enemigos con metal a tu alcance")
+		return
+	_yank_ready_ms = Time.get_ticks_msec() + int(SkillTree.YANK_COOLDOWN * 1000.0)
+
+
+## Gancho: clava una moneda en cualquier superficie fija que apuntes (hasta SkillTree.HOOK_RANGE) y te tira hacia ella
+## con una soga. Frena al llegar y, un momento después, los golpes casi no te lastiman (HOOK_SAFE_MS).
+func start_iron_hook() -> void:
+	if dead or not _iron_ready(_hook_ready_ms, "Gancho") or not _check_coins():
+		return
+	var from := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(from, from + aim_direction() * (SkillTree.HOOK_RANGE + 4.0), Props.LAYER_WORLD | Props.LAYER_PROPS, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var body: Object = hit.get("collider")
+	if hit.is_empty() or body is CharacterBody3D or (body is RigidBody3D and not (body as RigidBody3D).freeze):
+		notice.emit("Apunta a una superficie fija a menos de %d m" % int(SkillTree.HOOK_RANGE))
+		return
+	var point: Vector3 = hit["position"]
+	if point.distance_to(chest_position()) > SkillTree.HOOK_RANGE:
+		notice.emit("Está demasiado lejos")
+		return
+	var los := PhysicsRayQueryParameters3D.create(chest_position(), point + (hit["normal"] as Vector3) * 0.1, Props.LAYER_WORLD, [get_rid()])
+	if not get_world_3d().direct_space_state.intersect_ray(los).is_empty():
+		notice.emit("Algo se interpone")
+		return
+	_hook_ready_ms = Time.get_ticks_msec() + int(SkillTree.HOOK_COOLDOWN * 1000.0)
+	var anchor := _spawn_coin(point + (hit["normal"] as Vector3) * 0.04)
+	anchor.gravity_scale = 0.0
+	anchor.freeze = true
+	var life := Timer.new()
+	life.wait_time = 5.0
+	life.one_shot = true
+	life.autostart = true
+	life.timeout.connect(anchor.queue_free)
+	anchor.add_child(life)
+	_hook_pos = point
+	_hook_until_ms = Time.get_ticks_msec() + HOOK_TIME_MS
+	if _hook_rope == null:
+		_hook_rope = MeshInstance3D.new()
+		var rope_mesh := CylinderMesh.new()
+		rope_mesh.top_radius = 0.015
+		rope_mesh.bottom_radius = 0.015
+		rope_mesh.height = 1.0
+		rope_mesh.radial_segments = 6
+		_hook_rope.mesh = rope_mesh
+		_hook_rope.material_override = Props.material(Color(0.42, 0.3, 0.18), 0.0, 0.9)
+		_hook_rope.top_level = true
+		add_child(_hook_rope)
+	_hook_rope.visible = true
+	var dir := (point - chest_position()).normalized()
+	visual.rotation.y = atan2(-dir.x, -dir.z)
+	rig.play_throw()
+	if is_on_floor():
+		velocity.y = maxf(velocity.y, 4.0)
+
+
+## La superficie fija que el Gancho podría agarrar ahora mismo (en alcance y a la vista); vacío si no hay.
+func _hook_aim() -> Dictionary:
+	var from := camera.global_position
+	var space := get_world_3d().direct_space_state
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + aim_direction() * (SkillTree.HOOK_RANGE + 4.0), Props.LAYER_WORLD | Props.LAYER_PROPS, [get_rid()]))
+	if hit.is_empty():
+		return {}
+	var body: Object = hit["collider"]
+	if body is CharacterBody3D or (body is RigidBody3D and not (body as RigidBody3D).freeze):
+		return {}
+	var point: Vector3 = hit["position"]
+	if point.distance_to(chest_position()) > SkillTree.HOOK_RANGE:
+		return {}
+	var los := PhysicsRayQueryParameters3D.create(chest_position(), point + (hit["normal"] as Vector3) * 0.1, Props.LAYER_WORLD, [get_rid()])
+	return {} if not space.intersect_ray(los).is_empty() else hit
+
+
+## Estira la soga del gancho entre tu pecho y la moneda clavada.
+func _update_hook_rope() -> void:
+	if _hook_rope == null or not _hook_rope.visible:
+		return
+	var a := chest_position() + Vector3(0, -0.1, 0)
+	var span := _hook_pos - a
+	if not _hook_pos.is_finite() or span.length() < 0.1:
+		_hook_rope.visible = false
+		return
+	var y := span.normalized()
+	var x := y.cross(Vector3.UP if absf(y.y) < 0.95 else Vector3.RIGHT).normalized()
+	var z := x.cross(y)
+	_hook_rope.global_transform = Transform3D(Basis(x, y * span.length(), z), a + span * 0.5)
+
+
+## Desarme: el arma del enemigo que apuntas sale despedida y cae al piso a mitad de camino entre él y tú.
+func start_disarm() -> void:
+	if dead or not _iron_ready(_disarm_ready_ms, "Desarme"):
+		return
+	var npc := steel_iron.aim_target() as Npc
+	if npc == null or not npc.is_armed():
+		notice.emit("Apunta a un enemigo con arma de metal")
+		return
+	_disarm_ready_ms = Time.get_ticks_msec() + int(SkillTree.DISARM_COOLDOWN * 1000.0)
+	npc.disarm(SkillTree.DISARM_SECONDS)
+	var from := npc.global_position + Vector3(0, 1.2, 0)
+	var mid := (npc.global_position + global_position) * 0.5
+	var down := PhysicsRayQueryParameters3D.create(mid + Vector3(0, 3.0, 0), mid + Vector3(0, -6.0, 0), Props.LAYER_WORLD, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(down)
+	mid.y = (hit["position"].y if not hit.is_empty() else npc.global_position.y) + 0.15
+	var weapon := Props.dropped_weapon()
+	get_parent().add_child(weapon)
+	weapon.global_position = from
+	weapon.rotation.y = randf() * TAU
+	# Vuelo de 0,6 s con gravedad normal: aterriza en el punto medio.
+	var t_fly := 0.6
+	var g := float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
+	var flat := Vector3(mid.x - from.x, 0.0, mid.z - from.z) / t_fly
+	weapon.linear_velocity = Vector3(flat.x, (mid.y - from.y + 0.5 * g * t_fly * t_fly) / t_fly, flat.z)
+	weapon.angular_velocity = Vector3(randf_range(-6.0, 6.0), randf_range(-6.0, 6.0), randf_range(-6.0, 6.0))
+	var life := Timer.new()
+	life.wait_time = 40.0
+	life.one_shot = true
+	life.autostart = true
+	life.timeout.connect(weapon.queue_free)
+	weapon.add_child(life)
+
+
+## Cada fotograma: lleva a los arrastrados hacia ti y, mientras dura, tira de ti hacia el gancho.
+func _update_iron_powers(delta: float, rd: float) -> void:
+	var now := Time.get_ticks_msec()
+	for i in range(_drags.size() - 1, -1, -1):
+		var d := _drags[i]
+		var raw: Variant = d["npc"]
+		if not is_instance_valid(raw) or (raw as Npc).down:
+			_drags.remove_at(i)
+			continue
+		var npc := raw as Npc
+		var to := chest_position() - npc.global_position
+		var flat := Vector2(to.x, to.z).length()
+		if flat <= float(d["stop"]) or now >= int(d["until_ms"]):
+			npc.stun(float(d["stun"]), global_position)
+			_drags.remove_at(i)
+			continue
+		npc.pull_toward(to, DRAG_SPEED, delta)
+	if _hook_pos.is_finite():
+		var pull := _hook_pos - chest_position()
+		if now >= _hook_until_ms or pull.length() < 2.5 or dead:
+			# Llegaste (o se cortó): frenas y por un momento los golpes casi no duelen.
+			_hook_pos = Vector3.INF
+			velocity = velocity.limit_length(HOOK_EXIT_SPEED)
+			_hook_safe_ms = now + HOOK_SAFE_MS
+		else:
+			_hook_safe_ms = now + HOOK_SAFE_MS
+			add_allomantic_acceleration(pull.normalized() * HOOK_ACCEL, rd)
+			# La soga retiene la caída, pero no del todo: una caída larga sigue lastimando.
+			if velocity.y < -HOOK_FALL_CAP:
+				velocity.y = move_toward(velocity.y, -HOOK_FALL_CAP, HOOK_FALL_BRAKE * rd)
+			# Cerca de la pared frenas de a poco para no estrellarte.
+			velocity = velocity.limit_length(minf(HOOK_MAX_SPEED, maxf(pull.length() * 3.5, 9.0)))
+	_update_hook_rope()
 
 
 ## Lanza de acero (acero 20): gasta 5 monedas en un solo proyectil muy rápido y pesado que atraviesa hasta 4 enemigos,

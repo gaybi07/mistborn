@@ -17,8 +17,12 @@ const BASIC_PUSH_SLOT := 4
 const BASIC_PULL_SLOT := 5
 const DEFAULT_SLOT_KEYS: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_Q, KEY_E, KEY_5, KEY_F, KEY_Z, KEY_X, KEY_C, KEY_V]
 
+## Tecla de la moneda de combate: un código de teclado o, en negativo, un botón del ratón (-2 = clic derecho, por defecto).
+const DEFAULT_COIN_KEY := -2
+
 static var level := 1
 static var xp := 0
+static var coin_key := DEFAULT_COIN_KEY
 ## Habilidad de cada ranura (&"" = vacía) y su tecla.
 static var slot_skills: Array[StringName] = []
 static var slot_keys: Array[int] = []
@@ -40,6 +44,11 @@ static func reset() -> void:
 	metal_levels.clear()
 	for m: StringName in Allomancy.METALS:
 		metal_levels[m] = 1 if m in FREE_METALS else 0
+	reset_slots()
+
+
+## Ranuras y teclas por defecto: Empuje básico en Q, Tirón básico en E y la moneda de combate en el clic derecho.
+static func reset_slots() -> void:
 	slot_skills.clear()
 	slot_keys.clear()
 	for i in SLOT_COUNT:
@@ -47,6 +56,55 @@ static func reset() -> void:
 		slot_keys.append(DEFAULT_SLOT_KEYS[i])
 	slot_skills[BASIC_PUSH_SLOT] = &"steel_light_push"  # Q
 	slot_skills[BASIC_PULL_SLOT] = &"iron_pull"  # E
+	coin_key = DEFAULT_COIN_KEY
+	apply_coin_binding()
+
+
+## Nombre corto de una tecla de ranura (o del botón del ratón de la moneda de combate).
+static func key_name(code: int) -> String:
+	if code >= 0:
+		return OS.get_keycode_string(code as Key)
+	match -code:
+		MOUSE_BUTTON_RIGHT:
+			return "RMB"
+		MOUSE_BUTTON_MIDDLE:
+			return "MMB"
+		MOUSE_BUTTON_XBUTTON1:
+			return "Ratón 4"
+		MOUSE_BUTTON_XBUTTON2:
+			return "Ratón 5"
+	return "Ratón %d" % -code
+
+
+## Pone en la acción de entrada de la moneda de combate la tecla o el botón elegidos.
+static func apply_coin_binding() -> void:
+	if not InputMap.has_action(&"coin_shot"):
+		return
+	InputMap.action_erase_events(&"coin_shot")
+	if coin_key < 0:
+		var mouse := InputEventMouseButton.new()
+		mouse.button_index = (-coin_key) as MouseButton
+		InputMap.action_add_event(&"coin_shot", mouse)
+	else:
+		var key := InputEventKey.new()
+		key.physical_keycode = coin_key as Key
+		InputMap.action_add_event(&"coin_shot", key)
+
+
+## Cambia la tecla de la moneda de combate (teclado o ratón, menos el clic izquierdo, que ataca). Si una ranura tenía esa
+## tecla, intercambian. Devuelve false si no se pudo.
+static func rebind_coin(code: int) -> bool:
+	if code == -MOUSE_BUTTON_LEFT:
+		return false
+	var other := slot_keys.find(code)
+	if other >= 0:
+		if coin_key < 0:
+			return false  # la ranura no puede quedarse con un botón del ratón
+		slot_keys[other] = coin_key
+	coin_key = code
+	apply_coin_binding()
+	save()
+	return true
 
 
 static func metal_level(metal: StringName) -> int:
@@ -153,6 +211,19 @@ static func assign_skill(skill: StringName) -> bool:
 	return true
 
 
+## Pone la habilidad en esa ranura. Si ya estaba en otra, las dos intercambian lugar; lo que hubiera en la ranura y no tenga
+## adónde ir queda sin ranura.
+static func assign_to_slot(skill: StringName, index: int) -> void:
+	var old := slot_skills.find(skill)
+	if old == index:
+		return
+	var displaced := slot_skills[index]
+	slot_skills[index] = skill
+	if old >= 0:
+		slot_skills[old] = displaced
+	save()
+
+
 static func clear_slot(index: int) -> void:
 	slot_skills[index] = &""
 	save()
@@ -160,9 +231,13 @@ static func clear_slot(index: int) -> void:
 
 ## Cambia la tecla de una ranura; si otra ranura la tenía, intercambian teclas.
 static func rebind_slot(index: int, key: int) -> void:
+	var old := slot_keys[index]
 	var other := slot_keys.find(key)
 	if other >= 0 and other != index:
-		slot_keys[other] = slot_keys[index]
+		slot_keys[other] = old
+	elif key == coin_key:
+		coin_key = old
+		apply_coin_binding()
 	slot_keys[index] = key
 	save()
 
@@ -185,6 +260,7 @@ static func load_progress() -> void:
 	for i in SLOT_COUNT:
 		slot_skills[i] = StringName(cfg.get_value("ranuras", "habilidad_%d" % i, ""))
 		slot_keys[i] = int(cfg.get_value("ranuras", "tecla_%d" % i, DEFAULT_SLOT_KEYS[i]))
+	coin_key = int(cfg.get_value("ranuras", "tecla_moneda", DEFAULT_COIN_KEY))
 	prune_slots()
 	# Guardados anteriores: Empuje básico y Tirón básico pasan a venir puestos en Q y E (se mueve lo que hubiera ahí).
 	# La ranura que tenía la R ahora es la 5 (si no la cambiaste).
@@ -218,5 +294,6 @@ static func save() -> void:
 	for i in SLOT_COUNT:
 		cfg.set_value("ranuras", "habilidad_%d" % i, String(slot_skills[i]))
 		cfg.set_value("ranuras", "tecla_%d" % i, slot_keys[i])
+	cfg.set_value("ranuras", "tecla_moneda", coin_key)
 	cfg.set_value("ranuras", "version", 4)
 	cfg.save(PATH)
