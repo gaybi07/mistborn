@@ -7,7 +7,7 @@ class_name Art
 
 static var style := "quaternius"
 ## Personaje propio del jugador (de PLAYER_MODELS) o "" para usar el del estilo.
-static var player_model := "mistborn"
+static var player_model := "kelsier"
 ## "noche" (bruma) o "dia" (sol rojo de Luthadel). Se cambia en el juego con F3.
 static var lighting := "noche"
 ## "despejado", "lluvia" o "ceniza". F4.
@@ -29,23 +29,37 @@ const SUITS := {"negro": Color(0.17, 0.19, 0.24), "blanco": Color(0.9, 0.89, 0.8
 		"rojo": Color(0.62, 0.06, 0.05), "azul": Color(0.07, 0.2, 0.66)}
 const SUIT_FILE := "user://jugador.cfg"
 static var suit := "negro"
-## false hasta que se elige por primera vez (entonces se muestra SuitPicker al empezar).
+## false hasta que se elige personaje por primera vez (entonces se muestra SuitPicker al empezar).
 static var suit_chosen := false
 
 
 ## Lee el color guardado (si nunca se eligió, queda el negro y suit_chosen en false).
 static func load_suit() -> void:
 	var cfg := ConfigFile.new()
-	suit_chosen = cfg.load(SUIT_FILE) == OK
-	var s: String = cfg.get_value("jugador", "traje", "negro") if suit_chosen else "negro"
+	var loaded := cfg.load(SUIT_FILE) == OK
+	var s: String = cfg.get_value("jugador", "traje", "negro") if loaded else "negro"
 	suit = s if SUITS.has(s) else "negro"
+	var who: String = cfg.get_value("jugador", "personaje", "") if loaded else ""
+	suit_chosen = who in HEROES
+	if suit_chosen:
+		player_model = who
 
 
 static func save_suit(s: String) -> void:
 	suit = s
+	_save_player()
+
+
+static func save_character(who: String) -> void:
+	player_model = who
+	_save_player()
+
+
+static func _save_player() -> void:
 	suit_chosen = true
 	var cfg := ConfigFile.new()
-	cfg.set_value("jugador", "traje", s)
+	cfg.set_value("jugador", "traje", suit)
+	cfg.set_value("jugador", "personaje", player_model)
 	cfg.save(SUIT_FILE)
 
 
@@ -142,6 +156,17 @@ const PLAYER_MODELS := {
 	"ninja": ["res://assets/mixamo/Ninja.glb", BoneTools.KAYKIT_TO_MIXAMO],
 	# Hunyuan3D + ActionForge, armado con tools/blender/actionforge_to_glb.py.
 	"mistborn": ["res://assets/mixamo/Mistborn.glb", BoneTools.KAYKIT_TO_UE],
+	# Meshy con el esqueleto y los clips del Mistborn (tools/blender/rig_like_mistborn.py).
+	"kelsier": ["res://assets/meshy/Kelsier.glb", BoneTools.KAYKIT_TO_UE],
+	"vin": ["res://assets/meshy/Vin.glb", BoneTools.KAYKIT_TO_UE],
+	# Esqueleto de Mixamo: sus clips de jugador salen del Mistborn (ver player_rig). shortcut: sin ferruquimia todavía.
+	"terrisano": ["res://assets/meshy/Terrisano.glb", BoneTools.KAYKIT_TO_MIXAMO],
+}
+## Los que se eligen en SuitPicker: nombre, alto (m) y retrato.
+const HEROES := {
+	"kelsier": {"name": "Kelsier", "height": 1.8, "portrait": "res://assets/meshy/retrato_kelsier.png"},
+	"vin": {"name": "Vin", "height": 1.55, "portrait": "res://assets/meshy/retrato_vin.png"},
+	"terrisano": {"name": "Terrisano", "height": 2.0, "portrait": "res://assets/meshy/retrato_terrisano.png"},
 }
 
 ## Tonos para que los colores de los packs encajen con la ciudad apagada (y varíe la gente).
@@ -160,6 +185,13 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 		# MixamoCombat: golpes de puños, dagas y espada con escudo.
 		rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE],
 				["res://assets/mixamo/MixamoCombat.glb", BoneTools.MIXAMO_TO_UE]]
+		if PLAYER_MODELS[player_model][1] == BoneTools.KAYKIT_TO_MIXAMO:
+			rig.extra_donors = [[KOLOSS_ANIMS, BoneTools.UE_TO_MIXAMO], ["res://assets/mixamo/MixamoSpells.glb", _mixamo_same()],
+					["res://assets/mixamo/MixamoCombat.glb", _mixamo_same()]]
+		if HEROES.has(player_model):
+			rig.target_height = HEROES[player_model]["height"]
+			rig.stride_scale = rig.target_height / 1.7
+			rig.suit_on_body = false  # se les ve la cara: el color queda para la capa
 		return rig
 	if not SETS.has(style):
 		return _procedural(look)
@@ -204,8 +236,7 @@ static func skaa_girl_rig() -> ModelRig:
 const MESHY := "res://assets/meshy/%s.glb"
 const MESHY_HOOD := "res://assets/meshy/MistbornHood.glb"
 ## Altos (m) de los personajes de Meshy listos para usar.
-const MESHY_HEIGHT := {"Obligador": 1.9, "GordoNoble": 1.7, "Terrisano": 2.0, "Kelsier": 1.8, "Vin": 1.55,
-		"LordRuler": 1.95, "MistbornHood": 1.8}
+const MESHY_HEIGHT := {"Obligador": 1.9, "GordoNoble": 1.7, "Terrisano": 2.0, "LordRuler": 1.95, "MistbornHood": 1.8}
 
 
 ## Mismo esqueleto de Mixamo en origen y destino: el clip se copia tal cual.
@@ -213,18 +244,13 @@ static func _mixamo_same() -> Array:
 	return BoneTools.MIXAMO_TO_UE.map(func(m: Array) -> Array: return [m[1], m[1], m[2], m[3]])
 
 
-## Personaje de Meshy. Kelsier y Vin llevan el esqueleto del Mistborn con todos sus clips (rig_like_mistborn.py). Los
-## demás, el de Mixamo: lo que no traigan sale del encapuchado (también Mixamo) y del Mistborn.
+## Personaje de Meshy con esqueleto de Mixamo: lo que no traiga sale del encapuchado (también Mixamo) y del Mistborn.
 static func meshy_rig(model: String) -> ModelRig:
 	var rig := ModelRig.new()
 	rig.model_path = MESHY % model
 	rig.flip = true
 	rig.target_height = MESHY_HEIGHT[model]
 	rig.stride_scale = rig.target_height / 1.8
-	if model in ["Kelsier", "Vin"]:
-		rig.retarget_from = KAYKIT % "Rogue"
-		rig.retarget_map = BoneTools.KAYKIT_TO_UE
-		return rig
 	rig.retarget_from = KOLOSS_ANIMS
 	rig.retarget_map = BoneTools.UE_TO_MIXAMO
 	rig.extra_donors = [[MESHY_HOOD, _mixamo_same()]]

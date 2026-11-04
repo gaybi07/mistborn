@@ -31,6 +31,8 @@ const BLUE := Color(0.2, 0.46, 0.9)
 var player: Player
 
 var _portrait: SubViewport
+var _portrait_rig: HumanoidRig
+var _portrait_cam: Camera3D
 var _trail := 100.0  # vida "fantasma" que baja despacio tras un golpe
 var _trail_hold := 0.0
 var _last_health := 100.0
@@ -68,14 +70,22 @@ func _make_portrait() -> void:
 	light.rotation_degrees = Vector3(-25.0, 180.0, 0.0)  # alumbra desde delante del personaje (que mira hacia -Z)
 	light.light_energy = 1.1
 	_portrait.add_child(light)
-	var rig := Art.player_rig({})
-	_portrait.add_child(rig)
-	var cam := Camera3D.new()
-	cam.fov = 24.0
-	cam.position = Vector3(0.0, 1.57, -1.0)
-	_portrait.add_child(cam)
-	cam.look_at(Vector3(0.0, 1.55, 0.0))
-	cam.current = true
+	_portrait_cam = Camera3D.new()
+	_portrait_cam.fov = 24.0
+	_portrait.add_child(_portrait_cam)
+	_portrait_cam.current = true
+	_show_character()
+	player.character_changed.connect(_show_character)
+
+
+func _show_character() -> void:
+	if _portrait_rig:
+		_portrait_rig.queue_free()
+	_portrait_rig = Art.player_rig({})
+	_portrait.add_child(_portrait_rig)
+	var eyes := (_portrait_rig as ModelRig).target_height * 0.85
+	_portrait_cam.position = Vector3(0.0, eyes, -1.0)
+	_portrait_cam.look_at(Vector3(0.0, eyes - 0.02, 0.0))
 
 
 func _process(delta: float) -> void:

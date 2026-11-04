@@ -82,6 +82,7 @@ var team := 0
 var allomantic_mass := 70.0
 
 signal equipment_changed
+signal character_changed
 
 ## Inventario (ver Items): ranura -> id del objeto equipado ("" vacía) y los objetos que tienes.
 var equipment := Items.START_EQUIPPED.duplicate()
@@ -367,7 +368,6 @@ func _ready() -> void:
 	stamina = max_stamina
 	spawn_point = global_position
 	_apply_equipment()
-	Art.load_suit()
 	rig.set_suit(Art.suit)
 	Sfx.start()
 	if is_local_player():
@@ -400,6 +400,21 @@ func _build_body() -> void:
 	visual = Node3D.new()
 	visual.name = "Visual"
 	add_child(visual)
+	Art.load_suit()
+	_add_rig()
+
+
+## Otro personaje (ver Art.HEROES): cambia el cuerpo y se conserva lo demás.
+func change_character(who: String) -> void:
+	Art.save_character(who)
+	rig.queue_free()
+	_add_rig()
+	_apply_equipment()
+	rig.set_suit(Art.suit)
+	character_changed.emit()
+
+
+func _add_rig() -> void:
 	rig = Art.player_rig({
 		"skin": Color(0.9, 0.77, 0.67),
 		"hair": Color(0.07, 0.05, 0.05),

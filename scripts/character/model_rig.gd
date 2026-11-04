@@ -162,7 +162,7 @@ var _fade_len := 1.0
 ## Capa superior: los gestos de los poderes van en torso y brazos, sobre lo que hagan las piernas (correr, caer...).
 ## Un esqueleto invisible de MixamoSpells reproduce el clip y se copian solo estos huesos.
 const UPPER_DONOR := "MixamoSpells.glb"
-const UPPER_BONES := ["spine_03", "Head", "upperarm_l", "lowerarm_l", "hand_l", "upperarm_r", "lowerarm_r", "hand_r"]
+const UPPER_BONES := ["Spine2", "Head", "LeftArm", "LeftForeArm", "LeftHand", "RightArm", "RightForeArm", "RightHand"]  # del donante
 const UPPER_FADE := 0.12
 ## Golpe flojo de costado o por la espalda: la primera sacudida del clip direccional, solo en torso y brazos (el primer
 ## pico cae entre 0,1 y 0,15 del clip), así no empuja el cuerpo ni frena las piernas.
@@ -296,6 +296,8 @@ var anim_overrides := {}
 var held_weapons: Array = []
 ## La zancada crece con el cuerpo: ANIM_STRIDE vale para 1,8 m; un koloss de 3 m usa 3 / 1,8.
 var stride_scale := 1.0
+## false: el color de Art.SUITS pinta solo la capa, no la textura del cuerpo.
+var suit_on_body := true
 ## No reacciona a los golpes flojos (no le cortan el suyo): solo a los fuertes y al aturdimiento.
 var ignore_light_hits := false
 ## En pleno salto, rugido o furia: ningún golpe le corta la animación.
@@ -513,6 +515,7 @@ func _instance(path: String) -> Node3D:
 	if ap:
 		# Las avanzamos a mano para aplicar después el retarget y las poses de alomancia.
 		ap.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+		ap.process_mode = Node.PROCESS_MODE_ALWAYS  # en pausa los que usan sus propios clips quedaban en pose T
 	return node
 
 
@@ -729,7 +732,7 @@ func _apply_tint(c: Color) -> void:
 			var base := mi.mesh.surface_get_material(i) as BaseMaterial3D
 			if base == null:
 				continue
-			if _suit != "negro" and base.albedo_texture:
+			if suit_on_body and _suit != "negro" and base.albedo_texture:
 				var sm := ShaderMaterial.new()
 				sm.shader = _suit_shader
 				sm.set_shader_parameter("tex", base.albedo_texture)
@@ -866,7 +869,7 @@ func _ensure_upper() -> bool:
 	for spec: Array in _donor_specs:
 		if not String(spec[0]).ends_with(UPPER_DONOR):
 			continue
-		var map: Array = (spec[1] as Array).filter(func(m: Array) -> bool: return m[0] in UPPER_BONES)
+		var map: Array = (spec[1] as Array).filter(func(m: Array) -> bool: return m[1] in UPPER_BONES)
 		var model := _instance(spec[0])
 		model.visible = false
 		_fit_height(model, false)

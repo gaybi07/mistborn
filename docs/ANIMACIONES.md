@@ -148,4 +148,5 @@ Mistborn. Para jugar un clip con `play_spell` tiene que estar en `ModelRig.ANIMS
 
 Afuera de las puertas (`GateForces`, solo con el jugador cerca): koloss al este, Lord Legislador al oeste, inquisidores al sur (por
 ahora con el modelo encapuchado, ver `Champion`). Los golpes de `Champion.KITS` usan como `hits` los picos de velocidad de la mano,
-medidos en cada clip. Kelsier, Vin y el terrisano están listos en `Art.MESHY_HEIGHT` pero no aparecen en la ciudad.
+medidos en cada clip. Kelsier, Vin y el terrisano (todavía sin ferruquimia) son el personaje del jugador (`Art.HEROES`, se elige con P). El terrisano
+también está como NPC frente al taller de Clubs.

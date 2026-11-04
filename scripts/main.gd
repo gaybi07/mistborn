@@ -906,6 +906,18 @@ func _vial(pos: Vector3, kind: StringName) -> void:
 	add_child(v)
 
 
+## El terrisano, en la calle frente a la puerta del taller de Clubs.
+func _spawn_steward() -> void:
+	var t := Citizen.new()
+	t.meshy_model = "Terrisano"
+	t.stay_in_plaza = false
+	var at := Workshop.POS + Vector2(3.0, -13.0)
+	t.home = Vector3(at.x, CityPlan.ground(at), at.y)
+	t.roam_radius = 5.0
+	t.position = t.home + Vector3(0, 0.1, 0)
+	add_child(t)
+
+
 ## Obligadores en la plaza.
 func _spawn_obligators() -> void:
 	for i in 5:
@@ -923,6 +935,7 @@ func _spawn_people() -> void:
 	add_child(SkaaCrews.new())
 	add_child(GateForces.new())
 	_spawn_obligators()
+	_spawn_steward()
 	for i in 22:
 		var c := Citizen.new()
 		c.skaa = i % 5 != 0  # uno de cada cinco, noble
