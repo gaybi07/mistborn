@@ -96,15 +96,6 @@ func _ready() -> void:
 			if h is Node3D and not h is Interactable:
 				_merge_static(h)
 	_fade_lights()
-	# Guardias en la verja.
-	for s in [-1.0, 1.0]:
-		var guard := Guard.new()
-		var p := Vector3(POS.x + s * 8.0, 0, POS.y + LOT_Z + LOT.y / 2.0 + 3.0)
-		guard.home = p
-		guard.roam_radius = 2.5
-		guard.stay_in_plaza = false
-		guard.position = p + Vector3(0, 0.1, 0)
-		get_parent().add_child.call_deferred(guard)
 
 
 # ---------------------------------------------------------------- Materiales

@@ -69,7 +69,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var hero_keys := [KEY_1, KEY_2, KEY_3, KEY_4]
 	var suit_keys := [KEY_5, KEY_6, KEY_7, KEY_8]
-	if event.keycode in hero_keys:
+	if hero_keys.find(event.keycode) in range(Art.HEROES.size()):
 		_chooser.choose_hero(Art.HEROES.keys()[hero_keys.find(event.keycode)])
 	elif event.keycode in suit_keys:
 		_chooser.choose_suit(Art.SUITS.keys()[suit_keys.find(event.keycode)])

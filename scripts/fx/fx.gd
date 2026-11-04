@@ -1,6 +1,9 @@
 class_name Fx
 ## Efectos de partículas reutilizables y texturas suaves generadas por código.
 
+## shortcut: todos los efectos apagados; se vuelven a sumar clip por clip, y ahí esto se borra. Los textos (popup) siguen.
+const ENABLED := false
+
 static var _soft_tex: Texture2D
 ## Efectos de Effekseer (assets/effects/effekseer, de los ejemplos oficiales, MIT).
 const EFFEKSEER := "res://assets/effects/effekseer/%s.efkefc"
@@ -55,6 +58,8 @@ static func fade_ramp(fade_in := 0.0) -> GradientTexture1D:
 ## Ráfaga de un solo uso (chispas, polvo...). Se borra sola.
 static func burst(parent: Node, pos: Vector3, color: Color, amount := 24, speed := 4.0, life := 0.5,
 		size := 0.08, gravity := -4.0, additive := true, spread := 180.0) -> void:
+	if not ENABLED:
+		return
 	var p := GPUParticles3D.new()
 	p.one_shot = true
 	p.explosiveness = 1.0
@@ -88,6 +93,8 @@ static func sparks(parent: Node, pos: Vector3, color: Color) -> void:
 
 ## Efecto de Effekseer que se reproduce una vez y se borra solo. color tiñe el efecto.
 static func effect(parent: Node, name: String, pos: Vector3, size := 1.0, color := Color.WHITE) -> void:
+	if not ENABLED:
+		return
 	if not _effects.has(name):
 		_effects[name] = load(EFFEKSEER % name)
 	var e := EffekseerEmitter3D.new()
@@ -118,6 +125,8 @@ static var _sheet_tex := {}
 ## viene el rayo o el golpe); si no, mira siempre a la cámara. additive: brilla (rayos, chispas).
 static func sprite(parent: Node, name: String, pos: Vector3, width := 1.0, color := Color.WHITE,
 		from: Variant = null, additive := true) -> void:
+	if not ENABLED:
+		return
 	if not _sheet_tex.has(name):
 		_sheet_tex[name] = load(PIXELFX % name)
 	var tex: Texture2D = _sheet_tex[name]
@@ -180,6 +189,8 @@ static func popup(parent: Node, pos: Vector3, text: String, color: Color, size :
 
 ## Onda de choque: un aro que se abre hasta `radius` y se desvanece.
 static func shockwave(parent: Node, pos: Vector3, radius: float, color: Color, time := 0.45) -> void:
+	if not ENABLED:
+		return
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.9
 	torus.outer_radius = 1.0

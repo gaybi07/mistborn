@@ -349,12 +349,13 @@ func _ready() -> void:
 	senses.name = "TinSenses"
 	senses.player = self
 	add_child(senses)
-	var swirl := MistSwirl.new()
-	swirl.holder = self
-	add_child(swirl)
-	var aura := PewterAura.new()
-	aura.holder = self
-	add_child(aura)
+	if Fx.ENABLED:
+		var swirl := MistSwirl.new()
+		swirl.holder = self
+		add_child(swirl)
+		var aura := PewterAura.new()
+		aura.holder = self
+		add_child(aura)
 	var bronze := BronzeSense.new()
 	bronze.holder = self
 	add_child(bronze)
@@ -1970,11 +1971,15 @@ const DEBUG_ANIMS := ["coin_wave", "coin_shield", "steel_push", "iron_pull", "co
 		"get_up", "crouch_idle", "crouch_walk", "climb_wall", "vault", "fall_roll", "freefall", "drink",
 		"open_door", "sit"]
 var _debug_anim := -1
+var _debug_kit := -1
 
 
-## shortcut: Mayús+F7 trae un koloss para probarlo; borrarla cuando aparezcan solos a menudo.
+## shortcut: Mayús+F7 trae a cada uno de los que pelean, de a uno, para probarlos; borrarla cuando estén ajustados.
 func _debug_spawn_koloss() -> void:
-	var k := Koloss.new()
+	var k := Champion.new()
+	_debug_kit = (_debug_kit + 1) % Champion.KITS.size()
+	k.kit = Champion.KITS.keys()[_debug_kit]
+	notice.emit("Mayús+F7: " + k.kit)
 	k.home = global_position
 	k.position = global_position - visual.global_basis.z * 14.0 + Vector3.UP * 0.5
 	get_tree().current_scene.add_child(k)
@@ -2929,6 +2934,7 @@ func _rebuild_shield() -> void:
 ## desvanecen despacio).
 func _shield_trail() -> GPUParticles3D:
 	var trail := GPUParticles3D.new()
+	trail.visible = Fx.ENABLED
 	trail.amount = 10
 	trail.lifetime = 0.4
 	trail.local_coords = false
@@ -3529,6 +3535,7 @@ func _raise_field() -> void:
 func _field_particles(color: Color, additive: bool, amount: int, life: float, size: float,
 		inner: float, outer: float, rise: float) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
+	p.visible = Fx.ENABLED
 	p.amount = amount
 	p.lifetime = life
 	p.local_coords = true

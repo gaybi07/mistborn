@@ -375,6 +375,7 @@ func _notification(what: int) -> void:
 
 func _add_trail() -> void:
 	_trail = GPUParticles3D.new()
+	_trail.visible = Fx.ENABLED
 	_trail.amount = 40
 	_trail.lifetime = 1.4
 	_trail.local_coords = false

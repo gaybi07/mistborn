@@ -145,9 +145,18 @@ solo `.glb`. Sin esqueleto (Kelsier, Vin; zip "texture", pose T): FBX a GLB y `t
 esqueleto del Mistborn. Los NPC se usan con `Art.meshy_rig`; lo que un modelo no traiga sale de `MistbornHood.glb` y del Mistborn. Para jugar un clip con `play_spell` tiene que estar en `ModelRig.ANIMS`. `Walking` y `Running` pisan a 1,4 y 4,9 m/s para
 1,8 m de alto (`ANIM_STRIDE`).
 
-Afuera de las puertas (`GateForces`, solo con el jugador cerca): koloss al este, Lord Legislador al oeste, inquisidores al sur (por
-ahora con el modelo encapuchado, ver `Champion`). Los golpes de `Champion.KITS` usan como `hits` los picos de velocidad de la mano,
-medidos en cada clip. El jugador se elige con P (`Art.HEROES`): el Mistborn encapuchado, Kelsier, Vin y el terrisano (todavía sin ferruquimia). Se mueven solo con
-los clips del paquete `MistbornHood.glb` y mezclas entre ellos: `scripts/character/hero_clips.gd` dice qué clip y qué tramo usa cada
-acción. Sin clip, no hay movimiento: no se generan poses por código (`ModelRig.clips_only`). El terrisano también está como NPC frente
-al taller de Clubs.
+En el mapa (`Main._spawn_people`) solo están los personajes de Meshy, y cada uno se mueve únicamente con los clips de su paquete
+(`ModelRig.clips_only`): el terrisano frente al taller de Clubs y los nobles en la plaza (`Art.CIVILIANS`); los obligadores en la plaza,
+que no atacan hasta que les pegás; y afuera de las puertas (`GateForces`, solo con el jugador cerca) koloss al este, Lord Legislador al
+oeste e inquisidores al sur (por ahora con el modelo encapuchado). Los skaa, guardias y alománticos de antes siguen en el código, sin
+aparecer.
+
+Los que pelean están en `Champion.KITS`: alto, vida, arma, clips de cada estado, combos (`blows`) y poderes (`powers`). `hits` y `at` son
+los picos de velocidad de la mano, medidos en cada clip y revisados en hojas de cuadros: el golpe llega cuando la mano llega. Los
+efectos están apagados (`Fx.ENABLED`) hasta sumarlos clip por clip. Mayús+F7 trae a cada uno, de a uno, para probarlo. Ningún paquete
+trae un clip de recibir un golpe: por ahora la reacción es el destello y la pausa del golpe.
+
+El jugador se elige con P (`Art.HEROES`): el Mistborn encapuchado y el terrisano (todavía sin ferruquimia). Kelsier y Vin esperan en
+`Art.HEROES_LATER` hasta tener sus clips. Se mueven con los clips del paquete `MistbornHood.glb` y mezclas entre ellos; el terrisano usa
+primero los suyos: `scripts/character/hero_clips.gd` dice qué clip y qué tramo usa cada acción. Sin clip, no hay movimiento: no se
+generan poses por código.

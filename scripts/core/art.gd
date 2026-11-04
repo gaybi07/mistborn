@@ -7,7 +7,7 @@ class_name Art
 
 static var style := "quaternius"
 ## Personaje propio del jugador (de PLAYER_MODELS) o "" para usar el del estilo.
-static var player_model := "kelsier"
+static var player_model := "encapuchado"
 ## "noche" (bruma) o "dia" (sol rojo de Luthadel). Se cambia en el juego con F3.
 static var lighting := "noche"
 ## "despejado", "lluvia" o "ceniza". F4.
@@ -160,9 +160,12 @@ const PLAYER_MODELS := {
 ## Los que se eligen en SuitPicker. Se mueven solo con el paquete de Meshy (ver hero_rig). shortcut: el terrisano sin ferruquimia todavía.
 const HEROES := {
 	"encapuchado": {"name": "Mistborn", "height": 1.8, "model": MESHY_HOOD, "portrait": "res://assets/meshy/retrato_encapuchado.png"},
+	"terrisano": {"name": "Terrisano", "height": 2.0, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
+}
+## shortcut: todavía sin clips propios, no se pueden elegir; cuando los tengan, pasarlos a HEROES.
+const HEROES_LATER := {
 	"kelsier": {"name": "Kelsier", "height": 1.8, "model": "res://assets/meshy/Kelsier.glb", "portrait": "res://assets/meshy/retrato_kelsier.png"},
 	"vin": {"name": "Vin", "height": 1.55, "model": "res://assets/meshy/Vin.glb", "portrait": "res://assets/meshy/retrato_vin.png"},
-	"terrisano": {"name": "Terrisano", "height": 2.0, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
 }
 
 ## Tonos para que los colores de los packs encajen con la ciudad apagada (y varíe la gente).
@@ -246,8 +249,13 @@ static func skaa_girl_rig() -> ModelRig:
 
 const MESHY := "res://assets/meshy/%s.glb"
 const MESHY_HOOD := "res://assets/meshy/MistbornHood.glb"
-## Altos (m) de los personajes de Meshy listos para usar.
-const MESHY_HEIGHT := {"Obligador": 1.9, "GordoNoble": 1.7, "Terrisano": 2.0, "LordRuler": 1.95, "MistbornHood": 1.8}
+## Los que no pelean: alto y clips, todos de su propio paquete.
+const CIVILIANS := {
+	"Terrisano": {"height": 2.0, "states": {"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "walk": ["Walking"], "run": ["Running"],
+			"sprint": ["Running"], "flee": ["Running"], "down": ["falling_down"]}},
+	"GordoNoble": {"height": 1.7, "states": {"idle": ["Scheming_Hand_Rub"], "idle_armed": ["Scheming_Hand_Rub"], "walk": ["Walking"], "run": ["Running"],
+			"sprint": ["Running"], "flee": ["Running"], "down": ["falling_down"]}},
+}
 
 
 ## Mismo esqueleto de Mixamo en origen y destino: el clip se copia tal cual.
@@ -255,27 +263,32 @@ static func _mixamo_same() -> Array:
 	return BoneTools.MIXAMO_TO_UE.map(func(m: Array) -> Array: return [m[1], m[1], m[2], m[3]])
 
 
-## Personaje de Meshy con esqueleto de Mixamo: lo que no traiga sale del encapuchado (también Mixamo) y del Mistborn.
-static func meshy_rig(model: String) -> ModelRig:
+## Personaje de Meshy que se mueve solo con los clips de su paquete.
+static func _pack_rig(model: String, height: float, states: Dictionary) -> ModelRig:
 	var rig := ModelRig.new()
 	rig.model_path = MESHY % model
 	rig.flip = true
-	rig.target_height = MESHY_HEIGHT[model]
-	rig.stride_scale = rig.target_height / 1.8
-	rig.retarget_from = KOLOSS_ANIMS
-	rig.retarget_map = BoneTools.UE_TO_MIXAMO
-	rig.extra_donors = [[MESHY_HOOD, _mixamo_same()]]
-	var run := ["Running"]
-	rig.anim_overrides = {"walk": ["Walking"], "run": run, "sprint": run, "flee": run, "down": ["Dead"]}
+	rig.target_height = height
+	rig.stride_scale = height / 1.8
+	rig.clips_only = true
+	rig.anim_overrides = states
 	return rig
 
 
+static func meshy_rig(model: String) -> ModelRig:
+	return _pack_rig(model, CIVILIANS[model]["height"], CIVILIANS[model]["states"])
+
+
 static func champion_rig(kit: String) -> ModelRig:
-	var rig := meshy_rig(kit)
+	var spec: Dictionary = Champion.KITS[kit]
+	var states: Dictionary = spec["states"].duplicate()
+	for clip: String in Champion.clips_of(kit):
+		states[clip] = [clip]
+	var rig := _pack_rig(kit, spec["height"], states)
 	rig.ignore_light_hits = true
-	rig.held_weapons = [Champion.KITS[kit]["weapon"]]
-	rig.anim_overrides.merge({"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "hit": ["hit_chest"], "hit_head": ["hit_chest"],
-			"hit_knockback": ["hit_front"]})
+	rig.held_weapons = spec["weapons"]
+	rig.state_cuts = spec.get("cuts", {})
+	rig.clip_holds = spec.get("holds", {})
 	return rig
 
 

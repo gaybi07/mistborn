@@ -128,6 +128,8 @@ func _think(_delta: float) -> void:
 	var reach := (REACH_AXES if axes else REACH_SWORD) * _grow
 	if _foe == _player and _react_to_attack(d, reach):
 		return
+	if _use_power(d):
+		return
 	if d < reach and _world_time >= _next_blow:
 		_next_attack(d)
 	elif d > LEAP_RANGE.x * _grow and d < LEAP_RANGE.y * _grow and _world_time >= _next_leap:
@@ -246,6 +248,11 @@ func _damage(mult: float) -> float:
 
 
 # ---------------------------------------------------------------- Poderes
+
+## Los de Champion, antes de seguir con los golpes.
+func _use_power(_d: float) -> bool:
+	return false
+
 
 ## Rugido: asusta y empuja a quien esté cerca (y sacude la cámara).
 func _roar() -> void:

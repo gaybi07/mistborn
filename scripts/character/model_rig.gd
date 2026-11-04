@@ -541,9 +541,9 @@ func _resolve_animations() -> void:
 		var ap := _first(root, "AnimationPlayer") as AnimationPlayer
 		lists.append(ap.get_animation_list() if ap else PackedStringArray())
 		root.free()
-	for state in ANIMS:
+	for state in ANIMS.keys() + anim_overrides.keys():
 		_resolved[state] = {"name": "", "borrowed": false, "donor": -1}
-		for candidate in anim_overrides.get(state, [] if clips_only else ANIMS[state]):
+		for candidate in anim_overrides.get(state, [] if clips_only else ANIMS.get(state, [])):
 			if _ap and _ap.has_animation(candidate):
 				_resolved[state] = {"name": candidate, "borrowed": false, "donor": -1}
 				break

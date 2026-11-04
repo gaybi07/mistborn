@@ -46,8 +46,6 @@ func _ready() -> void:
 		_posts.append({"gate": gate, "node": null, "at": gate[1] + gate[2] * out})
 	for model in ["KolossJoven", "KolossAdulto", "LordRuler", "MistbornHood"]:
 		_keep.append(load(Art.MESHY % model))
-	_keep.append(load("res://assets/koloss/KolossMoves.glb"))
-	_keep.append(load(Art.KOLOSS_ANIMS))
 
 
 func _process(delta: float) -> void:
@@ -96,7 +94,9 @@ static func _foes_of(gate_name: String) -> Array[Npc]:
 	match gate_name:
 		"Puerta Este":
 			for i in FOES[gate_name]:
-				foes.append(Koloss.new())
+				var koloss := Champion.new()
+				koloss.kit = "KolossAdulto" if i % 2 == 1 else "KolossJoven"
+				foes.append(koloss)
 		"Puerta Oeste":
 			var ruler := Champion.new()
 			ruler.kit = "LordRuler"
