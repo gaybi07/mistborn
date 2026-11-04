@@ -30,6 +30,7 @@ var _check_in := randf_range(0.0, 0.3)
 
 
 func _ready() -> void:
+	add_to_group(&"map_npc")
 	if task == "" and route == Vector3.ZERO:
 		task = TASKS.pick_random()
 	rig = Art.skaa_rig()

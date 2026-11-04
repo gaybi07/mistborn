@@ -8,7 +8,9 @@ const FREE_RADIUS := 170.0
 const GATE_POST := 35.0  # m afuera: lejos de los guardias de adentro
 const SPACING := 4.0
 const SPAWN_EVERY := 0.1  # de a uno, para que aparecer no trabe el juego
+const FOES := {"Puerta Este": 7, "Puerta Oeste": 1, "Puerta Sur": 3}
 
+static var _instance: GateForces
 var _posts: Array[Dictionary] = []
 var _queue: Array[Npc] = []
 var _check_in := 0.0
@@ -17,7 +19,26 @@ var _player: Node3D
 var _keep: Array[Resource] = []  # los modelos quedan cargados: volver a la puerta no los lee del disco
 
 
+## Para el mapa: los que todavía no aparecieron, [posición XZ, es el Lord Legislador]. Se saben de antemano dónde están.
+static func far_foes() -> Array:
+	var out := []
+	if not is_instance_valid(_instance):
+		return out
+	for post in _instance._posts:
+		if post["node"] == null:
+			var gate: Array = post["gate"]
+			var count: int = FOES.get(gate[0], 0)
+			for i in count:
+				out.append([_spot(post, i, count), gate[0] == "Puerta Oeste"])
+	return out
+
+
+static func _spot(post: Dictionary, i: int, count: int) -> Vector2:
+	return post["at"] + post["gate"][3] * (i - (count - 1) / 2.0) * SPACING
+
+
 func _ready() -> void:
+	_instance = self
 	for gate in CityPlan.gates():
 		var out := GATE_POST
 		while CityPlan.dist_to_river(gate[1] + gate[2] * out) < CityPlan.RIVER_WIDTH + 20.0:
@@ -61,7 +82,7 @@ func _start(post: Dictionary) -> void:
 	post["node"] = node
 	for i in foes.size():
 		var foe := foes[i]
-		var p: Vector2 = post["at"] + gate[3] * (i - (foes.size() - 1) / 2.0) * SPACING
+		var p := _spot(post, i, foes.size())
 		foe.home = Vector3(p.x, CityPlan.ground(p), p.y)
 		foe.position = foe.home + Vector3.UP * 0.1
 		foe.rotation.y = atan2(gate[2].x, gate[2].y)  # mirando a la ciudad
@@ -74,14 +95,14 @@ static func _foes_of(gate_name: String) -> Array[Npc]:
 	var foes: Array[Npc] = []
 	match gate_name:
 		"Puerta Este":
-			for i in 7:
+			for i in FOES[gate_name]:
 				foes.append(Koloss.new())
 		"Puerta Oeste":
 			var ruler := Champion.new()
 			ruler.kit = "LordRuler"
 			foes.append(ruler)
 		"Puerta Sur":
-			for i in 3:
+			for i in FOES[gate_name]:
 				foes.append(Champion.new())
 	return foes
 

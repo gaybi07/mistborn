@@ -156,17 +156,12 @@ const PLAYER_MODELS := {
 	"ninja": ["res://assets/mixamo/Ninja.glb", BoneTools.KAYKIT_TO_MIXAMO],
 	# Hunyuan3D + ActionForge, armado con tools/blender/actionforge_to_glb.py.
 	"mistborn": ["res://assets/mixamo/Mistborn.glb", BoneTools.KAYKIT_TO_UE],
-	# Meshy con el esqueleto y los clips del Mistborn (tools/blender/rig_like_mistborn.py).
-	"kelsier": ["res://assets/meshy/Kelsier.glb", BoneTools.KAYKIT_TO_UE],
-	"vin": ["res://assets/meshy/Vin.glb", BoneTools.KAYKIT_TO_UE],
-	# Esqueleto de Mixamo: sus clips de jugador salen del Mistborn (ver player_rig). shortcut: sin ferruquimia todavía.
-	"terrisano": ["res://assets/meshy/Terrisano.glb", BoneTools.KAYKIT_TO_MIXAMO],
 }
-## Los que se eligen en SuitPicker: nombre, alto (m) y retrato.
+## Los que se eligen en SuitPicker. Se mueven solo con el paquete de Meshy (ver hero_rig). shortcut: el terrisano sin ferruquimia todavía.
 const HEROES := {
-	"kelsier": {"name": "Kelsier", "height": 1.8, "portrait": "res://assets/meshy/retrato_kelsier.png"},
-	"vin": {"name": "Vin", "height": 1.55, "portrait": "res://assets/meshy/retrato_vin.png"},
-	"terrisano": {"name": "Terrisano", "height": 2.0, "portrait": "res://assets/meshy/retrato_terrisano.png"},
+	"kelsier": {"name": "Kelsier", "height": 1.8, "model": "res://assets/meshy/Kelsier.glb", "portrait": "res://assets/meshy/retrato_kelsier.png"},
+	"vin": {"name": "Vin", "height": 1.55, "model": "res://assets/meshy/Vin.glb", "portrait": "res://assets/meshy/retrato_vin.png"},
+	"terrisano": {"name": "Terrisano", "height": 2.0, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
 }
 
 ## Tonos para que los colores de los packs encajen con la ciudad apagada (y varíe la gente).
@@ -174,7 +169,29 @@ const CROWD_TINTS := [Color(0.82, 0.8, 0.78), Color(0.75, 0.75, 0.8), Color(0.85
 		Color(0.72, 0.74, 0.72), Color(0.8, 0.76, 0.8)]
 
 
+## Kelsier y Vin tienen el esqueleto del Mistborn; el terrisano, el de Mixamo, igual que el paquete.
+static func hero_rig() -> ModelRig:
+	var hero: Dictionary = HEROES[player_model]
+	var rig := ModelRig.new()
+	rig.model_path = hero["model"]
+	rig.flip = true
+	rig.target_height = hero["height"]
+	rig.stride_scale = rig.target_height / 1.8
+	rig.suit_on_body = false  # se les ve la cara: el color queda para la capa
+	rig.retarget_from = MESHY_HOOD
+	rig.retarget_map = _mixamo_same() if player_model == "terrisano" else BoneTools.MIXAMO_TO_UE
+	rig.clips_only = true
+	rig.anim_overrides = HeroClips.STATES
+	rig.state_cuts = HeroClips.CUTS
+	rig.clip_holds = HeroClips.HOLDS
+	rig.skill_clips = HeroClips.SKILLS
+	rig.upper_donor = MESHY_HOOD.get_file()
+	return rig
+
+
 static func player_rig(look: Dictionary) -> HumanoidRig:
+	if HEROES.has(player_model):
+		return hero_rig()
 	if PLAYER_MODELS.has(player_model):
 		var rig := ModelRig.new()
 		rig.model_path = PLAYER_MODELS[player_model][0]
@@ -185,13 +202,6 @@ static func player_rig(look: Dictionary) -> HumanoidRig:
 		# MixamoCombat: golpes de puños, dagas y espada con escudo.
 		rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE],
 				["res://assets/mixamo/MixamoCombat.glb", BoneTools.MIXAMO_TO_UE]]
-		if PLAYER_MODELS[player_model][1] == BoneTools.KAYKIT_TO_MIXAMO:
-			rig.extra_donors = [[KOLOSS_ANIMS, BoneTools.UE_TO_MIXAMO], ["res://assets/mixamo/MixamoSpells.glb", _mixamo_same()],
-					["res://assets/mixamo/MixamoCombat.glb", _mixamo_same()]]
-		if HEROES.has(player_model):
-			rig.target_height = HEROES[player_model]["height"]
-			rig.stride_scale = rig.target_height / 1.7
-			rig.suit_on_body = false  # se les ve la cara: el color queda para la capa
 		return rig
 	if not SETS.has(style):
 		return _procedural(look)

@@ -83,12 +83,16 @@ func _show_character() -> void:
 		_portrait_rig.queue_free()
 	_portrait_rig = Art.player_rig({})
 	_portrait.add_child(_portrait_rig)
-	var eyes := (_portrait_rig as ModelRig).target_height * 0.85
-	_portrait_cam.position = Vector3(0.0, eyes, -1.0)
-	_portrait_cam.look_at(Vector3(0.0, eyes - 0.02, 0.0))
+	_portrait_cam.position = Vector3(0.0, 1.5, -1.0)
+	_portrait_cam.look_at(Vector3(0.0, 1.48, 0.0))
 
 
 func _process(delta: float) -> void:
+	# La guardia inclina el cuerpo: el retrato sigue a la cabeza.
+	var r := _portrait_rig as ModelRig
+	if r and r._skel:
+		var head := BoneTools.bone_world_pos(r._skel, r._bones["head"])
+		_portrait_cam.global_position = head + Vector3(0.0, 0.06, -1.0)
 	var rd := delta / Engine.time_scale
 	if player.health < _last_health:
 		_trail_hold = 0.7

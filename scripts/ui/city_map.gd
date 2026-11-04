@@ -17,6 +17,11 @@ const MINI_METERS := 180.0  ## metros que abarca el minimapa
 const MAX_ZOOM := 6.0
 const INK := Color(0.16, 0.11, 0.07)
 const PAPER := Color(0.86, 0.79, 0.64)
+## Puntos de la gente: NPC en verde grisáceo, enemigos en rojo y el Lord Legislador en un rojo más grande.
+const DOT_NPC := Color(0.43, 0.56, 0.42)
+const DOT_FOE := Color(0.82, 0.1, 0.07)
+const DOT_RADIUS := 3.0
+const DOT_RULER_RADIUS := 7.5
 
 ## Pergamino: tono sepia, contraste suave y bordes oscurecidos (como el plano de referencia).
 const PARCHMENT_SHADER := """
@@ -43,6 +48,8 @@ var _big: Control
 var _big_map: TextureRect
 var _big_marker: Control
 var _mini_marker: Control
+var _mini_dots: Control
+var _big_dots: Control
 var _view: Control  ## recorta el mapa grande al marco
 var _tags: Array[Label] = []  ## en orden de importancia
 var _tag_pos: Array[Vector2] = []
@@ -145,6 +152,8 @@ func _build_minimap() -> void:
 	_mini_map.size = Vector2.ONE * MINI_SIZE * MAP_SIZE / MINI_METERS
 	_mini_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mini.add_child(_mini_map)
+	_mini_dots = _dots(_mini_map)
+	_mini.add_child(_mini_dots)
 	_mini_marker = _marker(13.0)
 	_mini_marker.position = Vector2.ONE * MINI_SIZE / 2.0
 	_mini.add_child(_mini_marker)
@@ -160,6 +169,31 @@ func _build_minimap() -> void:
 	_mini_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_mini_label.add_theme_constant_override("outline_size", 5)
 	add_child(_mini_label)
+
+
+## Capa de puntos sobre un mapa: se redibuja desde _process.
+func _dots(map: TextureRect) -> Control:
+	var layer := Control.new()
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.draw.connect(func() -> void:
+		for n: Node in get_tree().get_nodes_in_group(&"npc"):
+			var npc := n as Npc
+			if npc == null or npc.down:
+				continue
+			var ruler := npc is Champion and (npc as Champion).kit == "LordRuler"
+			_dot(layer, map, Vector2(npc.global_position.x, npc.global_position.z), DOT_FOE if npc.team > 0 else DOT_NPC,
+					DOT_RULER_RADIUS if ruler else DOT_RADIUS)
+		for n: Node3D in get_tree().get_nodes_in_group(&"map_npc"):  # los que no son Npc: skaa trabajando, la nena
+			_dot(layer, map, Vector2(n.global_position.x, n.global_position.z), DOT_NPC, DOT_RADIUS)
+		for far: Array in GateForces.far_foes():
+			_dot(layer, map, far[0], DOT_FOE, DOT_RULER_RADIUS if far[1] else DOT_RADIUS))
+	return layer
+
+
+func _dot(layer: Control, map: TextureRect, xz: Vector2, color: Color, radius: float) -> void:
+	var at := map.position + _uv(xz) * map.size
+	layer.draw_circle(at, radius + 1.0, Color(0, 0, 0, 0.55))
+	layer.draw_circle(at, radius, color)
 
 
 ## Flecha del jugador (apunta hacia arriba sin girar).
@@ -190,7 +224,9 @@ func _process(_delta: float) -> void:
 	_mini_map.position = Vector2.ONE * MINI_SIZE / 2.0 - _uv(p) * _mini_map.size
 	_mini_marker.rotation = -yaw
 	_mini_label.text = CityPlan.district(p)["name"] if CityPlan.inside(p) else "Fuera de la muralla"
+	_mini_dots.queue_redraw()
 	if _big.visible:
+		_big_dots.queue_redraw()
 		_big_marker.position = _big_map.position + _uv(p) * _big_map.size
 		_big_marker.rotation = -yaw
 
@@ -237,6 +273,8 @@ func _build_big_map() -> void:
 	_big_map.stretch_mode = TextureRect.STRETCH_SCALE
 	_big_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_view.add_child(_big_map)
+	_big_dots = _dots(_big_map)
+	_view.add_child(_big_dots)
 	for l in _place_names():
 		_tag(l[0], l[1], l[2])
 	_big_marker = _marker(14.0)

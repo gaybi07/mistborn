@@ -142,11 +142,12 @@ el `Player`); las demás funcionan solo con convertir el modelo y poner el nombr
 
 Con esqueleto de Mixamo (zip "All animation"): `tools/blender/meshy_to_glb.py`, varias tandas de clips del mismo personaje en un
 solo `.glb`. Sin esqueleto (Kelsier, Vin; zip "texture", pose T): FBX a GLB y `tools/blender/rig_like_mistborn.py`, que les da el
-esqueleto y todos los clips del Mistborn. Se usan con `Art.meshy_rig`; lo que un modelo no traiga sale de `MistbornHood.glb` y del
-Mistborn. Para jugar un clip con `play_spell` tiene que estar en `ModelRig.ANIMS`. `Walking` y `Running` pisan a 1,4 y 4,9 m/s para
+esqueleto del Mistborn. Los NPC se usan con `Art.meshy_rig`; lo que un modelo no traiga sale de `MistbornHood.glb` y del Mistborn. Para jugar un clip con `play_spell` tiene que estar en `ModelRig.ANIMS`. `Walking` y `Running` pisan a 1,4 y 4,9 m/s para
 1,8 m de alto (`ANIM_STRIDE`).
 
 Afuera de las puertas (`GateForces`, solo con el jugador cerca): koloss al este, Lord Legislador al oeste, inquisidores al sur (por
 ahora con el modelo encapuchado, ver `Champion`). Los golpes de `Champion.KITS` usan como `hits` los picos de velocidad de la mano,
-medidos en cada clip. Kelsier, Vin y el terrisano (todavía sin ferruquimia) son el personaje del jugador (`Art.HEROES`, se elige con P). El terrisano
-también está como NPC frente al taller de Clubs.
+medidos en cada clip. Kelsier, Vin y el terrisano (todavía sin ferruquimia) son el personaje del jugador (`Art.HEROES`, se elige con P). Se mueven solo con
+los clips del paquete `MistbornHood.glb` y mezclas entre ellos: `scripts/character/hero_clips.gd` dice qué clip y qué tramo usa cada
+acción. Sin clip, no hay movimiento: no se generan poses por código (`ModelRig.clips_only`). El terrisano también está como NPC frente
+al taller de Clubs.

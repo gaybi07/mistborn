@@ -23,6 +23,7 @@ var _clip_t := 0.0
 
 
 func _ready() -> void:
+	add_to_group(&"map_npc")
 	scale = Vector3.ONE * SIZE
 	rig = Art.skaa_girl_rig()
 	add_child(rig)

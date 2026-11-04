@@ -130,7 +130,7 @@ const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint",
 const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swim": 2.0, "crouch_walk": 0.7}
 ## Lo mismo por nombre de animación, para las que se apartan del valor de su estado (ActionForge).
 const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7, "sad_walk": 0.72, "carry_walk": 1.1, "crouch_walk": 0.7,
-		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.4, "Running": 4.9}
+		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.4, "Running": 4.9, "RunFast": 7.0}
 ## Por encima de esta velocidad (peltre) se esprinta.
 const SPRINT_SPEED := 8.0
 ## Golpes con dagas o espada: a esta fracción de la velocidad a la que entrarían en su duración.
@@ -298,6 +298,12 @@ var held_weapons: Array = []
 var stride_scale := 1.0
 ## false: el color de Art.SUITS pinta solo la capa, no la textura del cuerpo.
 var suit_on_body := true
+## Solo los clips de anim_overrides y mezclas entre ellos: sin poses hechas por código (ver HeroClips).
+var clips_only := false
+var state_cuts := {}  # estado -> [desde, hasta, golpe (opcional)], fracciones del clip
+var clip_holds := {}  # estado -> fracción del clip en la que se queda quieto
+var skill_clips := {}  # gesto de play_skill -> [clip, desde, hasta, golpe]
+var upper_donor := UPPER_DONOR
 ## No reacciona a los golpes flojos (no le cortan el suyo): solo a los fuertes y al aturdimiento.
 var ignore_light_hits := false
 ## En pleno salto, rugido o furia: ningún golpe le corta la animación.
@@ -537,7 +543,7 @@ func _resolve_animations() -> void:
 		root.free()
 	for state in ANIMS:
 		_resolved[state] = {"name": "", "borrowed": false, "donor": -1}
-		for candidate in anim_overrides.get(state, ANIMS[state]):
+		for candidate in anim_overrides.get(state, [] if clips_only else ANIMS[state]):
 			if _ap and _ap.has_animation(candidate):
 				_resolved[state] = {"name": candidate, "borrowed": false, "donor": -1}
 				break
@@ -827,6 +833,13 @@ func open_arms(duration: float, lift := 0.0, bend := 0.0) -> void:
 ## Gesto de un poder (empujar, tirar, lanzar monedas...) en la capa superior: las piernas siguen en lo suyo.
 ## from, to: tramo del clip que se usa (se salta la preparación, o el resto de un clip largo). Devuelve cuánto dura.
 func play_skill(state: String, duration: float, from := 0.0, to := 1.0) -> float:
+	var impact: float = IMPACT.get(state, DEFAULT_IMPACT)
+	if skill_clips.has(state):
+		var skill: Array = skill_clips[state]
+		state = skill[0]
+		from = skill[1]
+		to = skill[2]
+		impact = skill[3]
 	if not _ensure_upper() or not _upper["ap"].has_animation(state):
 		play_throw()
 		_impact_delay = 0.0
@@ -838,7 +851,7 @@ func play_skill(state: String, duration: float, from := 0.0, to := 1.0) -> float
 	ap.seek(length * from, false)
 	_upper_speed = clampf(length * (to - from) / duration, 1.0, MAX_ONESHOT_SPEED)
 	_upper_t = length * (to - from) / _upper_speed
-	_impact_delay = maxf(IMPACT.get(state, DEFAULT_IMPACT) - from, 0.0) * length / _upper_speed
+	_impact_delay = maxf(impact - from, 0.0) * length / _upper_speed
 	return _upper_t
 
 
@@ -867,7 +880,7 @@ func _ensure_upper() -> bool:
 	if _skel == null:
 		return false
 	for spec: Array in _donor_specs:
-		if not String(spec[0]).ends_with(UPPER_DONOR):
+		if not String(spec[0]).ends_with(upper_donor):
 			continue
 		var map: Array = (spec[1] as Array).filter(func(m: Array) -> bool: return m[1] in UPPER_BONES)
 		var model := _instance(spec[0])
@@ -942,7 +955,7 @@ func play_air_attack(duration: float) -> float:
 	_attack = _play_once("attack_air", duration, FADE_ATTACK)
 	_attack_full = _attack
 	_attack_hit = _impact_delay
-	_spin = SPIN_TIME
+	_spin = 0.0 if clips_only else SPIN_TIME
 	return _attack
 
 
@@ -962,12 +975,13 @@ func _play_once(state: String, duration: float, fade := FADE_ONESHOT) -> float:
 		_impact_delay = duration * DEFAULT_IMPACT
 		return duration
 	var clip: String = _resolved.get(state, {}).get("name", "")
-	var cut: Array = ATTACK_CUT.get(clip, [0.0, 1.0])
+	var cut: Array = state_cuts.get(state, ATTACK_CUT.get(clip, [0.0, 1.0]))
 	if cut[0] > 0.0:
 		(_src_ap if _borrowed else _ap).seek(length * cut[0], true)
 	var used: float = length * (cut[1] - cut[0])
 	_oneshot_speed = clampf(used / duration, 1.0, MAX_ONESHOT_SPEED)
-	_impact_delay = maxf(IMPACT.get(clip, DEFAULT_IMPACT) - cut[0], 0.0) * length / _oneshot_speed
+	var impact: float = cut[2] if cut.size() > 2 else IMPACT.get(clip, DEFAULT_IMPACT)
+	_impact_delay = maxf(impact - cut[0], 0.0) * length / _oneshot_speed
 	return used / _oneshot_speed
 
 
@@ -1107,8 +1121,12 @@ func _process(delta: float) -> void:
 		else:
 			# Entrar y salir del aire con una mezcla más larga: el salto se ve más suave.
 			_play(state, 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else FADE_EXIT)
+		if clip_holds.has(state):
+			_seek_time(_current_length() * clip_holds[state])
 	var speed := 1.0
-	if STRIDE_SPEED.has(state):
+	if clip_holds.has(state):
+		speed = 0.0
+	elif STRIDE_SPEED.has(state):
 		var stride: float = ANIM_STRIDE.get(_resolved[state]["name"], STRIDE_SPEED[state])
 		speed = clampf(move_speed / (stride * stride_scale), 0.6, 2.2)
 	elif state == "block":
@@ -1125,12 +1143,14 @@ func _process(delta: float) -> void:
 	_apply_fade(dt)
 	if not _upper.is_empty():
 		_apply_upper(dt)
-	_apply_flinch(dt)
-	_apply_allomancy_pose(dt)
-	_apply_open_arms()
-	_apply_combat_arms(state, dt)
+	if not clips_only:
+		_apply_flinch(dt)
+		_apply_allomancy_pose(dt)
+		_apply_open_arms()
+		_apply_combat_arms(state, dt)
 	_orient_shield()
-	_close_fists(state)
+	if not clips_only:
+		_close_fists(state)
 	_update_two_hand(dt, state)
 	_update_foot_ik(dt, state)
 	_update_anchors()
