@@ -63,6 +63,10 @@ func _ready() -> void:
 	tabs.add_child(_page("Combate", COMBAT))
 	_tabs = tabs
 	tabs.add_child(_world_page())
+	var chooser := HeroChooser.new()
+	chooser.name = "Elegir personaje"
+	chooser.player = player
+	tabs.add_child(chooser)
 	tabs.add_child(_character_page())
 	tabs.add_child(_options_page())
 
