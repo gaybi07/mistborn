@@ -159,6 +159,7 @@ const PLAYER_MODELS := {
 }
 ## Los que se eligen en SuitPicker. Se mueven solo con el paquete de Meshy (ver hero_rig). shortcut: el terrisano sin ferruquimia todavía.
 const HEROES := {
+	"encapuchado": {"name": "Mistborn", "height": 1.8, "model": MESHY_HOOD, "portrait": "res://assets/meshy/retrato_encapuchado.png"},
 	"kelsier": {"name": "Kelsier", "height": 1.8, "model": "res://assets/meshy/Kelsier.glb", "portrait": "res://assets/meshy/retrato_kelsier.png"},
 	"vin": {"name": "Vin", "height": 1.55, "model": "res://assets/meshy/Vin.glb", "portrait": "res://assets/meshy/retrato_vin.png"},
 	"terrisano": {"name": "Terrisano", "height": 2.0, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
@@ -169,7 +170,7 @@ const CROWD_TINTS := [Color(0.82, 0.8, 0.78), Color(0.75, 0.75, 0.8), Color(0.85
 		Color(0.72, 0.74, 0.72), Color(0.8, 0.76, 0.8)]
 
 
-## Kelsier y Vin tienen el esqueleto del Mistborn; el terrisano, el de Mixamo, igual que el paquete.
+## Kelsier y Vin tienen el esqueleto del Mistborn; los demás, el de Mixamo, igual que el paquete.
 static func hero_rig() -> ModelRig:
 	var hero: Dictionary = HEROES[player_model]
 	var rig := ModelRig.new()
@@ -179,7 +180,7 @@ static func hero_rig() -> ModelRig:
 	rig.stride_scale = rig.target_height / 1.8
 	rig.suit_on_body = false  # se les ve la cara: el color queda para la capa
 	rig.retarget_from = MESHY_HOOD
-	rig.retarget_map = _mixamo_same() if player_model == "terrisano" else BoneTools.MIXAMO_TO_UE
+	rig.retarget_map = BoneTools.MIXAMO_TO_UE if player_model in ["kelsier", "vin"] else _mixamo_same()
 	rig.clips_only = true
 	rig.anim_overrides = HeroClips.STATES
 	rig.state_cuts = HeroClips.CUTS

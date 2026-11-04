@@ -2,7 +2,7 @@ class_name SuitPicker
 extends CanvasLayer
 ## Elegir personaje (Art.HEROES) y el color de su capa (Art.SUITS), para reconocerse en las partidas con otros.
 ## Sale solo la primera vez que se juega y con P en cualquier momento (pausa el juego).
-## Teclas 1 a 3 para el personaje, 4 a 7 para el color, Enter o Jugar para seguir; Esc cierra.
+## Teclas 1 a 4 para el personaje, 5 a 8 para el color, Enter o Jugar para seguir; Esc cierra.
 
 const NAMES := {"negro": "Negro", "blanco": "Blanco", "rojo": "Rojo", "azul": "Azul"}
 
@@ -59,7 +59,7 @@ func _ready() -> void:
 		k += 1
 		var b := Button.new()
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(240, 280)
+		b.custom_minimum_size = Vector2(230, 280)
 		b.text = "%d · %s" % [k, Art.HEROES[who]["name"]]
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -106,8 +106,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			open()
 			get_viewport().set_input_as_handled()
 		return
-	var hero_keys := [KEY_1, KEY_2, KEY_3]
-	var suit_keys := [KEY_4, KEY_5, KEY_6, KEY_7]
+	var hero_keys := [KEY_1, KEY_2, KEY_3, KEY_4]
+	var suit_keys := [KEY_5, KEY_6, KEY_7, KEY_8]
 	if event.keycode in hero_keys:
 		choose_hero(Art.HEROES.keys()[hero_keys.find(event.keycode)])
 	elif event.keycode in suit_keys:

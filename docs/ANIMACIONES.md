@@ -147,7 +147,7 @@ esqueleto del Mistborn. Los NPC se usan con `Art.meshy_rig`; lo que un modelo no
 
 Afuera de las puertas (`GateForces`, solo con el jugador cerca): koloss al este, Lord Legislador al oeste, inquisidores al sur (por
 ahora con el modelo encapuchado, ver `Champion`). Los golpes de `Champion.KITS` usan como `hits` los picos de velocidad de la mano,
-medidos en cada clip. Kelsier, Vin y el terrisano (todavía sin ferruquimia) son el personaje del jugador (`Art.HEROES`, se elige con P). Se mueven solo con
+medidos en cada clip. El jugador se elige con P (`Art.HEROES`): el Mistborn encapuchado, Kelsier, Vin y el terrisano (todavía sin ferruquimia). Se mueven solo con
 los clips del paquete `MistbornHood.glb` y mezclas entre ellos: `scripts/character/hero_clips.gd` dice qué clip y qué tramo usa cada
 acción. Sin clip, no hay movimiento: no se generan poses por código (`ModelRig.clips_only`). El terrisano también está como NPC frente
 al taller de Clubs.
