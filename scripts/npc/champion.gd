@@ -10,7 +10,7 @@ extends Koloss
 
 const KITS := {
 	"LordRuler": {
-		"height": 1.95, "health": 900.0, "speed": 5.0, "weapons": ["res://assets/weapons/sword_steel.glb"], "power_gap": 5.0,
+		"height": 1.95, "health": 900.0, "speed": 4.6, "weapons": ["res://assets/weapons/sword_steel.glb"], "power_gap": 5.0,
 		"states": {"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "walk": ["Walking"], "run": ["Running"], "sprint": ["Running"],
 				"flee": ["Running"], "down": ["falling_down"]},
 		"blows": [
@@ -27,9 +27,34 @@ const KITS := {
 			{"name": "Regeneración", "kind": "heal", "anim": "Limping_Walk", "dur": 3.5, "at": [0.85], "amount": 0.15, "advance": 0.7, "below": 0.6, "range": [0.0, 30.0], "cooldown": 25.0},
 		],
 	},
+	# Guardia imperial: no te busca pelea salvo que le pegues. Lleva acero: se lo puede tirar y empujar.
+	"Soldado": {
+		"height": 1.8, "health": 120.0, "speed": 5.0, "weapons": ["res://assets/weapons/sword_steel.glb"], "power_gap": 8.0, "passive": true,
+		"states": {"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "walk": ["Spear_Walk"], "run": ["Running"], "sprint": ["Running"],
+				"flee": ["Running"], "down": ["Dead"]},
+		"blows": [
+			{"anim": "Weapon_Combo", "dur": 2.9, "hits": [0.18, 0.34, 0.6], "damage": 0.7, "push": 5.0, "travel": 0.8},
+			{"anim": "Thrust_Slash", "dur": 2.6, "hits": [0.24, 0.46], "damage": 0.7, "push": 5.0, "travel": 0.8},
+			{"anim": "Charged_Slash", "dur": 1.9, "hits": [0.52], "damage": 1.0, "push": 7.0, "travel": 0.4},
+		],
+		"powers": [],
+	},
+	# Mataneblino: sin nada de metal, así que el acero y el hierro no le hacen nada. Más liviano y rápido que el guardia.
+	"Mataneblino": {
+		"height": 1.75, "health": 100.0, "speed": 5.8, "weapons": ["res://assets/weapons/dueling_cane.glb"], "power_gap": 8.0, "wood": true,
+		"states": {"idle": ["Lower_Weapon_Look_Raise"], "idle_armed": ["Lower_Weapon_Look_Raise"], "walk": ["Walking"], "run": ["Running"], "sprint": ["Running"],
+				"flee": ["Running"], "down": ["dying_backwards"]},
+		"dodge": ["Stand_Dodge", 1.1],
+		"blows": [
+			{"anim": "Weapon_Combo_1", "dur": 2.8, "hits": [0.23, 0.48, 0.7], "damage": 0.7, "push": 5.0, "travel": 0.8},
+			{"anim": "Heavy_Hammer_Swing", "dur": 1.7, "hits": [0.82], "damage": 1.0, "push": 7.0, "travel": 0.3},
+			{"anim": "Thrust_Slash", "dur": 2.6, "hits": [0.24, 0.46], "damage": 0.7, "push": 5.0, "travel": 0.8},
+		],
+		"powers": [],
+	},
 	"KolossAdulto": {
-		"height": 2.9, "health": 300.0, "speed": 6.0, "weapons": ["res://assets/weapons/koloss_greatsword.glb"], "power_gap": 6.0,
-		"states": {"idle": ["Chest_Pound_Taunt"], "idle_armed": ["Chest_Pound_Taunt"], "walk": ["Walking"], "run": ["Running"], "sprint": ["run_fast_3_inplace"],
+		"height": 2.9, "health": 300.0, "speed": 4.6, "weapons": ["res://assets/weapons/koloss_greatsword.glb"], "power_gap": 6.0,
+		"states": {"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "walk": ["Walking"], "run": ["Running"], "sprint": ["run_fast_3_inplace"],
 				"flee": ["Running"], "down": ["Fall_Dead_from_Abdominal_Injury"]},
 		"cuts": {"Basic_Jump": [0.26, 0.56]},
 		"roar": ["Chest_Pound_Taunt", 3.8, 0.45],
@@ -47,10 +72,9 @@ const KITS := {
 		],
 	},
 	"KolossJoven": {
-		"height": 2.0, "health": 170.0, "speed": 5.2, "weapons": ["res://assets/weapons/koloss_axe.glb", "res://assets/weapons/koloss_axe.glb"], "power_gap": 7.0,
-		"states": {"idle": ["Axe_Stance"], "idle_armed": ["Axe_Stance"], "walk": ["Walking"], "run": ["Running"], "sprint": ["RunFast"],
+		"height": 2.0, "health": 170.0, "speed": 5.8, "weapons": ["res://assets/weapons/koloss_axe.glb", "res://assets/weapons/koloss_axe.glb"], "power_gap": 7.0,
+		"states": {"idle": ["Lower_Weapon_Look_Raise"], "idle_armed": ["Lower_Weapon_Look_Raise"], "walk": ["Walking"], "run": ["Running"], "sprint": ["RunFast"],
 				"flee": ["Running"], "down": ["dying_backwards"]},
-		"holds": {"idle": 0.9, "idle_armed": 0.9},  # el paquete no trae clip de estar parado: el último tramo de Axe_Stance
 		"cuts": {"Basic_Jump": [0.26, 0.56], "Charged_Axe_Chop": [0.35, 0.75]},
 		"roar": ["Charged_Spell_Cast", 2.4, 0.64],
 		"rage": ["Charged_Spell_Cast", 2.2],
@@ -83,8 +107,8 @@ const KITS := {
 		],
 	},
 	"Obligador": {
-		"height": 1.9, "health": 140.0, "speed": 4.6, "weapons": [], "power_gap": 3.5, "passive": true,
-		"states": {"idle": ["mage_soell_cast_7"], "idle_armed": ["mage_soell_cast_7"], "walk": ["Walking"], "run": ["Running"], "sprint": ["Run_02"],
+		"height": 1.9, "health": 140.0, "speed": 4.0, "weapons": [], "power_gap": 3.5, "passive": true,
+		"states": {"idle": ["Idle_11"], "idle_armed": ["Idle_11"], "walk": ["Walking"], "run": ["Running"], "sprint": ["Run_02"],
 				"flee": ["Running"], "down": ["Knock_Down_1"]},
 		"blows": [
 			{"anim": "Left_Slash", "dur": 2.6, "hits": [0.25, 0.4], "damage": 0.5, "push": 4.0, "travel": 0.3},
@@ -97,6 +121,12 @@ const KITS := {
 		],
 	},
 }
+## Sin arma (ver Player.start_disarm): cualquiera con arma pega así, mucho más flojo y sin poderes.
+const FIST_BLOWS := [
+	{"anim": "Punch_Combo", "dur": 2.0, "hits": [0.22, 0.5], "damage": 0.35, "push": 4.0, "travel": 0.4},
+	{"anim": "Punch_Forward_with_Both_Fists", "dur": 2.4, "hits": [0.4], "damage": 0.5, "push": 6.0, "travel": 0.4},
+	{"anim": "Step_in_High_Kick", "dur": 1.3, "hits": [0.4], "damage": 0.45, "push": 6.0, "travel": 0.3},
+]
 const CONE_DOT := 0.6  # adelante, unos 50° para cada lado
 const PROVOKED_LONG := 30.0
 
@@ -133,6 +163,8 @@ func _setup() -> void:
 	_next_power = randf_range(1.0, 3.0)
 	if spec["weapons"].is_empty():
 		rig.set_weapon(HumanoidRig.Weapon.NONE)
+	if spec.get("wood", false):
+		remove_from_group(&"metal")
 	if spec.get("passive", false):
 		remove_from_group(&"koloss")  # la gente no le escapa
 		add_to_group(&"passive_champion")
@@ -153,8 +185,25 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	super(impulse, damage, attacker)
 
 
+func is_armed() -> bool:
+	return not KITS[kit]["weapons"].is_empty() and not KITS[kit].get("wood", false) and not is_disarmed()
+
+
+func disarm(time: float) -> void:
+	rig.brace = 1.0
+	super(time)
+
+
+func _rearm_check() -> void:
+	var was := _disarmed_until > 0.0
+	super()
+	if was and _disarmed_until < 0.0:
+		rig.brace = 0.0
+		rig.set_weapon(HumanoidRig.Weapon.SWORD)
+
+
 func _next_attack(_d: float) -> void:
-	var blows: Array = KITS[kit]["blows"]
+	var blows: Array = FIST_BLOWS if is_disarmed() else KITS[kit]["blows"]
 	var total := _strike(blows[_combo_step % blows.size()])
 	_combo_step += 1
 	_next_blow = _world_time + total * 0.85 + randf_range(0.3, 0.9)
@@ -184,7 +233,7 @@ func _announce(text: String) -> void:
 
 ## Elige un poder que sirva a esta distancia y lo usa. Herido los encadena más seguido.
 func _use_power(d: float) -> bool:
-	if _foe != _player or _world_time < _next_power:
+	if _foe != _player or _world_time < _next_power or is_disarmed():
 		return false
 	var options: Array = KITS[kit]["powers"].filter(_fits.bind(d))
 	if options.is_empty():

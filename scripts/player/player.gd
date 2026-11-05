@@ -56,7 +56,7 @@ const WEAPONS := [
 	{"name": "Dagas de obsidiana", "damage": 14.0, "knockback": 3.0, "reach": 1.8,
 		"combo": [[0.42, 1.0, 1.0], [0.46, 1.05, 1.0], [0.5, 1.15, 1.2], [0.78, 2.1, 3.2]]},
 	{"name": "Espada", "damage": 30.0, "knockback": 7.0, "reach": 2.4,
-		"combo": [[0.55, 1.0, 1.0], [0.6, 1.1, 1.2], [0.85, 1.8, 3.0]]},
+		"combo": [[0.55, 1.0, 1.0], [0.6, 1.1, 1.2], [0.6, 1.2, 1.3], [0.7, 1.4, 1.6], [0.85, 1.8, 3.0]]},
 ]
 ## Espada con escudo: su propio combo; el remate es un golpe de escudo que empuja lejos.
 const SHIELD_COMBO := [[0.5, 1.0, 1.0], [0.55, 1.1, 1.2], [0.8, 1.5, 3.5]]
@@ -250,8 +250,8 @@ const JUMP_DIST_STAND := 2.0
 const JUMP_HEIGHT_RUN := 1.5
 const JUMP_DIST_RUN := 3.0
 ## Segundo salto en el aire (Espacio dos veces, sin acero): una vez por salto. Sube AIR_JUMP_HEIGHT m más
-## y conserva tu velocidad horizontal: alarga el salto ~1 m.
-const AIR_JUMP_HEIGHT := 0.5
+## y conserva tu velocidad horizontal.
+const AIR_JUMP_HEIGHT := 1.3
 ## Velocidad horizontal máxima que da el control en el aire tras un salto normal (INF: sin límite).
 var _jump_hcap := INF
 var _air_jump_used := false
@@ -349,13 +349,12 @@ func _ready() -> void:
 	senses.name = "TinSenses"
 	senses.player = self
 	add_child(senses)
-	if Fx.ENABLED:
-		var swirl := MistSwirl.new()
-		swirl.holder = self
-		add_child(swirl)
-		var aura := PewterAura.new()
-		aura.holder = self
-		add_child(aura)
+	var swirl := MistSwirl.new()
+	swirl.holder = self
+	add_child(swirl)
+	var aura := PewterAura.new()
+	aura.holder = self
+	add_child(aura)
 	var bronze := BronzeSense.new()
 	bronze.holder = self
 	add_child(bronze)
@@ -405,6 +404,14 @@ func _build_body() -> void:
 	_add_rig()
 
 
+## Ritmo del personaje elegido (ver Art.HEROES): Vin es más rápida, el terrisano más lento. También en los golpes.
+var _base_walk_speed := 0.0
+
+
+func _pace() -> float:
+	return float(Art.HEROES.get(Art.player_model, {}).get("pace", 1.0))
+
+
 ## Otro personaje (ver Art.HEROES): cambia el cuerpo y se conserva lo demás.
 func change_character(who: String) -> void:
 	Art.save_character(who)
@@ -416,6 +423,9 @@ func change_character(who: String) -> void:
 
 
 func _add_rig() -> void:
+	if _base_walk_speed == 0.0:
+		_base_walk_speed = walk_speed
+	walk_speed = _base_walk_speed * _pace()
 	rig = Art.player_rig({
 		"skin": Color(0.9, 0.77, 0.67),
 		"hair": Color(0.07, 0.05, 0.05),
@@ -1496,11 +1506,13 @@ func _physics_process(delta: float) -> void:
 			_air_jump_used = true
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
 			_air_jump(move)
-			rig.play_jump()
+			rig.play_jump(true)
 		elif (is_on_floor() or _swimming) and _spend_stamina(JUMP_COST):
 			_cancel_action()
 			_ground_jump(move, speed_mult, jump_mult)
 			jumped = true
+			if rig.crouched:
+				rig.next_jump = "_crouch"
 			rig.crouched = false
 			rig.play_jump()
 			Sfx.play("jump", global_position)
@@ -1509,7 +1521,7 @@ func _physics_process(delta: float) -> void:
 	var dir := yaw_pivot.global_basis * Vector3(input.x, 0, input.y)
 	dir.y = 0.0
 	dir = dir.normalized()
-	var target := Vector2(dir.x, dir.z) * walk_speed * speed_mult
+	var target := (Vector2(dir.x, dir.z) * walk_speed * speed_mult).limit_length(_walk_limit(rd, input != Vector2.ZERO, pewter, walk_speed * speed_mult))
 	var hv := Vector2(velocity.x, velocity.z)
 	_shoved -= rd
 	var being_pushed := _allomantic_accel > 2.0 or _shoved > 0.0
@@ -1587,9 +1599,7 @@ func _physics_process(delta: float) -> void:
 		if fall_speed < -7.0:
 			var strength := clampf(-fall_speed / 20.0, 0.3, 1.5)
 			add_trauma(strength * 0.35)
-			Fx.dust(get_tree().current_scene, global_position, strength)
-			if fall_speed < -12.0:
-				Fx.sprite(get_tree().current_scene, "heavy-landing", global_position, 2.2 * strength, Color.WHITE, null, false)
+			AirFx.ground(get_tree().current_scene, global_position, 1.5 + 3.0 * strength, AirFx.ASH, 0.6)
 	# Impacto = velocidad perdida al chocar (suelo, paredes o techo). Contra una pared (de costado)
 	# cuenta el 60 %: volando con acero te frenas con brazos y piernas; cayendo, no.
 	var lost := velocity_before - velocity
@@ -1755,6 +1765,8 @@ func _update_rig(hv: Vector2, rd: float) -> void:
 	rig.swimming = _swimming
 	rig.sliding = _slide_t > 0.0
 	rig.body_velocity = velocity
+	_update_air_pose(rd)
+	rig.set_vials(equipment.get("vials", ""), max_vials(), vial_charges)
 	# Brazo derecho al objetivo de empuje, izquierdo al de tirón.
 	var face := hv
 	rig.aim_target = null
@@ -1810,6 +1822,7 @@ func _process(delta: float) -> void:
 	else:
 		rig.stagger = 1.0 if dead else move_toward(rig.stagger, 0.0, recover)
 		visual.rotation.x = lerpf(visual.rotation.x, PI / 2 if dead else 0.0, minf(rd * 6.0, 1.0))  # tumbado al morir
+	rig.brace = 1.0 if in_combat() else 0.0  # a puños, en guardia solo peleando
 	# Dagas desenvainadas solas: se guardan un rato después de dejar de pelear.
 	if _auto_drawn and not in_combat() and _attack_cd < -4.0:
 		_auto_drawn = false
@@ -1997,6 +2010,7 @@ func drink_vial() -> void:
 	if dead or equipment.get("vials", "") == "" or vial_charges <= 0 or _commit_t > 0.0:
 		return
 	_cast("drink", 1.2, 0.2, _finish_drink, 0.42)
+	rig.take_vial()
 
 
 ## La mano llegó a la boca (si cortaste antes con una voltereta, el frasco no se gasta).
@@ -2004,6 +2018,7 @@ func _finish_drink() -> void:
 	if vial_charges <= 0:
 		return
 	vial_charges -= 1
+	rig.drop_vial()
 	Sfx.play("drink")
 	var refill := Items.stat(equipment["vials"], "refill", 40.0)
 	for m in Allomancy.METALS:  # todo menos el atium
@@ -2112,8 +2127,7 @@ func _update_block() -> void:
 func _parry(attacker: Node3D) -> void:
 	_block_pressed_ms = -100000  # un parry por pulsación
 	var at := (chest_position() + Metals.center_of(attacker)) * 0.5
-	Fx.sprite(get_tree().current_scene, "parry", at, 1.8)
-	Fx.sparks(get_tree().current_scene, at, Color(1.0, 0.8, 0.4))
+	AirFx.impact(get_tree().current_scene, at, AirFx.GOLD, 1.4)
 	Fx.popup(get_tree().current_scene, chest_position() + Vector3(0, 0.8, 0), "¡Parry!", Color(1.0, 0.85, 0.4))
 	HumanoidRig.hit_stop([rig, attacker.get(&"rig")], 60.0)
 	add_trauma(0.35)
@@ -2180,7 +2194,8 @@ func take_damage(amount: float, impact_speed := 0.0) -> void:
 		_last_stand_ready_ms = now + int(SkillTree.LAST_STAND_COOLDOWN * 1000.0)
 		amount = minf(amount, maxf(health - 1.0, 0.0))
 		notice.emit("¡Último aliento!")
-		Fx.burst(get_tree().current_scene, chest_position(), Color(0.95, 0.6, 0.3, 0.5), 24, 4.0, 0.6, 0.6, 0.0, false)
+		AirFx.wave(get_tree().current_scene, chest_position(), 5.0, AirFx.PEWTER, 0.7, 0.05)
+		AirFx.shell(self, AirFx.PEWTER, 1.5, func() -> bool: return Time.get_ticks_msec() < _last_stand_until_ms)
 	health -= amount
 	Sfx.play("hurt", global_position + Vector3(0, 1.2, 0))
 	_since_damage = 0.0
@@ -2231,7 +2246,7 @@ func attack() -> void:
 	var combo: Array = stats["combo"]
 	_combo = (_combo + 1) % combo.size() if _combo_window > 0.0 else 0
 	var step: Array = combo[_combo]
-	var duration: float = step[0] / (1.0 + 0.5 * pewter)
+	var duration: float = step[0] / (1.0 + 0.5 * pewter) / _pace()
 	if weapon == HumanoidRig.Weapon.DAGGERS:
 		_attack_side = 1 - _attack_side  # alterna las manos
 	else:
@@ -2298,7 +2313,7 @@ func _air_attack(stats: Dictionary, pewter: float) -> void:
 	visual.rotation.y = atan2(-fwd.x, -fwd.z)
 	velocity.y = maxf(velocity.y, jump_velocity * 0.9)
 	velocity += fwd * 2.5
-	Fx.burst(get_tree().current_scene, chest_position(), Color(0.75, 0.8, 0.9, 0.35), 18, 4.0, 0.5, 0.5, 0.0, false)
+	AirFx.wave(get_tree().current_scene, chest_position(), 2.2, AirFx.ASH, 0.45, 0.04)
 	_shield_spin = ModelRig.SPIN_TIME + 0.2  # las monedas del escudo giran con el cuerpo
 	_after(_commit_t, _resolve_hit.bind(stats, pewter, 1.4, 1.8, PI, 0.8, true))
 
@@ -2341,13 +2356,10 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		add_trauma(0.12)
 		mark_combat()
 		if crit:
-			Fx.sprite(get_tree().current_scene, "crit-hit", npc.global_position + Vector3(0, 1.2, 0), 2.2, Metals.ATIUM_COLOR, chest_position())
+			AirFx.wave(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), 2.6, AirFx.GOLD, 0.45, 0.05)
 			add_trauma(0.3)
-		var color := Color(1.0, 0.7, 0.4) if npc.is_in_group(&"metal") else Color(0.6, 0.1, 0.1)
-		Fx.sparks(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), color)
-		Fx.sprite(get_tree().current_scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
-		if npc.is_in_group(&"metal"):
-			Fx.effect(get_tree().current_scene, "ef_fire01", npc.global_position + Vector3(0, 1.2, 0), 0.3)
+		# Golpe reforzado (peltre encendido): la onda es más grande y va con su color.
+		AirFx.impact(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), AirFx.PEWTER if pewter > 0.0 else AirFx.ASH, 1.0 + pewter * 0.5 + (0.5 if heavy else 0.0))
 		if heavy:
 			add_trauma(0.35)
 	for n in get_tree().get_nodes_in_group(&"metal"):
@@ -2391,7 +2403,8 @@ func roll() -> void:
 			_dash_speed = air_dash_speed * (1.0 + 0.3 * allomancy.strength(&"pewter"))
 			_dash_time = DASH_TIME
 			rig.play_dash(0.45)
-			Fx.burst(get_tree().current_scene, chest_position(), Color(0.72, 0.77, 0.88, 0.2), 10, 1.5, 0.8, 0.5, 0.0, false)
+			AirFx.wave(get_tree().current_scene, chest_position() + dir * 0.6, 1.4, AirFx.ASH, 0.35, 0.04, dir)
+			AirFx.trail(self, Color(AirFx.ASH, 0.2), 1.0, func() -> bool: return _dash_time > 0.0)
 			_roll_cd = 0.3
 
 
@@ -2408,6 +2421,33 @@ func _start_dodge(side: float) -> void:
 	Fx.dust(get_tree().current_scene, global_position, 0.3)
 
 
+## Al arrancar camina WALK_START_TIME s y después pasa al trote; con peltre encendido arranca corriendo. Igual con todas las armas.
+const WALK_START_SPEED := 1.6
+const WALK_START_TIME := 3.0
+const TROT_RAMP_TIME := 0.8
+const WALK_RESET_TIME := 0.3  # frenar un instante no te hace empezar de nuevo
+var _walk_t := 0.0
+var _still_t := 0.0
+
+
+func _walk_limit(rd: float, moving: bool, pewter: float, full: float) -> float:
+	if moving and is_on_floor():
+		_still_t = 0.0
+		_walk_t += rd
+	elif is_on_floor():  # en el aire no cuenta ni descuenta
+		_still_t += rd
+		if _still_t > WALK_RESET_TIME:
+			_walk_t = 0.0
+	if pewter > 0.0:
+		return full
+	var k := smoothstep(WALK_START_TIME, WALK_START_TIME + TROT_RAMP_TIME, _walk_t)
+	return lerpf(minf(WALK_START_SPEED * _pace(), full), full, k)
+
+
+const SLIDE_MIN_SPEED := 4.0
+const SLIDE_CHANCE := 0.5
+
+
 func _start_roll(dir: Vector3) -> void:
 	_cancel_action()
 	dir.y = 0.0
@@ -2419,9 +2459,12 @@ func _start_roll(dir: Vector3) -> void:
 	blocking = false
 	_roll_cd = roll_duration + 0.15
 	visual.rotation.y = atan2(-_roll_dir.x, -_roll_dir.z)
-	rig.play_roll(roll_duration)
+	# Corriendo, a veces se desliza en vez de rodar: mismo movimiento, otro clip.
+	var slide := Vector2(velocity.x, velocity.z).length() > SLIDE_MIN_SPEED and randf() < SLIDE_CHANCE
+	rig.play_roll(roll_duration, slide)
 	Sfx.play("roll", global_position)
-	Fx.dust(get_tree().current_scene, global_position, 0.5)
+	if slide:
+		AirFx.trail(self, Color(AirFx.ASH, 0.2), 0.9, func() -> bool: return _roll_time > 0.0, 0.2)
 
 
 ## Salto desde el suelo: altura y velocidad horizontal según lo rápido que ibas (ver JUMP_HEIGHT_STAND...).
@@ -2445,6 +2488,7 @@ func _ground_jump(move: Vector2, speed_mult: float, jump_mult: float) -> void:
 ## Segundo salto: sube AIR_JUMP_HEIGHT y conserva la velocidad horizontal, girada hacia donde pulsas.
 func _air_jump(move: Vector2) -> void:
 	velocity.y = sqrt(2.0 * _gravity * AIR_JUMP_HEIGHT)
+	AirFx.wave(get_tree().current_scene, global_position, 1.8, AirFx.ASH, 0.4, 0.035, Vector3.UP)
 	var push := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
 	var flat := Vector3(velocity.x, 0.0, velocity.z)
 	if push.length() > 0.1:
@@ -2463,9 +2507,35 @@ func real_delta(delta: float) -> float:
 	return delta / Engine.time_scale
 
 
+## Vuelo: un metal te lleva por el aire; sigue mientras subas por ese impulso. Saltar no cuenta.
+const FLY_MIN_ACCEL := 4.0
+const FLY_KEEP_TIME := 0.25
+const FLY_END_SPEED := -2.0
+const DIVE_END_TIME := 0.35  # a cuántos segundos del piso deja la zambullida para caer de pie
+var _fly_t := 0.0
+var _flying := false
+
+
+func _update_air_pose(rd: float) -> void:
+	_fly_t -= rd
+	if is_on_floor() or _swimming:
+		_flying = false
+	elif _fly_t > 0.0:
+		_flying = true
+	elif velocity.y < FLY_END_SPEED:
+		_flying = false
+	rig.flying = _flying
+	rig.near_ground = false
+	if velocity.y < -ModelRig.FREEFALL_SPEED:
+		var ray := PhysicsRayQueryParameters3D.create(global_position, global_position + Vector3.UP * velocity.y * DIVE_END_TIME, Props.LAYER_WORLD, [get_rid()])
+		rig.near_ground = not get_world_3d().direct_space_state.intersect_ray(ray).is_empty()
+
+
 func add_allomantic_acceleration(accel: Vector3, rd: float) -> void:
 	velocity += accel * rd
 	_allomantic_accel = maxf(_allomantic_accel, accel.length())
+	if accel.length() > FLY_MIN_ACCEL:
+		_fly_t = FLY_KEEP_TIME
 
 
 func chest_position() -> Vector3:
@@ -2668,6 +2738,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 			var anchor := _spawn_coin((fixed["position"] as Vector3) + (fixed["normal"] as Vector3) * 0.04)
 			anchor.gravity_scale = 0.0
 			anchor.freeze = true
+			AirFx.wave(get_tree().current_scene, anchor.global_position, 1.0, AirFx.STEEL, 0.35, 0.03)
 			_shot_point = fixed["position"]
 			_shot_speed = 0.0
 			visual.rotation.y = atan2(-dir.x, -dir.z)
@@ -2681,6 +2752,7 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_skill("coin_flick", 0.7, COIN_FLICK_FROM)
 	Sfx.play("coin_throw", global_position + Vector3(0, 1.2, 0))
+	AirFx.wave(get_tree().current_scene, start + dir * 0.5, 0.7, AirFx.STEEL, 0.28, 0.025, dir)
 	return coin
 
 
@@ -2777,6 +2849,7 @@ func _release_burst(aim: Vector3) -> void:
 	if count % 2 == 0:
 		count -= 1  # con pocas monedas también sale una cantidad impar: siempre hay una al centro
 	var angle := SkillTree.fan_angle(level, SkillTree.BURST_MIN_LEVEL)
+	AirFx.push(get_tree().current_scene, start, base, AirFx.STEEL, 1.3)
 	for i in count:
 		var dir := base
 		if angle >= TAU:
@@ -2824,6 +2897,8 @@ func _raise_shield() -> void:
 	coins_held -= _shield
 	_shield_until_ms = Time.get_ticks_msec() + int(SkillTree.SHIELD_DURATION * 1000.0)
 	_rebuild_shield()
+	AirFx.wave(get_tree().current_scene, chest_position(), SHIELD_RADIUS * 2.2, AirFx.STEEL, 0.4, 0.03)
+	AirFx.shell(self, Color(AirFx.STEEL, 0.1), SHIELD_RADIUS * 1.3, func() -> bool: return _shield > 0, 1.0, 4)
 
 
 ## Combinación: Ráfaga o Campo magnético con el escudo puesto. El escudo revienta: sus monedas y NOVA_EXTRA_COINS más del monedero
@@ -2855,11 +2930,8 @@ func _shield_nova() -> void:
 
 ## Onda de choque magnética: hiere y empuja a todos en `radius` (menos cuanto más lejos).
 func _magnetic_wave(center: Vector3, radius: float, damage: float, force: float) -> void:
-	var color := Color(0.45, 0.7, 1.0)
-	Fx.shockwave(get_tree().current_scene, global_position + Vector3(0, 0.3, 0), radius, color)
-	Fx.shockwave(get_tree().current_scene, center, radius * 0.7, color, 0.35)
-	Fx.sprite(get_tree().current_scene, "zap-hit", center, 3.0, color)
-	Fx.burst(get_tree().current_scene, center, Color(0.45, 0.65, 1.0, 0.35), 40, 9.0, 0.6, 0.6, 0.0, false)
+	AirFx.ground(get_tree().current_scene, global_position, radius, AirFx.STEEL, 0.75)
+	AirFx.wave(get_tree().current_scene, center, radius, AirFx.STEEL, 0.6, 0.06)
 	add_trauma(0.5)
 	mark_combat()
 	for n in get_tree().get_nodes_in_group(&"combatant"):
@@ -2883,6 +2955,7 @@ func _dismiss_shield() -> void:
 
 ## El escudo desvía un golpe cuerpo a cuerpo: no hace daño ni empuja. Las monedas siguen girando.
 func _shield_block(attacker: Node3D) -> void:
+	AirFx.wave(get_tree().current_scene, chest_position(), SHIELD_RADIUS * 1.8, AirFx.STEEL, 0.3, 0.035)
 	mark_combat()
 	if attacker != null and attacker.has_method(&"mark_combat"):
 		attacker.mark_combat()
@@ -3031,6 +3104,8 @@ func start_focus() -> bool:
 	_focus_ready_ms = now + int(SkillTree.FOCUS_COOLDOWN * 1000.0)
 	_focus_until_ms = now + int(SkillTree.FOCUS_TIME * 1000.0)
 	notice.emit("Foco")
+	AirFx.wave(get_tree().current_scene, chest_position() + Vector3(0, 0.4, 0), 1.8, AirFx.TIN, 0.45, 0.03, null, true)
+	AirFx.shell(self, Color(AirFx.TIN, 0.08), 0.8, is_focused, 1.5, 3)
 	return true
 
 
@@ -3046,6 +3121,8 @@ func start_mark() -> bool:
 	_marked = npc
 	_marked_until_ms = now + int(SkillTree.MARK_TIME * 1000.0)
 	notice.emit("Enemigo marcado")
+	AirFx.wave(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), 2.0, AirFx.TIN, 0.5, 0.03, null, true)
+	AirFx.shell(npc, Color(AirFx.TIN, 0.12), 1.1, func() -> bool: return marked_npc() == npc, 1.1, 4)
 	return true
 
 
@@ -3064,6 +3141,8 @@ func start_clear_mind() -> bool:
 	if senses != null:
 		senses.blinded = 0.0
 	notice.emit("Mente despejada")
+	AirFx.wave(get_tree().current_scene, chest_position() + Vector3(0, 0.4, 0), 3.5, AirFx.TIN, 0.6, 0.04)
+	AirFx.cloud(get_tree().current_scene, chest_position(), 1.2, AirFx.TIN, 1.0, 4, 2.5)
 	return true
 
 
@@ -3074,6 +3153,8 @@ func start_extreme() -> bool:
 	_extreme_ready_ms = now + int(SkillTree.EXTREME_COOLDOWN * 1000.0)
 	_extreme_until_ms = now + int(SkillTree.EXTREME_TIME * 1000.0)
 	notice.emit("Sentidos extremos")
+	AirFx.wave(get_tree().current_scene, chest_position() + Vector3(0, 0.4, 0), 6.0, AirFx.TIN, 0.8, 0.045, null, true)
+	AirFx.shell(self, Color(AirFx.TIN, 0.1), 1.3, is_extreme_senses, 1.2, 5)
 	return true
 
 
@@ -3117,7 +3198,9 @@ func start_charge() -> void:
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	rig.play_dash(CHARGE_TIME + 0.1)
 	Sfx.play("roll", global_position)
-	Fx.burst(get_tree().current_scene, chest_position(), Color(0.72, 0.77, 0.88, 0.25), 14, 2.0, 0.8, 0.5, 0.0, false)
+	AirFx.ground(get_tree().current_scene, global_position, 2.5, AirFx.ASH, 0.45)
+	AirFx.wave(get_tree().current_scene, chest_position() + dir * 0.8, 1.6, AirFx.PEWTER, 0.35, 0.04, dir)
+	AirFx.trail(self, Color(AirFx.ASH, 0.2), 1.3, func() -> bool: return _charge_t > 0.0, 0.7)
 
 
 ## Martillazo: una onda de choque en el suelo que daña, empuja y aturde a todos los que te rodean.
@@ -3150,14 +3233,14 @@ func _slam_hit() -> void:
 		var away := to.normalized() if to.length() > 0.1 else -visual.global_basis.z
 		npc.take_hit(away * 16.0, SLAM_DAMAGE * strength, self)
 		npc.stun(1.2, global_position)
-		Fx.sprite(scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
+		AirFx.impact(scene, npc.global_position + Vector3(0, 1.0, 0), AirFx.ASH, 1.1)
 	for n in get_tree().get_nodes_in_group(&"metal"):
 		var rb := n as RigidBody3D
 		if rb != null and rb.global_position.distance_to(global_position) <= SkillTree.SLAM_RADIUS:
 			rb.apply_central_impulse((rb.global_position - global_position).normalized() * minf(rb.mass, 20.0) * 8.0)
 	Sfx.play("land_heavy", global_position)
-	Fx.dust(scene, global_position, 1.5)
-	Fx.sprite(scene, "heavy-landing", global_position, 6.0, Color.WHITE, null, false)
+	AirFx.ground(scene, global_position, SkillTree.SLAM_RADIUS * 1.3, AirFx.ASH, 0.8)
+	AirFx.ground(scene, global_position, SkillTree.SLAM_RADIUS, AirFx.PEWTER, 0.5)
 	add_trauma(0.8)
 	mark_combat()
 
@@ -3175,7 +3258,8 @@ func start_fury() -> void:
 	_fury_was_burning = allomancy.is_burning(&"pewter")
 	notice.emit("¡Furia!")
 	add_trauma(0.5)
-	Fx.burst(get_tree().current_scene, chest_position(), Color(0.95, 0.5, 0.2, 0.5), 30, 5.0, 0.7, 0.6, 0.0, false)
+	AirFx.wave(get_tree().current_scene, chest_position(), 4.5, AirFx.PEWTER, 0.6, 0.05)
+	AirFx.shell(self, AirFx.PEWTER, 1.6, func() -> bool: return _fury_until_ms > 0, 1.0, 6)
 
 
 ## Cada fotograma: la embestida golpea a lo que toca y la Furia mantiene el peltre avivado y lleno.
@@ -3197,7 +3281,7 @@ func _update_pewter_powers(rd: float) -> void:
 			npc.take_hit(_charge_dir * 14.0, CHARGE_DAMAGE * strength, self)
 			npc.stun(1.5, global_position)
 			Sfx.play("punch_heavy", npc.global_position + Vector3(0, 1.2, 0))
-			Fx.sprite(get_tree().current_scene, "hit-spark", npc.global_position + Vector3(0, 1.2, 0), 1.4, Color.WHITE, chest_position())
+			AirFx.impact(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), AirFx.PEWTER, 1.5)
 			add_trauma(0.3)
 			mark_combat()
 	if _fury_until_ms > 0:
@@ -3273,6 +3357,8 @@ func _begin_drag(npc: Npc, stop: float, stun_time: float) -> void:
 			_drags.erase(d)
 			break
 	_drags.append({"npc": npc, "until_ms": Time.get_ticks_msec() + DRAG_TIME_MS, "stop": stop, "stun": stun_time})
+	AirFx.pull(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), chest_position(), AirFx.IRON)
+	AirFx.trail(npc, Color(AirFx.IRON, 0.12), 1.2, func() -> bool: return _drags.any(func(d: Dictionary) -> bool: return d["npc"] == npc))
 
 
 ## Arrastre: tira del enemigo que apuntas hacia ti y lo deja aturdido al llegar.
@@ -3303,6 +3389,7 @@ func start_mass_yank() -> void:
 		notice.emit("No hay enemigos con metal a tu alcance")
 		return
 	_yank_ready_ms = Time.get_ticks_msec() + int(SkillTree.YANK_COOLDOWN * 1000.0)
+	AirFx.ground(get_tree().current_scene, global_position, SkillTree.YANK_RADIUS, AirFx.IRON, 0.8, true)
 
 
 ## Gancho: clava una moneda en cualquier superficie fija que apuntes (hasta SkillTree.HOOK_RANGE) y te tira hacia ella
@@ -3337,6 +3424,8 @@ func start_iron_hook() -> void:
 	anchor.add_child(life)
 	_hook_pos = point
 	_hook_until_ms = Time.get_ticks_msec() + HOOK_TIME_MS
+	AirFx.pull(get_tree().current_scene, point, chest_position(), AirFx.IRON, 1.1)
+	AirFx.trail(self, Color(AirFx.IRON, 0.1), 1.0, func() -> bool: return _hook_pos.is_finite())
 	if _hook_rope == null:
 		_hook_rope = MeshInstance3D.new()
 		var rope_mesh := CylinderMesh.new()
@@ -3399,6 +3488,7 @@ func start_disarm() -> void:
 	_disarm_ready_ms = Time.get_ticks_msec() + int(SkillTree.DISARM_COOLDOWN * 1000.0)
 	npc.disarm(SkillTree.DISARM_SECONDS)
 	var from := npc.global_position + Vector3(0, 1.2, 0)
+	AirFx.pull(get_tree().current_scene, from, chest_position(), AirFx.IRON, 0.8)
 	var mid := (npc.global_position + global_position) * 0.5
 	var down := PhysicsRayQueryParameters3D.create(mid + Vector3(0, 3.0, 0), mid + Vector3(0, -6.0, 0), Props.LAYER_WORLD, [get_rid()])
 	var hit := get_world_3d().direct_space_state.intersect_ray(down)
@@ -3489,6 +3579,8 @@ func _launch_spear(aim: Vector3) -> void:
 	spear.pierce_left = 4
 	spear.hit_power = 2.0
 	spear.linear_velocity = dir * SkillTree.SPEAR_SPEED
+	AirFx.push(get_tree().current_scene, spear.global_position, dir, AirFx.STEEL, 1.7)
+	AirFx.trail(spear, Color(AirFx.STEEL, 0.12), 0.6, Callable(), 0.0)
 	visual.rotation.y = atan2(-dir.x, -dir.z)
 	get_tree().create_timer(3.0).timeout.connect(spear.queue_free)
 
@@ -3497,9 +3589,8 @@ func _launch_spear(aim: Vector3) -> void:
 ## desvían y vuelven hacia quien los lanzó, con el mismo daño.
 var _field_until_ms := 0
 var _field_ready_ms := 0
-## Bruma azul que gira a tu alrededor mientras dura el campo (gira el pivote; las partículas van con él).
+## Visible mientras dura el campo (la bruma es de AirFx.shell).
 var _field_shell: Node3D
-var _field_layers: Array[GPUParticles3D] = []
 
 
 func activate_magnetic_field() -> void:
@@ -3519,69 +3610,19 @@ func _raise_field() -> void:
 	if _field_shell == null:
 		_field_shell = Node3D.new()
 		add_child(_field_shell)
-		var r := SkillTree.FIELD_RADIUS
-		# Bruma: jirones grandes y suaves en una banda alrededor del cuerpo.
-		_field_layers.append(_field_particles(Color(0.4, 0.55, 0.85, 0.09), false, 45, 1.6, 1.1, r * 0.3, r * 0.5, 0.3))
-		# Destellos: puntitos que brillan entre la bruma.
-		_field_layers.append(_field_particles(Color(0.6, 0.75, 0.95, 0.6), true, 24, 0.8, 0.05, r * 0.3, r * 0.55, 0.8))
 	_field_shell.visible = true
-	for p in _field_layers:
-		p.emitting = true
-	Fx.burst(get_tree().current_scene, chest_position(), Color(0.45, 0.65, 1.0, 0.35), 30, 6.0, 0.6, 0.6, 0.0, false)
+	AirFx.wave(get_tree().current_scene, chest_position(), SkillTree.FIELD_RADIUS, AirFx.STEEL, 0.5, 0.045)
+	AirFx.shell(self, Color(AirFx.STEEL, 0.09), SkillTree.FIELD_RADIUS * 0.8, func() -> bool: return _field_shell.visible, 1.0, 6, SkillTree.FIELD_RADIUS * 1.15)
 	if _shield > 0:
 		_shield_nova()
-
-
-func _field_particles(color: Color, additive: bool, amount: int, life: float, size: float,
-		inner: float, outer: float, rise: float) -> GPUParticles3D:
-	var p := GPUParticles3D.new()
-	p.visible = Fx.ENABLED
-	p.amount = amount
-	p.lifetime = life
-	p.local_coords = true
-	p.emitting = false
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	pm.emission_ring_axis = Vector3.UP
-	pm.emission_ring_height = 1.8
-	pm.emission_ring_radius = outer
-	pm.emission_ring_inner_radius = inner
-	pm.direction = Vector3.UP
-	pm.spread = 30.0
-	pm.initial_velocity_min = rise * 0.5
-	pm.initial_velocity_max = rise
-	pm.gravity = Vector3.ZERO
-	pm.scale_min = 0.6
-	pm.scale_max = 1.4
-	pm.color_ramp = Fx.fade_ramp(0.3)
-	p.process_material = pm
-	var quad := QuadMesh.new()
-	quad.size = Vector2(size, size)
-	var mat := Fx.particle_material(color, additive, 0.0 if additive else 0.5)
-	# Lo que pasa pegado a la cámara se desvanece: si no, tapa la pantalla.
-	mat.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
-	mat.distance_fade_min_distance = 0.8
-	mat.distance_fade_max_distance = 2.5
-	quad.material = mat
-	p.draw_pass_1 = quad
-	p.position.y = 1.0
-	_field_shell.add_child(p)
-	return p
 
 
 func _update_field() -> void:
 	if _field_shell == null or not _field_shell.visible:
 		return
 	if dead or Time.get_ticks_msec() > _field_until_ms:
-		# Deja de echar bruma y se apaga cuando se desvanece la última.
-		if _field_layers[0].emitting:
-			for p in _field_layers:
-				p.emitting = false
-			get_tree().create_timer(1.6, false).timeout.connect(func() -> void:
-				if Time.get_ticks_msec() > _field_until_ms:
-					_field_shell.visible = false)
+		_field_shell.visible = false
 		return
-	_field_shell.rotate_y(1.6 * get_process_delta_time())
 	var center := chest_position()
 	for n in get_tree().get_nodes_in_group(&"coin"):
 		var coin := n as Coin
@@ -3599,8 +3640,7 @@ func _update_field() -> void:
 		coin.linear_velocity = back * speed * 1.1
 		coin.gravity_scale = 0.0
 		coin.shooter = self
-		Fx.sparks(get_tree().current_scene, coin.global_position, Color(0.45, 0.7, 1.0))
-		Fx.sprite(get_tree().current_scene, "zap-hit", coin.global_position, 1.2, Color(0.45, 0.7, 1.0), center)
+		AirFx.impact(get_tree().current_scene, coin.global_position, AirFx.STEEL, 0.8)
 
 
 ## Dirección hacia donde apunta el ratón desde el pecho (la mandó el cliente en red, o se calcula aquí).
@@ -3661,6 +3701,7 @@ func start_gather(aim := Vector3.INF) -> void:
 		notice.emit("No hay monedas cerca")
 	else:
 		rig.play_skill("pull_heavy", 0.9)
+		AirFx.wave(get_tree().current_scene, chest + base * 0.5, 2.6, AirFx.IRON, 0.55, 0.035, null, true)
 		_gather_blast_ms = Time.get_ticks_msec() + BLAST_WAIT_MS if blast else 0
 
 

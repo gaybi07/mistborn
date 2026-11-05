@@ -244,8 +244,18 @@ func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:
 		g.active = true
 		Sfx.play("steel_push" if g == push_grip else "iron_pull", player.chest_position())
 		player.rig.play_skill("steel_push" if g == push_grip else "pull_heavy", 0.9, 0.3 if g == push_grip else 0.0)
-		Fx.sparks(get_tree().current_scene, center_of(t), g.color)
-		Fx.sprite(get_tree().current_scene, "zap-hit", center_of(t), 2.0, g.color, origin)
+		_grip_fx(g == push_grip, t, origin)
+
+
+## La onda sale cuando la mano llega al golpe del gesto.
+func _grip_fx(is_push: bool, t: Node3D, origin: Vector3) -> void:
+	var scene := get_tree().current_scene
+	var at := center_of(t)
+	player._after(player.rig.impact_delay(), func() -> void:
+		if is_push:
+			AirFx.push(scene, origin, (at - origin).normalized(), AirFx.STEEL)
+		else:
+			AirFx.pull(scene, at, origin, AirFx.IRON))
 
 
 ## Tirón sobre una moneda u objeto suelto: va hacia ti siguiendo tu posición (también si te mueves) en vez de

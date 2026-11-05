@@ -1,7 +1,7 @@
 class_name Fx
 ## Efectos de partículas reutilizables y texturas suaves generadas por código.
 
-## shortcut: todos los efectos apagados; se vuelven a sumar clip por clip, y ahí esto se borra. Los textos (popup) siguen.
+## shortcut: chispas y sprites apagados: los poderes del jugador ya usan AirFx; cuando los enemigos también, esto se borra. Los textos (popup) siguen.
 const ENABLED := false
 
 static var _soft_tex: Texture2D

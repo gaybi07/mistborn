@@ -157,15 +157,12 @@ const PLAYER_MODELS := {
 	# Hunyuan3D + ActionForge, armado con tools/blender/actionforge_to_glb.py.
 	"mistborn": ["res://assets/mixamo/Mistborn.glb", BoneTools.KAYKIT_TO_UE],
 }
-## Los que se eligen en SuitPicker. Se mueven solo con el paquete de Meshy (ver hero_rig). shortcut: el terrisano sin ferruquimia todavía.
+## Los que se eligen en SuitPicker. Se mueven solo con clips de Meshy (ver hero_rig). shortcut: el terrisano sin ferruquimia todavía.
 const HEROES := {
-	"encapuchado": {"name": "Mistborn", "height": 1.8, "model": MESHY_HOOD, "portrait": "res://assets/meshy/retrato_encapuchado.png"},
-	"terrisano": {"name": "Terrisano", "height": 2.0, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
-}
-## shortcut: todavía sin clips propios, no se pueden elegir; cuando los tengan, pasarlos a HEROES.
-const HEROES_LATER := {
-	"kelsier": {"name": "Kelsier", "height": 1.8, "model": "res://assets/meshy/Kelsier.glb", "portrait": "res://assets/meshy/retrato_kelsier.png"},
-	"vin": {"name": "Vin", "height": 1.55, "model": "res://assets/meshy/Vin.glb", "portrait": "res://assets/meshy/retrato_vin.png"},
+	"encapuchado": {"name": "Mistborn", "height": 1.8, "pace": 1.0, "model": MESHY_HOOD, "portrait": "res://assets/meshy/retrato_encapuchado.png"},
+	"terrisano": {"name": "Terrisano", "height": 2.0, "pace": 0.85, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
+	"kelsier": {"name": "Kelsier", "height": 1.8, "pace": 1.0, "cloak": true, "model": "res://assets/meshy/Kelsier.glb", "portrait": "res://assets/meshy/retrato_kelsier.png"},
+	"vin": {"name": "Vin", "height": 1.55, "pace": 1.2, "cloak": true, "model": "res://assets/meshy/Vin.glb", "portrait": "res://assets/meshy/retrato_vin.png"},
 }
 
 ## Tonos para que los colores de los packs encajen con la ciudad apagada (y varíe la gente).
@@ -173,7 +170,7 @@ const CROWD_TINTS := [Color(0.82, 0.8, 0.78), Color(0.75, 0.75, 0.8), Color(0.85
 		Color(0.72, 0.74, 0.72), Color(0.8, 0.76, 0.8)]
 
 
-## Kelsier y Vin tienen el esqueleto del Mistborn; los demás, el de Mixamo, igual que el paquete.
+## Todos tienen el esqueleto de Mixamo de Meshy: los clips se copian tal cual, primero del encapuchado y después de la biblioteca.
 static func hero_rig() -> ModelRig:
 	var hero: Dictionary = HEROES[player_model]
 	var rig := ModelRig.new()
@@ -182,14 +179,17 @@ static func hero_rig() -> ModelRig:
 	rig.target_height = hero["height"]
 	rig.stride_scale = rig.target_height / 1.8
 	rig.suit_on_body = false  # se les ve la cara: el color queda para la capa
+	rig.always_cloak = hero.get("cloak", false)
 	rig.retarget_from = MESHY_HOOD
-	rig.retarget_map = BoneTools.MIXAMO_TO_UE if player_model in ["kelsier", "vin"] else _mixamo_same()
+	rig.retarget_map = _mixamo_same()
+	rig.extra_donors = [[MESHY_CLIPS, _mixamo_same()]]
 	rig.clips_only = true
-	rig.anim_overrides = HeroClips.STATES
-	rig.state_cuts = HeroClips.CUTS
+	rig.anim_overrides = HeroClips.HITS.merged(HeroClips.STATES).merged(HeroClips.STANCES).merged(HeroClips.FISTS).merged(HeroClips.TOP_SPEED)
+	rig.fist_clip = HeroClips.FIST_HAND
+	rig.state_cuts = HeroClips.HIT_CUTS.merged(HeroClips.CUTS)
 	rig.clip_holds = HeroClips.HOLDS
 	rig.skill_clips = HeroClips.SKILLS
-	rig.upper_donor = MESHY_HOOD.get_file()
+	rig.upper_donor = MESHY_CLIPS.get_file()
 	return rig
 
 
@@ -249,21 +249,38 @@ static func skaa_girl_rig() -> ModelRig:
 
 const MESHY := "res://assets/meshy/%s.glb"
 const MESHY_HOOD := "res://assets/meshy/MistbornHood.glb"
-## Los que no pelean: alto y clips, todos de su propio paquete.
+## Biblioteca de clips (los 177 que se generaron sobre Vin): cualquier personaje de Meshy puede usarlos.
+const MESHY_CLIPS := "res://assets/meshy/Vin.glb"
+## Los que no pelean: alto (m), ritmo (1 = normal; los viejos y pesados más lentos, los chicos más rápidos; 0 = no camina) y clips.
 const CIVILIANS := {
-	"Terrisano": {"height": 2.0, "states": {"idle": ["Combat_Stance"], "idle_armed": ["Combat_Stance"], "walk": ["Walking"], "run": ["Running"],
-			"sprint": ["Running"], "flee": ["Running"], "down": ["falling_down"]}},
-	"GordoNoble": {"height": 1.7, "states": {"idle": ["Scheming_Hand_Rub"], "idle_armed": ["Scheming_Hand_Rub"], "walk": ["Walking"], "run": ["Running"],
-			"sprint": ["Running"], "flee": ["Running"], "down": ["falling_down"]}},
+	"Terrisano": {"height": 2.0, "pace": 0.85, "idle": "Idle_11", "down": "falling_down"},
+	"GordoNoble": {"height": 1.7, "pace": 0.7, "idle": "Scheming_Hand_Rub", "down": "falling_down"},
+	"Clubs": {"height": 1.65, "pace": 0.6, "idle": "Idle_12", "walk": "Unsteady_Walk"},
+	"Tindwyl": {"height": 1.85, "pace": 0.85, "idle": "Idle_12"},
+	"Ham": {"height": 1.9, "pace": 1.05, "idle": "Alert"},
+	"Breeze": {"height": 1.75, "pace": 0.8, "idle": "Idle_6"},
+	"Dockson": {"height": 1.72, "pace": 0.95, "idle": "Idle_11"},
+	"Jastes": {"height": 1.72, "pace": 1.05, "idle": "Alert"},
+	"Elend": {"height": 1.8, "pace": 1.0, "idle": "Idle_12"},
+	"Straff": {"height": 1.85, "pace": 0.8, "idle": "Idle_11"},
+	"Cett": {"height": 1.7, "pace": 0.0, "idle": "Chair_Sit_Idle_F"},  # en el libro no camina: está sentado
+	"NinoSkaa": {"height": 1.3, "pace": 1.3, "idle": "Idle_02"},
+	"NinaSkaa": {"height": 1.2, "pace": 1.35, "idle": "Idle_02"},
 }
 
 
-## Mismo esqueleto de Mixamo en origen y destino: el clip se copia tal cual.
+## Mismo esqueleto de Mixamo en origen y destino: el clip se copia tal cual, con los dedos.
 static func _mixamo_same() -> Array:
-	return BoneTools.MIXAMO_TO_UE.map(func(m: Array) -> Array: return [m[1], m[1], m[2], m[3]])
+	var map: Array = BoneTools.MIXAMO_TO_UE.map(func(m: Array) -> Array: return [m[1], m[1], m[2], m[3]])
+	for side in ["Left", "Right"]:
+		for finger in ["Thumb", "Index", "Middle", "Ring", "Pinky"]:
+			for joint in 3:
+				var bone := "%sHand%s%d" % [side, finger, joint + 1]
+				map.append([bone, bone, "", "local"])
+	return map
 
 
-## Personaje de Meshy que se mueve solo con los clips de su paquete.
+## Personaje de Meshy: usa su paquete, y lo que no tiene sale de la biblioteca de clips.
 static func _pack_rig(model: String, height: float, states: Dictionary) -> ModelRig:
 	var rig := ModelRig.new()
 	rig.model_path = MESHY % model
@@ -271,12 +288,18 @@ static func _pack_rig(model: String, height: float, states: Dictionary) -> Model
 	rig.target_height = height
 	rig.stride_scale = height / 1.8
 	rig.clips_only = true
-	rig.anim_overrides = states
+	rig.retarget_from = MESHY_CLIPS
+	rig.retarget_map = _mixamo_same()
+	rig.anim_overrides = HeroClips.HITS.merged(states)
+	rig.state_cuts = HeroClips.HIT_CUTS
 	return rig
 
 
 static func meshy_rig(model: String) -> ModelRig:
-	return _pack_rig(model, CIVILIANS[model]["height"], CIVILIANS[model]["states"])
+	var spec: Dictionary = CIVILIANS[model]
+	var walk: String = spec.get("walk", "Walking")
+	return _pack_rig(model, spec["height"], {"idle": [spec["idle"]], "idle_armed": [spec["idle"]], "walk": [walk], "run": ["Running"],
+			"sprint": ["Running"], "flee": ["Running"], "down": [spec.get("down", "Dead")]})
 
 
 static func champion_rig(kit: String) -> ModelRig:
@@ -284,10 +307,14 @@ static func champion_rig(kit: String) -> ModelRig:
 	var states: Dictionary = spec["states"].duplicate()
 	for clip: String in Champion.clips_of(kit):
 		states[clip] = [clip]
+	if not spec["weapons"].is_empty():  # si le sacan el arma, pelea a puños
+		states.merge(HeroClips.FISTS)
+		for blow: Dictionary in Champion.FIST_BLOWS:
+			states[blow["anim"]] = [blow["anim"]]
 	var rig := _pack_rig(kit, spec["height"], states)
 	rig.ignore_light_hits = true
 	rig.held_weapons = spec["weapons"]
-	rig.state_cuts = spec.get("cuts", {})
+	rig.state_cuts = HeroClips.HIT_CUTS.merged(spec.get("cuts", {}))
 	rig.clip_holds = spec.get("holds", {})
 	return rig
 

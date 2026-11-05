@@ -123,8 +123,8 @@ func _on_body_entered(body: Node) -> void:
 		body.take_hit(impulse, damage, shooter if is_instance_valid(shooter) else null, true)  # proyectil: el escudo de monedas no lo para
 	else:
 		body.take_hit(impulse, damage, shooter if is_instance_valid(shooter) else null)
-	Fx.sparks(get_tree().current_scene, global_position, Color(1.0, 0.75, 0.45))
-	Fx.effect(get_tree().current_scene, "ef_fire01", global_position, 0.2)
+	if is_instance_valid(shooter) and shooter.is_in_group(&"player"):
+		AirFx.impact(get_tree().current_scene, global_position, AirFx.STEEL, 1.5 if hit_power > 1.0 else 0.8)
 	if pierce_left > 0:
 		# La lanza sigue de largo: no vuelve a chocar con quien atravesó y conserva su velocidad.
 		pierce_left -= 1

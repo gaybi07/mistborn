@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://pwa8nh0resq"
-path="res://.godot/imported/Vin_Meshy_AI_Shadowborn_Rogue_20261103_texture.jpg-f8e1246e9289d4c120c983a388aacf3f.ctex"
+uid="uid://dt4hfpieavi3j"
+path="res://.godot/imported/Mataneblino_Meshy_AI_Leatherbound_Sentinel_20261105_animated_mixamo_All_animation.jpg-138ba1431500edde8b228cee91a97ec3.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "8a99690f147a0e33aa87bae1a553b6e4"
+"md5": "2290ab1256830e24610e5cd11e09bec1"
 }
 
 [deps]
 
-source_file="res://assets/meshy/Vin_Meshy_AI_Shadowborn_Rogue_20261103_texture.jpg"
-dest_files=["res://.godot/imported/Vin_Meshy_AI_Shadowborn_Rogue_20261103_texture.jpg-f8e1246e9289d4c120c983a388aacf3f.ctex"]
+source_file="res://assets/meshy/Mataneblino_Meshy_AI_Leatherbound_Sentinel_20261105_animated_mixamo_All_animation.jpg"
+dest_files=["res://.godot/imported/Mataneblino_Meshy_AI_Leatherbound_Sentinel_20261105_animated_mixamo_All_animation.jpg-138ba1431500edde8b228cee91a97ec3.ctex"]
 
 [params]
 

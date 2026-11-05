@@ -16,7 +16,7 @@ import bpy
 
 TEXTURE_SIZE = 1024
 PREFIX = r"mixamorig[0-9]*:"
-BLOAT = 8.0  # segundos: los clips más largos no se usan y pesan mucho
+BLOAT = 12.0  # segundos: los clips más largos no se usan y pesan mucho
 
 out_path, texture, model_path, *more = sys.argv[sys.argv.index("--") + 1:]
 

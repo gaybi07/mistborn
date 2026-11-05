@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de decisiones Mistborn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Un solo mundo: ceniza y bruma de noche. Azul de las líneas de acero para lo que abre, ámbar de brasa para lo que pide.
+   Tablero por actos con el detalle al costado; en el teléfono el detalle sube desde abajo. */
+:root {
+  color-scheme: dark;
+  --ash: #15171a; --soot: #1e2125; --slate: #2a2e34; --line: #3c424a;
+  --mist: #e7e4dc; --dim: #a5a59e;
+  --ember: #e8964a; --steel: #72b4e8; --blood: #e0655a; --brass: #cdb36a; --moss: #8fb78a;
+  --display: "Spectral", Georgia, serif; --body: "IBM Plex Sans", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ash); color: var(--mist); font: 15px/1.5 var(--body); }
+header { padding: 20px 16px 0; max-width: 1400px; margin: auto; }
+h1 { font: 700 28px/1.2 var(--display); margin: 0 0 4px; text-wrap: balance; }
+header p { margin: 0 0 14px; color: var(--dim); max-width: 70ch; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--dim); font: 600 14px var(--body); padding: 8px 12px; cursor: pointer; }
+nav button.on { color: var(--mist); border-color: var(--ember); }
+button:focus-visible, .card:focus-visible, circle:focus-visible, g:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+main { max-width: 1400px; margin: auto; padding: 16px; }
+.view { display: none; } .view.on { display: block; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; color: var(--dim); font-size: 13px; }
+.chip { background: var(--soot); border: 1px solid var(--line); color: var(--mist); border-radius: 99px; padding: 4px 11px; font: 500 13px var(--body); cursor: pointer; }
+.chip.on { background: var(--slate); border-color: var(--mist); }
+#board { position: relative; }
+#edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.act { margin-bottom: 22px; }
+.act h2 { font: 700 18px var(--display); margin: 0 0 8px; }
+.act h2 span { color: var(--dim); font: 500 13px var(--body); margin-left: 6px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.card { position: relative; text-align: left; background: var(--soot); border: 1px solid var(--line); border-left: 4px solid var(--dim); border-radius: 5px; padding: 8px 10px; color: var(--mist); cursor: pointer; font: inherit; min-height: 88px; display: flex; flex-direction: column; gap: 3px; }
+.card.main { border-left-color: var(--ember); } .card.side { border-left-color: var(--steel); } .card.teacher { border-left-color: var(--moss); } .card.guardian { border-left-color: var(--blood); }
+.card b { font-weight: 600; line-height: 1.25; }
+.card small { color: var(--dim); font-size: 12px; line-height: 1.3; }
+.card .tags { margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+.tag { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+.tag.warn { color: var(--blood); border-color: var(--blood); }
+.tag.dec { color: var(--brass); border-color: var(--brass); }
+.card.sel { background: var(--slate); border-color: var(--mist); }
+.card.need { outline: 2px solid var(--ember); } .card.open { outline: 2px solid var(--steel); } .card.lock { outline: 2px dashed var(--blood); }
+#panel { position: sticky; top: 12px; background: var(--soot); border: 1px solid var(--line); border-radius: 6px; padding: 14px; max-height: calc(100vh - 24px); overflow: auto; }
+#panel h3 { font: 700 21px/1.2 var(--display); margin: 0 26px 4px 0; }
+#panel h4 { margin: 13px 0 3px; font: 600 12px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
+#panel p { margin: 0 0 5px; } #panel ul { margin: 0; padding-left: 17px; }
+#panel li { margin-bottom: 4px; }
+.heard { border-left: 3px solid var(--brass); padding-left: 9px; font-style: italic; }
+.link { background: none; border: 0; padding: 0; color: var(--steel); cursor: pointer; font: inherit; text-align: left; text-decoration: underline; }
+.need-link { color: var(--ember); }
+.eff { color: var(--dim); font-size: 13px; display: block; }
+#close { display: none; position: absolute; top: 8px; right: 8px; background: none; border: 0; color: var(--mist); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; }
+.mapwrap { background: var(--soot); border: 1px solid var(--line); border-radius: 6px; overflow: auto; max-height: 86vh; }
+#world { width: 100%; min-width: 760px; height: auto; display: block; }
+.pt { cursor: pointer; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--dim); margin-top: 10px; }
+.legend i { display: inline-block; width: 11px; height: 11px; margin-right: 5px; vertical-align: -1px; border-radius: 50%; }
+input[type=range] { width: min(320px, 100%); accent-color: var(--ember); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.cols h2 { font: 700 19px var(--display); margin: 0 0 8px; }
+.cols ol, .cols ul { padding-left: 19px; margin: 0; } .cols li { margin-bottom: 6px; max-width: 65ch; }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--dim); font-weight: 600; font-size: 12px; }
+.ok { color: var(--moss); } .no { color: var(--blood); } .mid { color: var(--brass); }
+@media (max-width: 860px) {
+  .split { display: block; }
+  #panel { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: auto; max-height: 58%; border-radius: 12px 12px 0 0; z-index: 10; box-shadow: 0 -8px 26px #000a; }
+  #panel.show { display: block; } #close { display: block; }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  body.sheet main { padding-bottom: 58vh; }
+}
+@media (prefers-reduced-motion: no-preference) { .card { transition: background .12s; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mapa de decisiones</h1>
+  <p id="sum"></p>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <section class="view" id="v-decisiones"><div class="split">
+    <div>
+      <div class="tools" id="filters"></div>
+      <div id="board"><svg id="edges" aria-hidden="true"></svg><div id="acts"></div></div>
+    </div>
+    <aside id="panel" aria-live="polite"></aside>
+  </div></section>
+  <section class="view" id="v-mapa">
+    <div class="tools"><label for="prog">Lo que puede estar abierto hasta la principal <b id="progn"></b></label><input id="prog" type="range" min="1" max="12" value="2"></div>
+    <div class="mapwrap"><svg id="world" role="img" aria-label="Mapa de Luthadel y las afueras con los puntos de misión"></svg></div>
+    <div class="legend" id="legend"></div>
+    <p style="color:var(--dim);max-width:70ch">Los puntos aparecen en el juego recién cuando te enterás de ellos. Con «?» se muestran las que llegan por rumor: es una zona hasta que te acercás. Tocá un punto para ver la misión.</p>
+  </section>
+  <section class="view" id="v-personajes"><div class="cols" style="grid-template-columns:1fr"><div><h2>Personajes</h2><div class="tw"><table id="npcs"></table></div></div><div><h2>Enemigos</h2><div class="tw"><table id="foes"></table></div></div></div></section>
+  <section class="view" id="v-reglas"><div class="cols" id="rules"></div></section>
+</main>
+<script>
+const D = /*DATOS*/null;
+const Q = D.quests, ids = Object.keys(Q);
+const KIND = {main: "Principal", side: "Secundaria", teacher: "Maestro", guardian: "Guardián"};
+const KCOL = {main: "--ember", side: "--steel", teacher: "--moss", guardian: "--blood"};
+const HOW = {npc: "Un NPC te lo pide", banda: "La banda avisa en el taller", rumor: "Rumor en la calle", lugar: "Lo descubrís al llegar"};
+const el = (t, a = {}, ...kids) => { const e = document.createElement(t); for (const k in a) { if (k === "cls") e.className = a[k]; else if (k === "on") e.onclick = a[k]; else e.setAttribute(k, a[k]); } e.append(...kids.filter(x => x != null)); return e; };
+const npcName = id => id ? D.npcs[id].name : "Nadie: arranca solo";
+const results = q => Object.values(q.ends).concat(q.late || []);
+const flagFrom = {};
+for (const id of ids) for (const e of results(Q[id])) for (const f of e.sets || []) (flagFrom[f] = flagFrom[f] || []).push(id);
+const needsOf = q => q.needs.concat(q.any ? q.any[1] : []);
+const opensOf = id => { const flags = new Set([id]); for (const e of results(Q[id])) (e.sets || []).forEach(f => flags.add(f)); return ids.filter(o => needsOf(Q[o]).some(n => flags.has(n))); };
+const locksOf = id => [...new Set(Object.values(Q[id].ends).flatMap(e => e.locks || []))];
+const fromOf = n => Q[n] ? [n] : (flagFrom[n] || []);
+
+// Desde qué principal puede estar abierta cada misión.
+const depth = {};
+function depthOf(id, seen = new Set()) {
+  if (depth[id] != null) return depth[id];
+  if (seen.has(id)) return 0;
+  seen.add(id);
+  const q = Q[id];
+  const ofNeed = n => Q[n] ? depthOf(n, seen) : (D.marks[n] ? Math.min(...(flagFrom[n] || []).map(s => {
+    const l = (Q[s].late || []).find(x => (x.sets || []).includes(n));
+    return l ? l.after : depthOf(s, seen);
+  })) : 0);
+  let d = Math.max(0, ...q.needs.map(ofNeed));
+  if (q.any) { const a = q.any[1].map(ofNeed).sort((x, y) => x - y); d = Math.max(d, a[q.any[0] - 1]); }
+  if (q.kind === "main") d = Math.max(d, q.spine);
+  return depth[id] = d;
+}
+ids.forEach(i => depthOf(i));
+
+const nMain = new Set(ids.filter(i => Q[i].kind === "main").map(i => Q[i].spine)).size;
+const nDec = ids.reduce((s, i) => s + (Object.keys(Q[i].ends).length > 1 ? 1 : 0), 0);
+const nLate = ids.filter(i => Q[i].late).length;
+document.getElementById("sum").textContent = `${ids.length} misiones: ${nMain} tramos principales, ${nDec} con decisión y ${nLate} con consecuencias si no las hacés. Tocá una para ver qué pide, qué abre y cómo te enterás. Es un plan: nada de esto está jugable todavía.`;
+
+// Pestañas
+const TABS = {decisiones: "Decisiones", mapa: "Puntos en el mapa", personajes: "Personajes", reglas: "Reglas y orden"};
+const tabs = document.getElementById("tabs");
+function show(name) {
+  if (!TABS[name]) name = "decisiones";
+  for (const k in TABS) { document.getElementById("v-" + k).classList.toggle("on", k === name); document.getElementById("t-" + k).classList.toggle("on", k === name); }
+  if (name === "decisiones") requestAnimationFrame(drawEdges);
+}
+for (const k in TABS) tabs.append(el("button", {id: "t-" + k, on: () => { location.hash = k; show(k); }}, TABS[k]));
+addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+// Tablero
+let filter = "todas", sel = "tejados";
+const FILTERS = {todas: "Todas", main: "Solo principales", side: "Secundarias", decide: "Con decisión", late: "Con consecuencia"};
+const fbox = document.getElementById("filters");
+for (const k in FILTERS) fbox.append(el("button", {cls: "chip", id: "f-" + k, on: () => { filter = k; renderBoard(); }}, FILTERS[k]));
+const passes = q => filter === "todas" || (filter === "main" && q.kind === "main") || (filter === "side" && q.kind !== "main") || (filter === "decide" && Object.keys(q.ends).length > 1) || (filter === "late" && q.late);
+function renderBoard() {
+  for (const k in FILTERS) document.getElementById("f-" + k).classList.toggle("on", k === filter);
+  const box = document.getElementById("acts"); box.textContent = "";
+  for (const a in D.acts) {
+    const list = ids.filter(i => String(Q[i].act) === a && passes(Q[i]));
+    if (!list.length) continue;
+    const [nm, rest] = D.acts[a].split(": ");
+    const cards = el("div", {cls: "cards"});
+    for (const i of list) {
+      const q = Q[i], tags = el("div", {cls: "tags"});
+      if (q.spine) tags.append(el("span", {cls: "tag"}, "Principal " + q.spine));
+      if (Object.keys(q.ends).length > 1) tags.append(el("span", {cls: "tag dec"}, "Decisión"));
+      if (q.late) tags.append(el("span", {cls: "tag warn"}, "Consecuencia"));
+      if (!D.places[q.place].ready) tags.append(el("span", {cls: "tag"}, "Lugar por hacer"));
+      cards.append(el("button", {cls: "card " + q.kind, id: "c-" + i, on: () => pick(i)}, el("b", {}, q.title), el("small", {}, D.places[q.place].name), tags));
+    }
+    box.append(el("div", {cls: "act"}, el("h2", {}, nm, el("span", {}, rest)), cards));
+  }
+  mark(); drawEdges();
+}
+function mark() {
+  const need = new Set(needsOf(Q[sel]).flatMap(fromOf)), open = new Set(opensOf(sel)), lock = new Set(locksOf(sel));
+  for (const i of ids) {
+    const c = document.getElementById("c-" + i); if (!c) continue;
+    c.className = "card " + Q[i].kind + (i === sel ? " sel" : "") + (need.has(i) ? " need" : "") + (open.has(i) ? " open" : "") + (lock.has(i) ? " lock" : "");
+  }
+}
+function drawEdges() {
+  const svg = document.getElementById("edges"), b = document.getElementById("board").getBoundingClientRect();
+  svg.textContent = "";
+  if (!b.width) return;
+  svg.setAttribute("viewBox", `0 0 ${b.width} ${b.height}`);
+  const s = document.getElementById("c-" + sel); if (!s) return;
+  const line = (from, to, col, dash) => {
+    const A = from.getBoundingClientRect(), B = to.getBoundingClientRect();
+    const down = B.top > A.top + 4, up = B.top < A.top - 4;
+    const x1 = A.left + A.width / 2 - b.left, y1 = (down ? A.bottom : up ? A.top : A.top + A.height / 2) - b.top;
+    const x2 = B.left + B.width / 2 - b.left, y2 = (down ? B.top : up ? B.bottom : B.top + B.height / 2) - b.top;
+    const m = (y1 + y2) / 2, p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", `M${x1} ${y1} C${x1} ${m} ${x2} ${m} ${x2} ${y2}`);
+    p.setAttribute("fill", "none"); p.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue(col));
+    p.setAttribute("stroke-width", "2"); p.setAttribute("opacity", ".75"); if (dash) p.setAttribute("stroke-dasharray", "5 4");
+    svg.append(p);
+  };
+  const q = Q[sel];
+  for (const n of q.needs) for (const f of fromOf(n)) { const c = document.getElementById("c-" + f); if (c) line(c, s, "--ember", false); }
+  if (q.any) for (const n of q.any[1]) for (const f of fromOf(n)) { const c = document.getElementById("c-" + f); if (c) line(c, s, "--ember", true); }
+  for (const o of opensOf(sel)) { const c = document.getElementById("c-" + o); if (c) line(s, c, "--steel", false); }
+  for (const o of locksOf(sel)) { const c = document.getElementById("c-" + o); if (c) line(s, c, "--blood", true); }
+}
+addEventListener("resize", drawEdges);
+
+// Detalle
+const qLink = (id, cls = "link") => el("button", {cls, on: () => pick(id, true)}, Q[id].title);
+function needItem(n) {
+  if (Q[n]) return el("li", {}, qLink(n, "link need-link"));
+  const li = el("li", {}, D.marks[n] || n);
+  const src = flagFrom[n] || [];
+  if (src.length) { li.append(" (viene de "); src.forEach((s, i) => { if (i) li.append(", "); li.append(qLink(s, "link need-link")); }); li.append(")"); }
+  return li;
+}
+function renderPanel() {
+  const q = Q[sel], p = document.getElementById("panel"); p.textContent = "";
+  p.append(el("button", {id: "close", "aria-label": "Cerrar", on: () => { p.classList.remove("show"); document.body.classList.remove("sheet"); }}, "×"));
+  p.append(el("h3", {}, q.title));
+  p.append(el("p", {style: "color:var(--dim)"}, `${KIND[q.kind]}${q.spine ? " " + q.spine + " de 12" : ""} · Acto ${q.act} · ${D.places[q.place].name}${D.places[q.place].ready ? "" : " (por construir)"}`));
+  p.append(el("p", {}, q.goal));
+  p.append(el("h4", {}, "Cómo te enterás"), el("p", {cls: "heard"}, q.heard), el("p", {style: "font-size:13px;color:var(--dim)"}, q.learn.map(h => HOW[h]).join(" · ") + (q.giver ? ` · La da ${npcName(q.giver)}` : "") + (q.backup ? `; si no está, ${npcName(q.backup)}` : "")));
+  if (q.needs.length || q.any) {
+    p.append(el("h4", {}, "Qué pide"));
+    const ul = el("ul");
+    q.needs.forEach(n => ul.append(needItem(n)));
+    p.append(ul);
+    if (q.any) { p.append(el("p", {style: "margin-top:6px"}, `Y ${q.any[0]} de estas:`)); const u2 = el("ul"); q.any[1].forEach(n => u2.append(needItem(n))); p.append(u2); }
+  }
+  const ends = Object.values(q.ends);
+  p.append(el("h4", {}, ends.length > 1 ? "Cómo la resolvés (elegís)" : "Cómo termina"));
+  const eu = el("ul");
+  for (const e of ends) {
+    const li = el("li", {}, e.text);
+    (e.sets || []).forEach(f => li.append(el("span", {cls: "eff"}, "→ " + D.marks[f])));
+    if (e.locks && !sel.startsWith("f_")) { const s = el("span", {cls: "eff"}, "Cierra: "); e.locks.forEach((l, i) => { if (i) s.append(", "); s.append(qLink(l)); }); li.append(s); }
+    if (e.locks && sel.startsWith("f_")) li.append(el("span", {cls: "eff"}, "Cierra los otros caminos a Kredik Shaw."));
+    eu.append(li);
+  }
+  p.append(eu);
+  if (q.late) {
+    p.append(el("h4", {}, "Si no la hacés"));
+    const u = el("ul");
+    for (const l of q.late) {
+      const li = el("li", {}, `Tras ${l.after} principales: ${l.text}`);
+      li.append(el("span", {cls: "eff"}, `Te avisa un rumor una principal antes: «${l.warn}»`));
+      if (l.lost) li.append(el("span", {cls: "eff"}, "La misión se pierde."));
+      u.append(li);
+    }
+    p.append(u);
+  }
+  const opens = opensOf(sel);
+  if (opens.length) { p.append(el("h4", {}, "Qué abre")); const u = el("ul"); opens.forEach(o => u.append(el("li", {}, qLink(o)))); p.append(u); }
+  if (Object.keys(q.foes).length) p.append(el("h4", {}, "Contra quién"), el("p", {}, Object.entries(q.foes).map(([f, n]) => `${n} ${D.foes[f].name}`).join(", ")));
+  if (q.teaches) p.append(el("h4", {}, "Qué enseña"), el("p", {}, q.teaches));
+}
+function pick(id, scroll) {
+  sel = id; renderPanel(); mark(); drawEdges();
+  if (innerWidth <= 860) { document.getElementById("panel").classList.add("show"); document.body.classList.add("sheet"); }
+  document.getElementById("panel").scrollTop = 0;
+  if (scroll) { const c = document.getElementById("c-" + id); if (c) c.scrollIntoView({block: "center", behavior: "smooth"}); requestAnimationFrame(drawEdges); }
+}
+
+// Mapa
+const SVGNS = "http://www.w3.org/2000/svg";
+const S = (t, a = {}, txt) => { const e = document.createElementNS(SVGNS, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+const col = v => getComputedStyle(document.documentElement).getPropertyValue(v);
+function renderMap() {
+  const n = +document.getElementById("prog").value;
+  document.getElementById("progn").textContent = n;
+  const w = document.getElementById("world"); w.textContent = "";
+  w.setAttribute("viewBox", "-760 -720 1520 1520");
+  const poly = pts => pts.map(p => p.join(",")).join(" ");
+  w.append(S("rect", {x: -760, y: -720, width: 1520, height: 1520, fill: col("--ash")}));
+  w.append(S("polyline", {points: poly(D.river), fill: "none", stroke: "#2d4556", "stroke-width": 26}));
+  w.append(S("polygon", {points: poly(D.wall), fill: col("--slate"), stroke: col("--dim"), "stroke-width": 4}));
+  w.append(S("text", {x: 0, y: -60, fill: col("--dim"), "font-size": 24, "text-anchor": "middle", "font-family": "Spectral, serif"}, "Luthadel"));
+  w.append(S("circle", {cx: -4, cy: -328, r: 84, fill: "none", stroke: col("--blood"), "stroke-width": 3, "stroke-dasharray": "8 7"}));
+  w.append(S("text", {x: -4, y: -424, fill: col("--blood"), "font-size": 20, "text-anchor": "middle"}, "Bruma mortal"));
+  for (const g of D.gates) { w.append(S("rect", {x: g.at[0] - 8, y: g.at[1] - 8, width: 16, height: 16, fill: col("--mist")})); }
+  const by = {};
+  for (const i of ids) { const pl = D.places[Q[i].place]; if (!pl.at || depth[i] > n) continue; (by[Q[i].place] = by[Q[i].place] || []).push(i); }
+  for (const pid in by) {
+    const at = D.places[pid].at;
+    by[pid].forEach((i, k) => {
+      const q = Q[i], total = by[pid].length, a = total > 1 ? k / total * 6.283 : 0, r = total > 1 ? 13 + total * 4 : 0;
+      const x = at[0] + Math.cos(a) * r, y = at[1] + Math.sin(a) * r;
+      const g = S("g", {class: "pt", tabindex: 0, role: "button", "aria-label": q.title});
+      g.append(S("title", {}, `${q.title} (${D.places[pid].name})`));
+      g.append(S("circle", {cx: x, cy: y, r: q.kind === "main" ? 16 : 13, fill: col(KCOL[q.kind]), stroke: col("--ash"), "stroke-width": 3}));
+      const tx = q.spine || (q.learn[0] === "rumor" ? "?" : "");
+      if (tx !== "") g.append(S("text", {x, y: y + 6, "text-anchor": "middle", "font-size": 16, "font-weight": 600, fill: col("--ash")}, tx));
+      const open = () => { location.hash = "decisiones"; show("decisiones"); pick(i, true); };
+      g.addEventListener("click", open); g.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
+      w.append(g);
+    });
+  }
+  for (const pid in D.places) {
+    const pl = D.places[pid]; if (!pl.marks || !pl.at) continue;
+    if (depth.el_taller > n && pid === "taller") continue;
+    w.append(S("text", {x: pl.at[0], y: pl.at[1] + 48, "text-anchor": "middle", "font-size": 18, fill: col("--brass")}, pl.marks.join(" · ")));
+  }
+  const hidden = ids.filter(i => !D.places[Q[i].place].at && depth[i] <= n).length;
+  const lg = document.getElementById("legend"); lg.textContent = "";
+  for (const k in KIND) lg.append(el("span", {}, Object.assign(el("i"), {style: `background:var(${KCOL[k]})`}), KIND[k]));
+  lg.append(el("span", {}, "Número: principal. ? : llega por rumor."), el("span", {}, "Cuadrados blancos: puertas."));
+  if (hidden) lg.append(el("span", {}, `Más ${hidden} en el sótano de Clubs, que no van en el mapa.`));
+}
+document.getElementById("prog").addEventListener("input", renderMap);
+
+// Personajes
+function renderCast() {
+  const usedBy = who => ids.filter(i => Q[i].giver === who).length;
+  const t = document.getElementById("npcs");
+  t.append(el("tr", {}, ...["Quién", "Qué puede cambiar", "Misiones que da", "Modelo", "Clips"].map(h => el("th", {}, h))));
+  for (const k in D.npcs) {
+    const n = D.npcs[k];
+    t.append(el("tr", {}, el("td", {}, el("b", {}, n.name), n.ally ? el("span", {cls: "eff"}, "Puede acompañar al grupo") : null), el("td", {}, n.role), el("td", {}, String(usedBy(k))),
+      el("td", {cls: n.model ? "ok" : "no"}, n.model ? "Hecho" : "Falta"), el("td", {cls: n.clips ? "ok" : "no"}, n.clips ? "Hechos" : "Faltan")));
+  }
+  const f = document.getElementById("foes");
+  f.append(el("tr", {}, ...["Enemigo", "Estado", "Qué falta"].map(h => el("th", {}, h))));
+  for (const k in D.foes) {
+    const e = D.foes[k], placeholder = e.kit && e.note;
+    f.append(el("tr", {}, el("td", {}, e.name), el("td", {cls: e.kit ? (placeholder ? "mid" : "ok") : "no"}, e.kit ? (placeholder ? "Pelea, con modelo prestado" : "Pelea") : "Por hacer"), el("td", {}, e.note || "")));
+  }
+}
+
+// Reglas
+function renderRules() {
+  const R = [
+    ["Del inicio al mundo abierto", "ol", ["Se juntan en la sala y cada uno elige personaje. Arrancan con moneda y tirón básicos.", "Una patrulla los persigue por los tejados del barrio skaa.", "Los atrapan y los mandan a un foso de ceniza.", "Escapan a las afueras: espectros chicos, y koloss a lo lejos.", "Sazed los lleva al taller de Clubs.", "Los maestros muestran los estilos. Se puede saltear y volver a consultar.", "Se abre el mundo."]],
+    ["Grupo", "ul", ["De 1 a 4 jugadores, en la partida guardada del anfitrión, que es el líder y puede pasarle el mando a otro.", "El líder acepta misiones y decide. Se avisa a todos y se esperan unos segundos antes de una decisión o un jefe.", "Se puede entrar en cualquier momento. Si el anfitrión se va, se guarda y termina para todos.", "Cada uno anda libre por el mapa. Se pueden repetir personajes, con otro color de capa.", "Los NPC les hablan en plural; jugando solo, en singular.", "Experiencia compartida. Los objetos son de quien los agarre primero.", "Un aliado por grupo, elegido por el líder.", "Si caés te pueden levantar. Si caen todos, reaparecen en el sótano de Clubs.", "Más jugadores: +50 % de enemigos y +60 % de vida en jefes por cada uno (a ajustar)."]],
+    ["Cómo te enterás", "ul", ["Principales: te las da un NPC o avisa la banda en el taller.", "Secundarias: rumores, carteles, o al llegar al lugar.", "Cuaderno: lo pendiente, lo que sabés y lo que ya pasó. La misión que elegís seguir va a la brújula.", "Mapa de ciudad y mapa de región: el punto aparece cuando te enterás, y el lugar exacto al acercarte.", "Marcas: principal, secundaria, rumor, maestro, guardián, tienda y refugio. Cada tipo se puede ocultar."]],
+    ["Reglas del mundo", "ul", ["Las principales nunca se pierden; si cae quien las da, las da otro.", "Las secundarias traen consecuencias medidas por principales cumplidas, siempre avisadas por un rumor.", "Los NPC mueren solo por una decisión o una consecuencia avisada.", "Ciudad y afueras abiertas. Kredik Shaw con bruma mortal hasta que la historia la abra; mansiones con guardias.", "Monstruos comunes y guardias reaparecen; los guardianes también, pero su recompensa única es una sola vez.", "Tres partidas guardadas, con guardado automático al terminar cada misión y al salir.", `El kandra reemplaza al azar a ${D.hosts.map(h => D.npcs[h].name).join(", ")}. Sin descubrirlo: allanan el taller y después hay emboscada, pero siempre se puede terminar.`]],
+    ["Cómo llega el Lord Legislador", "ul", Object.values(D.finale).map(f => f.text + (f.off.length ? ` Pierde: ${f.off.join(", ")}.` : ""))],
+    ["Orden de construcción", "ol", ["Medir si Luthadel aguanta cuatro jugadores en red.", "Los cuatro caminando y peleando juntos en la ciudad.", "Primer tramo: principales 1 y 2, más una secundaria con decisión y consecuencia; conversación, cuaderno y marcas básicas.", "Modelos y clips que falten, a medida que los pida cada tramo."]],
+  ];
+  const box = document.getElementById("rules");
+  for (const [h, tag, items] of R) box.append(el("div", {}, el("h2", {}, h), el(tag, {}, ...items.map(t => el("li", {}, t)))));
+}
+
+renderBoard(); renderPanel(); renderMap(); renderCast(); renderRules();
+show(location.hash.slice(1));
+</script>
+</body>
+</html>

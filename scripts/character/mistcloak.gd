@@ -39,7 +39,7 @@ const MODEL_SCALE := Vector3(0.99, 0.86, 0.99)
 const HEM_Y := -0.4
 ## Tiras alrededor del cuerpo (0 = centro de la espalda) hasta ±STRIP_SPREAD rad.
 const STRIPS := 34
-const STRIP_SPREAD := 2.6
+const STRIP_SPREAD := 1.8  # abierta adelante: se ven el cuerpo y el cinturón
 const STRIP_BONES := 4
 const STRIP_ROWS := 16
 ## Viento del mundo (m/s); lo puede cambiar el clima.
@@ -145,11 +145,14 @@ static func _strip_arrays(radii: PackedFloat32Array) -> Array:
 		var normal := side.cross(Vector3.DOWN).normalized()
 		if normal.dot(out) < 0.0:
 			normal = -normal
-		var top := Vector3(out.x * (r - 0.015), HEM_Y + rng.randf_range(0.07, 0.13), out.z * (r - 0.015))
+		# El manto termina más arriba a los costados: ahí las tiras arrancan más altas y pegadas, para que las tape.
+		var side_k := pow(absf(th) / STRIP_SPREAD, 2.0)
+		r -= 0.05 * side_k
+		var top := Vector3(out.x * (r - 0.015), HEM_Y + rng.randf_range(0.07, 0.15) + 0.1 * side_k, out.z * (r - 0.015))
 		# Más cortas hacia los costados de adelante; las de adentro, un poco más largas.
 		var length := rng.randf_range(0.95, 1.25) * (1.0 - 0.25 * absf(th) / STRIP_SPREAD) * (1.08 if inner else 1.0)
 		var width := rng.randf_range(0.11, 0.16)
-		var flare := rng.randf_range(0.06, 0.14)
+		var flare := rng.randf_range(0.06, 0.14) * (1.0 - 0.8 * side_k)
 		var seed := rng.randf()
 		# Curva de reposo: un poco abombada hacia afuera y desviada de costado, distinta en cada tira.
 		var bulge := rng.randf_range(0.015, 0.045)
@@ -281,8 +284,8 @@ func build(color: Color, width := 1.0, neck: Node3D = null, strips_only := false
 
 ## Capa con manto y tiras sueltas para modelos con esqueleto. suit: color del traje, o null para
 ## dejar la tela con su color original. Agrega sus huesos a `skel` colgando de `torso`, con el
-## cuello de la capa en el hueso `neck`. colliders: [[hueso, hueso, radio], ...] del cuerpo.
-func build_model(suit: Variant, skel: Skeleton3D, torso: int, neck: int, colliders: Array) -> void:
+## cuello de la capa en el hueso `neck`. colliders: [[hueso, hueso, radio], ...] del cuerpo. body: escala para este cuerpo.
+func build_model(suit: Variant, skel: Skeleton3D, torso: int, neck: int, colliders: Array, body := Vector3.ONE) -> void:
 	var mesh := _baked_model()
 	_model_mat = ShaderMaterial.new()
 	_model_mat.shader = preload("res://shaders/mistcloak.gdshader")
@@ -294,7 +297,7 @@ func build_model(suit: Variant, skel: Skeleton3D, torso: int, neck: int, collide
 	set_suit_color(suit)
 
 	# De la malla al espacio del esqueleto (los modelos miran hacia +Z dentro de su esqueleto).
-	var fit := Transform3D(Basis(Vector3.UP, PI) * Basis.from_scale(MODEL_SCALE), skel.get_bone_global_rest(neck).origin)
+	var fit := Transform3D(Basis(Vector3.UP, PI) * Basis.from_scale(MODEL_SCALE * body), skel.get_bone_global_rest(neck).origin)
 	var skin := Skin.new()
 	skin.add_bind(torso, skel.get_bone_global_rest(torso).affine_inverse() * fit)
 	var chains := []
@@ -332,7 +335,7 @@ func build_model(suit: Variant, skel: Skeleton3D, torso: int, neck: int, collide
 		_sim.set_root_bone(s, chains[s][0])
 		_sim.set_end_bone(s, chains[s][-1])
 		_sim.set_extend_end_bone(s, true)
-		_sim.set_end_bone_length(s, _strip_joints[s]["tail"] * MODEL_SCALE.y)
+		_sim.set_end_bone_length(s, _strip_joints[s]["tail"] * MODEL_SCALE.y * body.y)
 		_sim.set_radius(s, 0.025)
 		_sim.set_stiffness(s, 0.45)
 		_sim.set_drag(s, 0.3)

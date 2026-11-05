@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dvdm1onit6g2g"
-path="res://.godot/imported/Kelsier_Meshy_AI_Shadowbound_Sentinel_20261103_texture.jpg-a3081df2267c183a95eb56385684089e.ctex"
+uid="uid://dlnjth12sipis"
+path="res://.godot/imported/Elend_Meshy_AI_Dark_Aristocrat_T_Pose_20261105_animated_mixamo_All_animation.jpg-aad497fcaedc77b7b758277ec183ff4c.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "6ab26d19de261547d6143217ae002d93"
+"md5": "ab9dd94a97dbafb6b97bbc7e6a2642a5"
 }
 
 [deps]
 
-source_file="res://assets/meshy/Kelsier_Meshy_AI_Shadowbound_Sentinel_20261103_texture.jpg"
-dest_files=["res://.godot/imported/Kelsier_Meshy_AI_Shadowbound_Sentinel_20261103_texture.jpg-a3081df2267c183a95eb56385684089e.ctex"]
+source_file="res://assets/meshy/Elend_Meshy_AI_Dark_Aristocrat_T_Pose_20261105_animated_mixamo_All_animation.jpg"
+dest_files=["res://.godot/imported/Elend_Meshy_AI_Dark_Aristocrat_T_Pose_20261105_animated_mixamo_All_animation.jpg-aad497fcaedc77b7b758277ec183ff4c.ctex"]
 
 [params]
 

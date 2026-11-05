@@ -73,6 +73,10 @@ class Retargeter:
 			var d: int = e["dst"]
 			var s: int = e["src"]
 			match e["mode"]:
+				"local":  # mismo hueso en los dos esqueletos: el giro respecto del reposo, sin cuentas globales (los dedos)
+					var src_rest_q: Quaternion = src.get_bone_rest(s).basis.get_rotation_quaternion()
+					var dst_rest_q: Quaternion = dst.get_bone_rest(d).basis.get_rotation_quaternion()
+					dst.set_bone_pose_rotation(d, dst_rest_q * (src_rest_q.inverse() * src.get_bone_pose_rotation(s)))
 				"root", "rot":
 					var src_now: Basis = src_basis * src.get_bone_global_pose(s).basis.orthonormalized()
 					var src_rest: Basis = src_basis * src.get_bone_global_rest(s).basis.orthonormalized()

@@ -905,33 +905,6 @@ func _vial(pos: Vector3, kind: StringName) -> void:
 	add_child(v)
 
 
-## Solo los personajes de Meshy: el terrisano frente al taller de Clubs, nobles y obligadores en la plaza,
-## y afuera de las puertas los que pelean (ver GateForces).
+## La gente aparece cuando te acercás (ver GateForces): lejos del jugador el terreno no tiene colisión y se caerían.
 func _spawn_people() -> void:
 	add_child(GateForces.new())
-	var at := Workshop.POS + Vector2(3.0, -13.0)
-	_civilian("Terrisano", Vector3(at.x, CityPlan.ground(at), at.y), 5.0)
-	for i in 6:
-		var home := Vector3(_rng.randf_range(-30, 30), 0, _rng.randf_range(-30, 30))
-		if home.distance_to(Vector3(0, 0, -2)) < 9.0:
-			home.x += 12.0
-		home.y = _ground(home)
-		_civilian("GordoNoble", home, 18.0)
-	for i in 5:
-		var o := Champion.new()
-		o.kit = "Obligador"
-		var ang := TAU * i / 5.0
-		o.home = Vector3(cos(ang) * 14.0, 0, sin(ang) * 14.0)
-		o.home.y = _ground(o.home)
-		o.position = o.home + Vector3(0, 0.1, 0)
-		add_child(o)
-
-
-func _civilian(model: String, home: Vector3, roam: float) -> void:
-	var c := Citizen.new()
-	c.meshy_model = model
-	c.stay_in_plaza = false
-	c.home = home
-	c.roam_radius = roam
-	c.position = home + Vector3(0, 0.1, 0)
-	add_child(c)

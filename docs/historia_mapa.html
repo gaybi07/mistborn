@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de decisiones Mistborn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Un solo mundo: ceniza y bruma de noche. Azul de las líneas de acero para lo que abre, ámbar de brasa para lo que pide.
+   Tablero por actos con el detalle al costado; en el teléfono el detalle sube desde abajo. */
+:root {
+  color-scheme: dark;
+  --ash: #15171a; --soot: #1e2125; --slate: #2a2e34; --line: #3c424a;
+  --mist: #e7e4dc; --dim: #a5a59e;
+  --ember: #e8964a; --steel: #72b4e8; --blood: #e0655a; --brass: #cdb36a; --moss: #8fb78a;
+  --display: "Spectral", Georgia, serif; --body: "IBM Plex Sans", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ash); color: var(--mist); font: 15px/1.5 var(--body); }
+header { padding: 20px 16px 0; max-width: 1400px; margin: auto; }
+h1 { font: 700 28px/1.2 var(--display); margin: 0 0 4px; text-wrap: balance; }
+header p { margin: 0 0 14px; color: var(--dim); max-width: 70ch; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--dim); font: 600 14px var(--body); padding: 8px 12px; cursor: pointer; }
+nav button.on { color: var(--mist); border-color: var(--ember); }
+button:focus-visible, .card:focus-visible, circle:focus-visible, g:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+main { max-width: 1400px; margin: auto; padding: 16px; }
+.view { display: none; } .view.on { display: block; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; color: var(--dim); font-size: 13px; }
+.chip { background: var(--soot); border: 1px solid var(--line); color: var(--mist); border-radius: 99px; padding: 4px 11px; font: 500 13px var(--body); cursor: pointer; }
+.chip.on { background: var(--slate); border-color: var(--mist); }
+#board { position: relative; }
+#edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.act { margin-bottom: 22px; }
+.act h2 { font: 700 18px var(--display); margin: 0 0 8px; }
+.act h2 span { color: var(--dim); font: 500 13px var(--body); margin-left: 6px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.card { position: relative; text-align: left; background: var(--soot); border: 1px solid var(--line); border-left: 4px solid var(--dim); border-radius: 5px; padding: 8px 10px; color: var(--mist); cursor: pointer; font: inherit; min-height: 88px; display: flex; flex-direction: column; gap: 3px; }
+.card.main { border-left-color: var(--ember); } .card.side { border-left-color: var(--steel); } .card.teacher { border-left-color: var(--moss); } .card.guardian { border-left-color: var(--blood); }
+.card b { font-weight: 600; line-height: 1.25; }
+.card small { color: var(--dim); font-size: 12px; line-height: 1.3; }
+.card .tags { margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+.tag { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+.tag.warn { color: var(--blood); border-color: var(--blood); }
+.tag.dec { color: var(--brass); border-color: var(--brass); }
+.card.sel { background: var(--slate); border-color: var(--mist); }
+.card.need { outline: 2px solid var(--ember); } .card.open { outline: 2px solid var(--steel); } .card.lock { outline: 2px dashed var(--blood); }
+#panel { position: sticky; top: 12px; background: var(--soot); border: 1px solid var(--line); border-radius: 6px; padding: 14px; max-height: calc(100vh - 24px); overflow: auto; }
+#panel h3 { font: 700 21px/1.2 var(--display); margin: 0 26px 4px 0; }
+#panel h4 { margin: 13px 0 3px; font: 600 12px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
+#panel p { margin: 0 0 5px; } #panel ul { margin: 0; padding-left: 17px; }
+#panel li { margin-bottom: 4px; }
+.heard { border-left: 3px solid var(--brass); padding-left: 9px; font-style: italic; }
+.link { background: none; border: 0; padding: 0; color: var(--steel); cursor: pointer; font: inherit; text-align: left; text-decoration: underline; }
+.need-link { color: var(--ember); }
+.eff { color: var(--dim); font-size: 13px; display: block; }
+#close { display: none; position: absolute; top: 8px; right: 8px; background: none; border: 0; color: var(--mist); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; }
+.mapwrap { background: var(--soot); border: 1px solid var(--line); border-radius: 6px; overflow: auto; max-height: 86vh; }
+#world { width: 100%; min-width: 760px; height: auto; display: block; }
+.pt { cursor: pointer; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--dim); margin-top: 10px; }
+.legend i { display: inline-block; width: 11px; height: 11px; margin-right: 5px; vertical-align: -1px; border-radius: 50%; }
+input[type=range] { width: min(320px, 100%); accent-color: var(--ember); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.cols h2 { font: 700 19px var(--display); margin: 0 0 8px; }
+.cols ol, .cols ul { padding-left: 19px; margin: 0; } .cols li { margin-bottom: 6px; max-width: 65ch; }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--dim); font-weight: 600; font-size: 12px; }
+.ok { color: var(--moss); } .no { color: var(--blood); } .mid { color: var(--brass); }
+@media (max-width: 860px) {
+  .split { display: block; }
+  #panel { display: none; position: fixed; left: 0; right: 0; bottom: 0; top: auto; max-height: 58%; border-radius: 12px 12px 0 0; z-index: 10; box-shadow: 0 -8px 26px #000a; }
+  #panel.show { display: block; } #close { display: block; }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  body.sheet main { padding-bottom: 58vh; }
+}
+@media (prefers-reduced-motion: no-preference) { .card { transition: background .12s; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mapa de decisiones</h1>
+  <p id="sum"></p>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <section class="view" id="v-decisiones"><div class="split">
+    <div>
+      <div class="tools" id="filters"></div>
+      <div id="board"><svg id="edges" aria-hidden="true"></svg><div id="acts"></div></div>
+    </div>
+    <aside id="panel" aria-live="polite"></aside>
+  </div></section>
+  <section class="view" id="v-mapa">
+    <div class="tools"><label for="prog">Lo que puede estar abierto hasta la principal <b id="progn"></b></label><input id="prog" type="range" min="1" max="12" value="2"></div>
+    <div class="mapwrap"><svg id="world" role="img" aria-label="Mapa de Luthadel y las afueras con los puntos de misión"></svg></div>
+    <div class="legend" id="legend"></div>
+    <p style="color:var(--dim);max-width:70ch">Los puntos aparecen en el juego recién cuando te enterás de ellos. Con «?» se muestran las que llegan por rumor: es una zona hasta que te acercás. Tocá un punto para ver la misión.</p>
+  </section>
+  <section class="view" id="v-personajes"><div class="cols" style="grid-template-columns:1fr"><div><h2>Personajes</h2><div class="tw"><table id="npcs"></table></div></div><div><h2>Enemigos</h2><div class="tw"><table id="foes"></table></div></div></div></section>
+  <section class="view" id="v-reglas"><div class="cols" id="rules"></div></section>
+</main>
+<script>
+const D = {"acts":{"1":"Ceniza: de los tejados al taller","2":"Bruma: koloss y ejércitos humanos","3":"Acero: el Ministerio","4":"Casas: nobles y otros Mistborn","5":"Kredik Shaw"},"places":{"barrio_skaa":{"name":"Distrito Skaa","at":[-100.0,330.0],"city":true,"ready":true},"foso":{"name":"Foso de ceniza","at":[-470.0,330.0],"city":false,"ready":false},"camino_oeste":{"name":"Afueras del oeste","at":[-470.0,120.0],"city":false,"ready":true},"camino_sur":{"name":"Aldeas del Camino Sur","at":[-50.0,700.0],"city":false,"ready":false},"bosque":{"name":"Bosque Muerto","at":[-620.0,620.0],"city":false,"ready":true},"montes":{"name":"Faldas de los Montes de Ceniza","at":[-300.0,-640.0],"city":false,"ready":true},"campamento":{"name":"Campamento koloss","at":[620.0,-240.0],"city":false,"ready":false},"puerta_este":{"name":"Afuera de la Puerta Este","at":[372.0,-147.0],"city":false,"ready":true},"taller":{"name":"Taller de Clubs","at":[-60.0,205.0],"city":true,"ready":true,"marks":["refugio","tienda"]},"sala_combate":{"name":"Sótano de Clubs: práctica de combate","scene":"res://scenes/combat_room.tscn","ready":true},"pista":{"name":"Sótano de Clubs: práctica de saltos","scene":"res://scenes/nav_course.tscn","ready":true},"corrales":{"name":"Corrales de carbón","at":[-280.0,250.0],"city":true,"ready":true},"forja":{"name":"Distrito de Forja","at":[-270.0,40.0],"city":true,"ready":true},"darsena":{"name":"Dársena","at":[290.0,-10.0],"city":true,"ready":true},"mercado":{"name":"Mercado","at":[70.0,-165.0],"city":true,"ready":true,"marks":["tienda"]},"plaza":{"name":"Plaza Central","at":[0.0,0.0],"city":true,"ready":true},"asamblea":{"name":"Asamblea","at":[-110.0,-85.0],"city":true,"ready":true},"cuartel_sur":{"name":"Cuartel del sur","at":[90.0,335.0],"city":true,"ready":true},"ministerio":{"name":"Ministerio del Acero","at":[166.0,-208.0],"city":true,"ready":true},"hastings":{"name":"Casa Hastings","at":[-150.0,-158.0],"city":true,"ready":true},"lorch":{"name":"Casa Lorch","at":[-60.0,-175.0],"city":true,"ready":true},"venture":{"name":"Casa Venture","at":[-222.0,-280.0],"city":true,"ready":true},"kredik":{"name":"Kredik Shaw","at":[-4.0,-328.0],"city":true,"ready":true}},"npcs":{"clubs":{"name":"Clubs","model":"Clubs","clips":true,"role":"Dueño del refugio. Si cae, hay que mudar la base a la Dársena."},"terrisano":{"name":"Sazed","model":"Terrisano","clips":true,"ally":true,"role":"Guarda memorias: lleva al secreto de la Regeneración."},"tindwyl":{"name":"Tindwyl","model":"Tindwyl","clips":true,"role":"Lidera a los terrisanos refugiados. Apoya o cierra las misiones de Terris."},"ham":{"name":"Ham","model":"Ham","clips":true,"ally":true,"role":"Maestro del estilo Peleador."},"spook":{"name":"Spook","model":"","clips":false,"ally":true,"role":"Maestro del estilo Volador. Puede ser el kandra."},"breeze":{"name":"Breeze","model":"Breeze","clips":true,"ally":true,"role":"Maestro del estilo Manipulador. Puede ser el kandra."},"dockson":{"name":"Dockson","model":"Dockson","clips":true,"role":"Organiza la banda. Puede ser el kandra."},"tesa":{"name":"Tesa","model":"NinaSkaa","clips":true,"role":"Capataza de los corrales. Lleva a los skaa al levantamiento, o deja de hablarte."},"kelsier":{"name":"Kelsier","model":"Kelsier","clips":true,"ally":true,"role":"Vuelve con un plan propio: lo seguís o lo enfrentás."},"vin":{"name":"Vin","model":"Vin","clips":true,"ally":true,"role":"Mistborn sin casa: aliada, rival o enemiga en el final."},"marsh":{"name":"Marsh","model":"Obligador","clips":true,"ally":true,"role":"Infiltrado en el Ministerio: abre la entrada por abajo, o te traiciona."},"elend":{"name":"Elend Venture","model":"Elend","clips":true,"role":"Heredero reformista: abre la entrada con invitación, o lo derrocás."},"straff":{"name":"Straff Venture","model":"Straff","clips":true,"role":"Te compra, o manda a su Mistborn a cazarte."},"hastings":{"name":"Lord Hastings","model":"GordoNoble","clips":true,"role":"Paga por los koloss. Se lo puede chantajear."},"cett":{"name":"Cett","model":"Cett","clips":true,"role":"Señor de otra ciudad, de visita. Trae soldados a tu favor o en tu contra."},"yomen":{"name":"Yomen","model":"","clips":false,"role":"Obligador que gobierna otra ciudad. Puede romper con el Ministerio."},"jastes":{"name":"Jastes Lekal","model":"Jastes","clips":true,"role":"Noble que manda koloss. Vende su secreto, o trae al ejército."},"kandra":{"name":"El kandra","model":"","clips":false,"ally":true,"role":"Copia a Dockson, Breeze o Spook (al azar). Se lo mata, se lo usa o se le compra el contrato."}},"foes":{"patrulla":{"name":"Patrulla imperial","kit":"Soldado","note":"falta que tenga menos vida y persiga"},"espectro":{"name":"Espectro de la bruma","kit":"","note":"monstruo nuevo: modelo y clips propios"},"koloss_joven":{"name":"Koloss joven","kit":"KolossJoven"},"koloss_adulto":{"name":"Koloss adulto","kit":"KolossAdulto"},"koloss_jefe":{"name":"Koloss jefe","kit":"","note":"KolossAdulto más grande, con más vida y otros poderes"},"soldado":{"name":"Soldado imperial","kit":"Soldado"},"mataneblino":{"name":"Mataneblino","kit":"Mataneblino"},"violento":{"name":"Violento (peltre)","kit":"","note":"modelo y clips nuevos"},"lanzamonedas":{"name":"Lanzamonedas (acero)","kit":"","note":"modelo y clips nuevos"},"obligador":{"name":"Obligador","kit":"Obligador"},"inquisidor":{"name":"Inquisidor","kit":"MistbornHood","note":"hoy usa el modelo del encapuchado: le falta el suyo"},"guardia_casa":{"name":"Guardia de casa noble","kit":"","note":"soldado con los colores de cada casa"},"mistborn":{"name":"Mistborn de casa noble","kit":"MistbornHood","note":"hoy usa el modelo del encapuchado"},"kandra":{"name":"Kandra","kit":"","note":"pelea con el cuerpo que está copiando"},"vin":{"name":"Vin","kit":"","note":"tiene clips: le falta armar sus golpes y poderes"},"lord_ruler":{"name":"Lord Legislador","kit":"LordRuler"}},"finale":{"secreto_reserva":{"off":["Regeneración"],"text":"Vaciaron la reserva que lo cura."},"armadura_madera":{"off":["Empujón de acero","Tirón de hierro"],"text":"Su equipo de madera no le da metal del que agarrarlos."},"aliada_vin":{"off":[],"text":"Vin pelea con ustedes."},"aliado_kelsier":{"off":[],"text":"Kelsier distrae a los inquisidores del salón."},"soldados_cett":{"off":[],"text":"Los soldados de Cett frenan a los refuerzos."},"yomen_rompe":{"off":[],"text":"Parte del Ministerio se queda afuera de la pelea."},"emboscada_kandra":{"off":[],"text":"El kandra los entregó: el último tramo arranca emboscados."}},"marks":{"skaa_corrales":"Los skaa de los corrales suman al levantamiento.","skaa_aldea":"Los sobrevivientes de la aldea suman al levantamiento.","skaa_plaza":"Los rescatados de la plaza suman al levantamiento.","dato_cuartel":"En El ejército que no sale ya saben por dónde entrar.","tesa_enojada":"Tesa deja de dar misiones y no apoya el levantamiento.","tienda_pobre":"Menos monedas y frascos en la tienda del taller.","amigo_terris":"Abre el camino al secreto de la Regeneración.","mensajero_muerto":"Tindwyl desconfía: hay que ganársela antes de seguir con Terris.","sabe_carros":"Saben que los koloss llegan en carros: menos koloss en la Puerta Este.","aldea_quemada":"Aparecen refugiados en el barrio skaa.","secreto_koloss":"Saben cómo mandan a los koloss: el koloss jefe de la Puerta Este llega solo.","aliado_kelsier":"Kelsier se puede elegir de aliado, y abre Ningún Venture.","kelsier_rival":"Kelsier hace su plan por su lado y arruina alguna misión de las casas.","sin_armeria":"Menos soldados en el camino final.","armadura_madera":"En el final, el Lord Legislador no los puede empujar ni tirar.","brumosos_aliados":"La banda de la Forja pelea con ustedes en la procesión.","brumosos_enemigos":"La banda de la Forja pelea contra ustedes en la procesión.","pista_kandra_1":"Primera pista del kandra.","pista_kandra_2":"Segunda pista del kandra.","pista_kandra_3":"Tercera pista: ya se lo puede enfrentar.","pista_ministerio":"Saben dónde guardan a los presos: menos guardias en el Ministerio.","aliado_marsh":"Marsh se puede elegir de aliado, y abre la entrada por abajo.","planos_kredik":"Abre la entrada por abajo, sin Marsh y sin su ayuda.","yomen_rompe":"Parte del Ministerio queda afuera de la pelea final.","sabe_reserva":"Abre La reserva, que le saca la Regeneración.","secreto_reserva":"En el final, el Lord Legislador no se puede curar.","hastings_comprado":"Una puerta de atrás en Casa Venture durante el final.","aliado_elend":"Abre la entrada a Kredik Shaw con invitación.","cazador_straff":"Se suma un Mistborn más en Los que pelean de noche.","soldados_cett":"Los soldados de Cett frenan a los refuerzos en el final.","taller_perdido":"Cae Clubs, y la base y la tienda pasan a la Dársena.","emboscada_kandra":"El último tramo arranca emboscados.","kandra_aliado":"El kandra se suma y se puede elegir de aliado.","aliada_vin":"Vin pelea con ustedes en el final."},"quests":{"tejados":{"act":1,"kind":"main","spine":1,"title":"Sobre los tejados","giver":"","place":"barrio_skaa","needs":[],"learn":["lugar"],"heard":"Arranca solo, apenas eligen personaje en la sala.","goal":"Una patrulla los persigue por el barrio skaa. Se escapa saltando y frenando a los perseguidores.","teaches":"Moverse, tirón básico, moneda básica","foes":{"patrulla":3},"ends":{"ok":{"text":"Los atrapan al final: no se puede evitar"}}},"foso":{"act":1,"kind":"main","spine":1,"title":"El foso de ceniza","giver":"","place":"foso","needs":["tejados"],"learn":["lugar"],"heard":"Despiertan encadenados: el capataz les dice dónde están.","goal":"Trabajo forzado en el foso, y una fuga con otro preso herido.","teaches":"Golpear, esquivar, levantar a un compañero","foes":{"patrulla":4},"ends":{"salvar":{"text":"Sacar al preso herido"},"dejar":{"text":"Salir sin él"}}},"afueras":{"act":1,"kind":"main","spine":1,"title":"Lo que hay de noche","giver":"","place":"camino_oeste","needs":["foso"],"learn":["lugar"],"heard":"La brújula marca las luces de Luthadel a lo lejos.","goal":"Cruzar las afueras en la bruma: espectros chicos, y koloss a lo lejos de los que conviene alejarse.","teaches":"Mapa, brújula, cuaderno","foes":{"espectro":3},"ends":{"ok":{"text":"Sazed los encuentra y los lleva a Luthadel"}}},"el_taller":{"act":1,"kind":"main","spine":2,"title":"Un carpintero que no hace preguntas","giver":"terrisano","backup":"clubs","place":"taller","needs":["afueras"],"learn":["npc"],"heard":"Sazed: «Conozco a un carpintero. Ustedes le interesan».","goal":"Clubs les explica qué son. Se elige estilo y se gasta el primer punto en el árbol. Las pruebas de los maestros son opcionales.","teaches":"Hablar, misiones, árbol de habilidades","foes":{},"ends":{"ok":{"text":"Gastar el primer punto"}}},"t_volador":{"act":1,"kind":"teacher","title":"Estilo Volador","giver":"spook","place":"pista","needs":["el_taller"],"learn":["banda"],"heard":"Clubs: «Si quieren volar, hablen con Spook».","goal":"Hacer la pista de saltos.","teaches":"Para qué sirven acero y hierro","foes":{},"ends":{"ok":{"text":"Terminar o salir: se puede repetir"}}},"t_peleador":{"act":1,"kind":"teacher","title":"Estilo Peleador","giver":"ham","place":"sala_combate","needs":["el_taller"],"learn":["banda"],"heard":"Clubs: «Ham los espera abajo».","goal":"Aguantar las oleadas de práctica.","teaches":"Para qué sirve el peltre","foes":{"koloss_joven":3},"ends":{"ok":{"text":"Terminar o salir: se puede repetir"}}},"t_manipulador":{"act":1,"kind":"teacher","title":"Estilo Manipulador","giver":"breeze","place":"mercado","needs":["el_taller"],"learn":["banda"],"heard":"Clubs: «Breeze anda por el mercado. Cuiden los bolsillos».","goal":"Calmar o encender a un mercado entero.","teaches":"Para qué sirven latón y cinc","foes":{},"ends":{"calmar":{"text":"Calmarlos: nadie sale herido"},"encender":{"text":"Encenderlos: más botín, más guardias"}}},"t_sigiloso":{"act":1,"kind":"teacher","title":"Estilo Sigiloso","giver":"clubs","place":"barrio_skaa","needs":["el_taller"],"learn":["banda"],"heard":"Clubs: «Si no quieren que los encuentren, vengan conmigo».","goal":"Cruzar el barrio de noche sin que te encuentre un buscador.","teaches":"Para qué sirven estaño y cobre","foes":{},"ends":{"ok":{"text":"Terminar o salir: se puede repetir"}}},"corrales":{"act":1,"kind":"side","title":"La deuda de los corrales","giver":"tesa","place":"corrales","needs":["el_taller"],"learn":["rumor","npc"],"heard":"En la calle: «El capataz de los corrales cobra con los hijos».","goal":"Resolver qué pasa con el capataz.","foes":{"soldado":4},"ends":{"pelear":{"text":"Echarlo a golpes","sets":["skaa_corrales"]},"pagar":{"text":"Pagar la deuda","sets":["skaa_corrales"]},"dato":{"text":"No meterse: lo que sabe vale más","sets":["dato_cuartel"]}},"late":[{"after":5,"warn":"Dicen que el capataz prepara un escarmiento.","text":"El capataz toma represalias, y Tesa deja de dar misiones.","lost":true,"sets":["tesa_enojada"]}]},"contrabando":{"act":1,"kind":"side","title":"Cajas que no existen","giver":"dockson","place":"darsena","needs":["el_taller"],"learn":["banda"],"heard":"Dockson: «Hay un cargamento nuestro atascado en el puerto».","goal":"Sacar del puerto el cargamento de metales.","foes":{"soldado":3},"ends":{"ok":{"text":"Sacarlo entero"}},"late":[{"after":5,"warn":"En el puerto andan revisando las cajas.","text":"Se pierde el cargamento: menos monedas y frascos en la tienda del taller.","lost":true,"sets":["tienda_pobre"]}]},"mensajero":{"act":1,"kind":"side","title":"Lo que come en el Bosque Muerto","giver":"tindwyl","place":"bosque","needs":["el_taller"],"learn":["rumor","npc"],"heard":"En la calle: «Un mensajero terrisano se metió al bosque y no volvió».","goal":"Rescatar al mensajero de los espectros.","foes":{"espectro":6},"ends":{"ok":{"text":"Traerlo de vuelta","sets":["amigo_terris"]}},"late":[{"after":6,"warn":"Tindwyl pregunta seguido por su mensajero.","text":"El mensajero muere y Tindwyl desconfía: el secreto de la Regeneración cuesta más.","lost":true,"sets":["mensajero_muerto"]}]},"guardian_bosque":{"act":1,"kind":"guardian","title":"El guardián del bosque","giver":"","place":"bosque","needs":["el_taller"],"learn":["lugar","rumor"],"heard":"Al acercarse al centro del bosque, o por un rumor en el mercado.","goal":"Un koloss adulto solo, entre los troncos. Primera recompensa única. Vuelve con el tiempo.","foes":{"koloss_adulto":1},"ends":{"ok":{"text":"Vencerlo"}}},"rastros":{"act":2,"kind":"main","spine":3,"title":"Koloss donde no debería haber","giver":"dockson","backup":"clubs","place":"campamento","needs":["el_taller"],"learn":["banda"],"heard":"Dockson, en el sótano: «Alguien está trayendo koloss a las puertas».","goal":"Meterse de noche al campamento y ver qué hay.","foes":{"koloss_joven":4,"koloss_adulto":1},"ends":{"sigilo":{"text":"Entrar y salir sin que los vean","sets":["sabe_carros"]},"sangre":{"text":"Abrirse paso a golpes"}}},"aldea":{"act":2,"kind":"side","title":"La aldea del Camino Sur","giver":"tesa","place":"camino_sur","needs":["el_taller"],"learn":["rumor","npc"],"heard":"En la Puerta Sur: «Los koloss bajan hacia las aldeas».","goal":"Los koloss bajan a una aldea skaa.","foes":{"koloss_joven":6},"ends":{"evacuar":{"text":"Sacar a todos","sets":["skaa_aldea"]},"emboscar":{"text":"Usarla de cebo y emboscar","sets":["sabe_carros"]}},"late":[{"after":3,"warn":"Se ve humo al sur.","text":"Queman la aldea, y aparecen refugiados en el barrio skaa.","lost":true,"sets":["aldea_quemada"]}]},"jastes":{"act":2,"kind":"side","title":"El noble de los koloss","giver":"jastes","place":"darsena","needs":["rastros"],"learn":["rumor"],"heard":"En el puerto: «Hay un noble que compra carne para miles, y no tiene gente».","goal":"Encontrar a Jastes Lekal.","foes":{"guardia_casa":4},"ends":{"comprar":{"text":"Comprarle el secreto de los koloss","sets":["secreto_koloss"]},"matar":{"text":"Matarlo"}}},"jefe":{"act":2,"kind":"main","spine":4,"title":"El que los manda","giver":"ham","backup":"clubs","place":"montes","needs":["rastros"],"learn":["banda"],"heard":"Ham: «Los rastros suben a los montes. Ahí está el grande».","goal":"Cazar al koloss jefe: en su cuerpo hay clavos del Ministerio.","foes":{"koloss_adulto":2,"koloss_jefe":1},"ends":{"ok":{"text":"Matarlo y llevarse los clavos"}}},"regreso":{"act":2,"kind":"side","title":"Un muerto que camina","giver":"kelsier","place":"taller","needs":["jefe"],"learn":["banda"],"heard":"Al volver al sótano hay alguien sentado a la mesa.","goal":"Vuelve Kelsier, a quien la banda daba por muerto, con un plan propio.","foes":{},"ends":{"seguirlo":{"text":"Seguir su plan","sets":["aliado_kelsier"]},"rechazar":{"text":"Seguir sin él: usa a la gente","sets":["kelsier_rival"]}}},"ejercito_koloss":{"act":2,"kind":"main","spine":5,"title":"La Puerta Este","giver":"ham","backup":"clubs","place":"puerta_este","needs":["jefe"],"learn":["banda","rumor"],"heard":"Campanas en toda la ciudad, y Ham: «Ya están acá».","goal":"Llega el ejército koloss. Aguantar la puerta.","foes":{"koloss_joven":14,"koloss_adulto":6,"koloss_jefe":1},"ends":{"ok":{"text":"Aguantar"}}},"cuartel":{"act":2,"kind":"main","spine":6,"title":"El ejército que no sale","giver":"dockson","backup":"clubs","place":"cuartel_sur","needs":["ejercito_koloss"],"learn":["banda"],"heard":"Dockson: «Mil soldados miraron cómo ardía el este. ¿Por qué?».","goal":"Averiguar por qué no salieron y dejarlos sin armas.","foes":{"soldado":12},"ends":{"sabotaje":{"text":"Quemar la armería de noche","sets":["sin_armeria"]},"frontal":{"text":"Entrar por el portón"}}},"mataneblinos":{"act":2,"kind":"main","spine":6,"title":"Los que pelean sin metal","giver":"ham","backup":"clubs","place":"bosque","needs":["ejercito_koloss"],"learn":["banda","rumor"],"heard":"Ham: «Cazan alománticos, y tu acero no les hace nada».","goal":"Una compañía de mataneblinos: madera y obsidiana.","teaches":"Pelear sin agarrar metal","foes":{"mataneblino":10},"ends":{"aprender":{"text":"Atrapar al capitán y aprender su equipo","sets":["armadura_madera"]},"aplastar":{"text":"Acabar con todos"}}},"brumosos":{"act":2,"kind":"main","spine":6,"title":"Los perros del Ministerio","giver":"breeze","backup":"clubs","place":"cuartel_sur","needs":["ejercito_koloss"],"learn":["banda"],"heard":"Breeze: «El Ministerio contrató a los nuestros».","goal":"Un escuadrón de brumosos: violentos y lanzamonedas.","foes":{"violento":4,"lanzamonedas":4},"ends":{"ok":{"text":"Romper el escuadrón"}}},"banda_forja":{"act":2,"kind":"side","title":"Gente como ustedes","giver":"breeze","place":"forja","needs":["rastros"],"learn":["rumor"],"heard":"En la Forja: «Hay que pagarles para que no te rompan el taller».","goal":"Una banda de brumosos cobra protección en la Forja.","foes":{"violento":3,"lanzamonedas":2},"ends":{"sumar":{"text":"Vencer a su jefa y sumarlos","sets":["brumosos_aliados"]},"romper":{"text":"Romper la banda"}},"late":[{"after":6,"warn":"Vieron a la jefa de la Forja hablando con un obligador.","text":"Se pasan al Ministerio y aparecen en la procesión.","lost":true,"sets":["brumosos_enemigos"]}]},"pista_libros":{"act":2,"kind":"side","title":"Las cuentas no dan","giver":"clubs","place":"taller","needs":["rastros"],"learn":["npc"],"heard":"Clubs, al pasar: «Alguien de acá sabía lo de la Puerta antes que nosotros».","goal":"Primera pista del kandra: revisar quién supo qué.","foes":{},"ends":{"ok":{"text":"Anotarlo en el cuaderno","sets":["pista_kandra_1"]}}},"pista_huesos":{"act":2,"kind":"side","title":"Huesos limpios","giver":"","place":"darsena","needs":["jefe"],"learn":["lugar","rumor"],"heard":"En el puerto: «Encontraron un esqueleto sin una sola marca».","goal":"Segunda pista del kandra: un cuerpo vaciado.","foes":{"espectro":2},"ends":{"ok":{"text":"Reconocer de quién era","sets":["pista_kandra_2"]}}},"clavos":{"act":3,"kind":"main","spine":7,"title":"Clavos","giver":"terrisano","backup":"clubs","place":"taller","needs":["cuartel","mataneblinos","brumosos"],"learn":["banda"],"heard":"Sazed pide a todos en el sótano.","goal":"Sazed reconoce los clavos: el Ministerio hace a los koloss y los suelta cuando quiere castigar.","foes":{},"ends":{"ok":{"text":"Ir contra el Ministerio"}}},"plaza":{"act":3,"kind":"main","spine":7,"title":"Ejecuciones en la plaza","giver":"terrisano","backup":"clubs","place":"plaza","needs":["clavos"],"learn":["rumor","banda"],"heard":"Pregoneros en toda la ciudad: habrá ejecuciones en la plaza.","goal":"Los obligadores van a ejecutar a un grupo de skaa.","foes":{"obligador":5,"soldado":8},"ends":{"rescatar":{"text":"Atacar y rescatarlos","sets":["skaa_plaza"]},"esperar":{"text":"No delatarse y seguir a los obligadores","sets":["pista_ministerio"]}}},"marsh":{"act":3,"kind":"main","spine":7,"title":"Un obligador que no parpadea","giver":"marsh","backup":"terrisano","place":"ministerio","needs":["clavos"],"learn":["banda"],"heard":"Una nota sin firma: «Hay uno de los suyos adentro».","goal":"Entrar al Ministerio y encontrar al infiltrado. Ofrece una entrada por abajo de Kredik Shaw.","foes":{"obligador":4},"ends":{"confiar":{"text":"Confiar en él","sets":["aliado_marsh"]},"desconfiar":{"text":"Robarle los planos y seguir sin él","sets":["planos_kredik"]}}},"yomen":{"act":3,"kind":"side","title":"Un obligador que manda","giver":"yomen","place":"ministerio","needs":["clavos"],"learn":["rumor"],"heard":"Llegó de otra ciudad un obligador que gobierna, y no todos lo quieren acá.","goal":"Yomen vino a Luthadel a pedir cuentas por los koloss.","foes":{"obligador":2},"ends":{"convencer":{"text":"Mostrarle los clavos","sets":["yomen_rompe"]},"denunciar":{"text":"Delatarlo para ganar tiempo"}}},"inquisidor":{"act":3,"kind":"main","spine":8,"title":"El que los huele","giver":"spook","backup":"ham","place":"mercado","needs":["plaza","marsh"],"learn":["banda","lugar"],"heard":"Spook: «Te viene siguiendo. No es un hombre».","goal":"Un inquisidor los caza. Pelearlo y verlo levantarse.","foes":{"inquisidor":1},"ends":{"ok":{"text":"Matarlo y quedarse con sus clavos"}}},"procesion":{"act":3,"kind":"main","spine":9,"title":"La procesión","giver":"ham","backup":"clubs","place":"asamblea","needs":["inquisidor"],"learn":["banda","rumor"],"heard":"Toda la avenida cerrada: pasa la escolta.","goal":"Obligadores y guerreros mezclados cruzan la avenida con lo que el Ministerio guarda.","foes":{"obligador":4,"soldado":10,"lanzamonedas":2},"ends":{"ok":{"text":"Romper la escolta"}}},"convencer_tindwyl":{"act":3,"kind":"side","title":"Una terrisana que no perdona","giver":"tindwyl","place":"taller","needs":["clavos","mensajero_muerto"],"learn":["npc"],"heard":"Sazed: «Tindwyl no quiere verlos. Hay que ganárselo».","goal":"Solo si murió el mensajero: recuperar sus papeles en el bosque.","foes":{"espectro":8,"koloss_adulto":1},"ends":{"ok":{"text":"Devolverlos","sets":["amigo_terris"]}}},"archivo":{"act":3,"kind":"side","title":"Lo que recuerda un terrisano","giver":"terrisano","place":"montes","needs":["clavos","amigo_terris"],"learn":["npc"],"heard":"Sazed: «El mensajero traía un camino. Lleva a unas ruinas».","goal":"El Lord Legislador se cura con una reserva escondida.","foes":{"espectro":8,"inquisidor":1},"ends":{"ok":{"text":"Saber dónde está la reserva","sets":["sabe_reserva"]}}},"baile":{"act":4,"kind":"main","spine":10,"title":"Un baile en Casa Venture","giver":"breeze","backup":"dockson","place":"venture","needs":["procesion"],"learn":["banda"],"heard":"Breeze trae invitaciones que no deberían existir.","goal":"Las casas le compran atium al Ministerio. Entrar disfrazados y escuchar. Conocen a Elend.","foes":{},"ends":{"ok":{"text":"Salir con nombres"}}},"hastings":{"act":4,"kind":"main","spine":10,"title":"Los libros de Hastings","giver":"dockson","backup":"breeze","place":"hastings","needs":["baile"],"learn":["banda"],"heard":"Dockson: «Hastings paga por los koloss. Está en sus libros».","goal":"Lord Hastings paga por los koloss para arruinar a sus rivales.","foes":{"guardia_casa":10},"ends":{"chantaje":{"text":"Chantajearlo: abre una puerta de atrás","sets":["hastings_comprado"]},"quemar":{"text":"Quemar la casa"}}},"lorch":{"act":4,"kind":"main","spine":10,"title":"La guerra de los Lorch","giver":"dockson","backup":"breeze","place":"lorch","needs":["baile"],"learn":["banda"],"heard":"Dockson: «Sin los Lorch, nadie cubre a los demás».","goal":"Asaltar a Casa Lorch, con sus guardias y su brumoso.","foes":{"guardia_casa":10,"violento":1},"ends":{"ok":{"text":"Dejarla sin ejército"}}},"venture_elend":{"act":4,"kind":"side","title":"El heredero","giver":"elend","place":"venture","needs":["baile"],"learn":["npc"],"heard":"Elend, en el baile: «Búsquenme. Mi padre no es la única opción».","goal":"Elend quiere frenar a su padre desde adentro.","foes":{"guardia_casa":6},"ends":{"ayudar":{"text":"Ayudarlo a tomar la casa","sets":["aliado_elend"],"locks":["venture_asalto","straff"]}}},"venture_asalto":{"act":4,"kind":"side","title":"Ningún Venture","giver":"kelsier","place":"venture","needs":["baile","aliado_kelsier"],"learn":["npc"],"heard":"Kelsier: «No hay nobles buenos».","goal":"Tomar la mansión por la fuerza.","foes":{"guardia_casa":14,"mistborn":1},"ends":{"tomar":{"text":"Tomarla","locks":["venture_elend","straff"]}}},"straff":{"act":4,"kind":"side","title":"Una oferta de Straff","giver":"straff","place":"venture","needs":["baile"],"learn":["npc"],"heard":"Una carta con el sello de Venture.","goal":"Straff quiere comprar a la banda.","foes":{},"ends":{"aceptar":{"text":"Aceptar y traicionarlo más tarde","sets":["hastings_comprado"],"locks":["venture_elend","venture_asalto"]},"rechazar":{"text":"Rechazarlo: manda a su Mistborn","sets":["cazador_straff"]}}},"cett":{"act":4,"kind":"side","title":"Un señor de visita","giver":"cett","place":"asamblea","needs":["baile"],"learn":["rumor"],"heard":"En la Asamblea: «Cett trajo más soldados de los que dijo».","goal":"Cett busca qué sacar del caos.","foes":{"soldado":6},"ends":{"pacto":{"text":"Pactar: sus soldados contra los refuerzos","sets":["soldados_cett"]},"echarlo":{"text":"Echarlo de la ciudad"}},"late":[{"after":11,"warn":"Cett está levantando el campamento.","text":"Cett se va y sus soldados quedan fuera.","lost":true}]},"pista_voz":{"act":4,"kind":"side","title":"No sos vos","giver":"","place":"taller","needs":["baile","pista_kandra_1","pista_kandra_2"],"learn":["lugar"],"heard":"Con las dos primeras pistas, el cuaderno señala a alguien de la mesa.","goal":"Tercera pista del kandra: hacerle una pregunta que solo el verdadero sabe.","foes":{},"ends":{"ok":{"text":"Confirmarlo","sets":["pista_kandra_3"]}}},"kandra":{"act":4,"kind":"side","title":"Lo que se sienta a la mesa","giver":"kandra","place":"taller","needs":["pista_kandra_3"],"learn":["npc"],"heard":"Con las tres pistas, se lo puede enfrentar.","goal":"Enfrentar al kandra. Reemplazó a Dockson, Breeze o Spook, según la partida.","foes":{"kandra":1},"ends":{"matar":{"text":"Matarlo"},"usar":{"text":"Usarlo para filtrar mentiras","sets":["secreto_koloss"]},"contrato":{"text":"Comprarle el contrato: se suma a la banda","sets":["kandra_aliado"]}},"late":[{"after":8,"warn":"El Ministerio sabe demasiado sobre el sótano.","text":"Allanan el taller: Clubs cae y la base pasa a la Dársena.","sets":["taller_perdido"]},{"after":11,"warn":"Alguien de la mesa no vino hoy.","text":"El kandra entrega al grupo, y el último tramo arranca emboscado.","lost":true,"sets":["emboscada_kandra"]}]},"cazadores":{"act":4,"kind":"main","spine":11,"title":"Los que pelean de noche","giver":"spook","backup":"ham","place":"barrio_skaa","needs":["hastings","lorch"],"learn":["banda","lugar"],"heard":"Alguien vuela sobre el barrio, y Spook avisa: «No son de los nuestros».","goal":"Las casas mandan a sus Mistborn contra la banda, sobre los tejados, en la bruma.","foes":{"mistborn":3},"ends":{"ok":{"text":"Vencerlos"}}},"vin":{"act":4,"kind":"side","title":"La de los tejados","giver":"vin","place":"barrio_skaa","needs":["cazadores"],"learn":["lugar"],"heard":"Una figura los mira desde el tejado, noche tras noche.","goal":"Una Mistborn sin casa los viene siguiendo, y los prueba a duelo.","foes":{"vin":1},"ends":{"sumar":{"text":"Ganarle y ofrecerle la banda","sets":["aliada_vin"]},"rival":{"text":"Ganarle y dejarla ir"}}},"reserva":{"act":4,"kind":"side","title":"La reserva","giver":"terrisano","place":"kredik","needs":["sabe_reserva"],"learn":["npc"],"heard":"Sazed: «Hay un camino por los subniveles. Cruza la bruma solo por ahí».","goal":"Bajar a los subniveles y vaciar lo que cura al Lord Legislador.","foes":{"inquisidor":2,"obligador":4},"ends":{"ok":{"text":"Vaciarla","sets":["secreto_reserva"]}}},"f_levantamiento":{"act":5,"kind":"main","spine":12,"title":"El barrio se levanta","giver":"terrisano","backup":"clubs","place":"barrio_skaa","needs":["cazadores"],"any":[2,["skaa_corrales","skaa_aldea","skaa_plaza"]],"learn":["npc"],"heard":"Los skaa que salvaron los buscan en la calle.","goal":"Los skaa marchan a la rampa: un ejército contra otro, y ustedes por el medio.","foes":{"soldado":30,"obligador":6},"ends":{"ok":{"text":"Llegar a la Gran Entrada","locks":["f_invitado","f_debajo","f_fuerza"]}}},"f_invitado":{"act":5,"kind":"main","spine":12,"title":"Con invitación","giver":"elend","backup":"breeze","place":"kredik","needs":["cazadores","aliado_elend"],"learn":["npc"],"heard":"Elend: «Casa Venture sube a Kredik Shaw. Vengan conmigo».","goal":"Entrar con la comitiva de Casa Venture, y pelear solo cuando ya es tarde.","foes":{"inquisidor":2},"ends":{"ok":{"text":"Llegar al trono","locks":["f_levantamiento","f_debajo","f_fuerza"]}}},"f_debajo":{"act":5,"kind":"main","spine":12,"title":"Por abajo","giver":"marsh","backup":"terrisano","place":"kredik","needs":["cazadores"],"any":[1,["aliado_marsh","planos_kredik"]],"learn":["npc"],"heard":"Marsh, o los planos robados: el pozo de los subniveles.","goal":"Subir desde el pozo de los subniveles.","foes":{"inquisidor":3,"obligador":6},"ends":{"ok":{"text":"Llegar al trono","locks":["f_levantamiento","f_invitado","f_fuerza"]}}},"f_fuerza":{"act":5,"kind":"main","spine":12,"title":"A los golpes","giver":"","place":"kredik","needs":["cazadores"],"learn":["banda"],"heard":"Siempre disponible: el camino de quien no consiguió otro.","goal":"Subir la rampa, contra todo lo que quede.","foes":{"soldado":20,"obligador":6,"inquisidor":3},"ends":{"ok":{"text":"Llegar al trono","locks":["f_levantamiento","f_invitado","f_debajo"]}}},"f_trono":{"act":5,"kind":"main","spine":12,"title":"El Lord Legislador","giver":"","place":"kredik","needs":[],"any":[1,["f_levantamiento","f_invitado","f_debajo","f_fuerza"]],"learn":["lugar"],"heard":"Al abrirse el salón del trono.","goal":"Pelear con él. Llega más débil según lo que hicieron.","foes":{"lord_ruler":1},"ends":{"matar":{"text":"Matarlo"}}}},"hosts":["dockson","breeze","spook"],"gates":[{"name":"Puerta Este","at":[336.260009765625,-136.020004272461]},{"name":"Puerta Sur","at":[-30.5,428.0]},{"name":"Puerta Oeste","at":[-368.0,-61.0]}],"wall":[[-4.0,-473.0],[107.0,-454.0],[193.0,-406.0],[257.0,-335.0],[301.0,-250.0],[344.0,-111.0],[351.0,32.0],[351.0,160.0],[353.0,267.0],[328.0,346.0],[221.0,397.0],[103.0,435.0],[-164.0,421.0],[-264.0,349.0],[-329.0,253.0],[-360.0,146.0],[-369.0,46.0],[-367.0,-168.0],[-337.0,-264.0],[-275.0,-357.0],[-185.0,-421.0],[-93.0,-460.0]],"river":[[178.0,-538.0],[225.0,-417.0],[292.0,-335.0],[339.0,-246.0],[364.0,-146.0],[353.0,-82.0],[292.0,-39.0],[225.0,11.0],[182.0,71.0],[171.0,128.0],[203.0,178.0],[260.0,225.0],[314.0,275.0],[371.0,324.0],[428.0,431.0],[485.0,602.0]]};
+const Q = D.quests, ids = Object.keys(Q);
+const KIND = {main: "Principal", side: "Secundaria", teacher: "Maestro", guardian: "Guardián"};
+const KCOL = {main: "--ember", side: "--steel", teacher: "--moss", guardian: "--blood"};
+const HOW = {npc: "Un NPC te lo pide", banda: "La banda avisa en el taller", rumor: "Rumor en la calle", lugar: "Lo descubrís al llegar"};
+const el = (t, a = {}, ...kids) => { const e = document.createElement(t); for (const k in a) { if (k === "cls") e.className = a[k]; else if (k === "on") e.onclick = a[k]; else e.setAttribute(k, a[k]); } e.append(...kids.filter(x => x != null)); return e; };
+const npcName = id => id ? D.npcs[id].name : "Nadie: arranca solo";
+const results = q => Object.values(q.ends).concat(q.late || []);
+const flagFrom = {};
+for (const id of ids) for (const e of results(Q[id])) for (const f of e.sets || []) (flagFrom[f] = flagFrom[f] || []).push(id);
+const needsOf = q => q.needs.concat(q.any ? q.any[1] : []);
+const opensOf = id => { const flags = new Set([id]); for (const e of results(Q[id])) (e.sets || []).forEach(f => flags.add(f)); return ids.filter(o => needsOf(Q[o]).some(n => flags.has(n))); };
+const locksOf = id => [...new Set(Object.values(Q[id].ends).flatMap(e => e.locks || []))];
+const fromOf = n => Q[n] ? [n] : (flagFrom[n] || []);
+
+// Desde qué principal puede estar abierta cada misión.
+const depth = {};
+function depthOf(id, seen = new Set()) {
+  if (depth[id] != null) return depth[id];
+  if (seen.has(id)) return 0;
+  seen.add(id);
+  const q = Q[id];
+  const ofNeed = n => Q[n] ? depthOf(n, seen) : (D.marks[n] ? Math.min(...(flagFrom[n] || []).map(s => {
+    const l = (Q[s].late || []).find(x => (x.sets || []).includes(n));
+    return l ? l.after : depthOf(s, seen);
+  })) : 0);
+  let d = Math.max(0, ...q.needs.map(ofNeed));
+  if (q.any) { const a = q.any[1].map(ofNeed).sort((x, y) => x - y); d = Math.max(d, a[q.any[0] - 1]); }
+  if (q.kind === "main") d = Math.max(d, q.spine);
+  return depth[id] = d;
+}
+ids.forEach(i => depthOf(i));
+
+const nMain = new Set(ids.filter(i => Q[i].kind === "main").map(i => Q[i].spine)).size;
+const nDec = ids.reduce((s, i) => s + (Object.keys(Q[i].ends).length > 1 ? 1 : 0), 0);
+const nLate = ids.filter(i => Q[i].late).length;
+document.getElementById("sum").textContent = `${ids.length} misiones: ${nMain} tramos principales, ${nDec} con decisión y ${nLate} con consecuencias si no las hacés. Tocá una para ver qué pide, qué abre y cómo te enterás. Es un plan: nada de esto está jugable todavía.`;
+
+// Pestañas
+const TABS = {decisiones: "Decisiones", mapa: "Puntos en el mapa", personajes: "Personajes", reglas: "Reglas y orden"};
+const tabs = document.getElementById("tabs");
+function show(name) {
+  if (!TABS[name]) name = "decisiones";
+  for (const k in TABS) { document.getElementById("v-" + k).classList.toggle("on", k === name); document.getElementById("t-" + k).classList.toggle("on", k === name); }
+  if (name === "decisiones") requestAnimationFrame(drawEdges);
+}
+for (const k in TABS) tabs.append(el("button", {id: "t-" + k, on: () => { location.hash = k; show(k); }}, TABS[k]));
+addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+// Tablero
+let filter = "todas", sel = "tejados";
+const FILTERS = {todas: "Todas", main: "Solo principales", side: "Secundarias", decide: "Con decisión", late: "Con consecuencia"};
+const fbox = document.getElementById("filters");
+for (const k in FILTERS) fbox.append(el("button", {cls: "chip", id: "f-" + k, on: () => { filter = k; renderBoard(); }}, FILTERS[k]));
+const passes = q => filter === "todas" || (filter === "main" && q.kind === "main") || (filter === "side" && q.kind !== "main") || (filter === "decide" && Object.keys(q.ends).length > 1) || (filter === "late" && q.late);
+function renderBoard() {
+  for (const k in FILTERS) document.getElementById("f-" + k).classList.toggle("on", k === filter);
+  const box = document.getElementById("acts"); box.textContent = "";
+  for (const a in D.acts) {
+    const list = ids.filter(i => String(Q[i].act) === a && passes(Q[i]));
+    if (!list.length) continue;
+    const [nm, rest] = D.acts[a].split(": ");
+    const cards = el("div", {cls: "cards"});
+    for (const i of list) {
+      const q = Q[i], tags = el("div", {cls: "tags"});
+      if (q.spine) tags.append(el("span", {cls: "tag"}, "Principal " + q.spine));
+      if (Object.keys(q.ends).length > 1) tags.append(el("span", {cls: "tag dec"}, "Decisión"));
+      if (q.late) tags.append(el("span", {cls: "tag warn"}, "Consecuencia"));
+      if (!D.places[q.place].ready) tags.append(el("span", {cls: "tag"}, "Lugar por hacer"));
+      cards.append(el("button", {cls: "card " + q.kind, id: "c-" + i, on: () => pick(i)}, el("b", {}, q.title), el("small", {}, D.places[q.place].name), tags));
+    }
+    box.append(el("div", {cls: "act"}, el("h2", {}, nm, el("span", {}, rest)), cards));
+  }
+  mark(); drawEdges();
+}
+function mark() {
+  const need = new Set(needsOf(Q[sel]).flatMap(fromOf)), open = new Set(opensOf(sel)), lock = new Set(locksOf(sel));
+  for (const i of ids) {
+    const c = document.getElementById("c-" + i); if (!c) continue;
+    c.className = "card " + Q[i].kind + (i === sel ? " sel" : "") + (need.has(i) ? " need" : "") + (open.has(i) ? " open" : "") + (lock.has(i) ? " lock" : "");
+  }
+}
+function drawEdges() {
+  const svg = document.getElementById("edges"), b = document.getElementById("board").getBoundingClientRect();
+  svg.textContent = "";
+  if (!b.width) return;
+  svg.setAttribute("viewBox", `0 0 ${b.width} ${b.height}`);
+  const s = document.getElementById("c-" + sel); if (!s) return;
+  const line = (from, to, col, dash) => {
+    const A = from.getBoundingClientRect(), B = to.getBoundingClientRect();
+    const down = B.top > A.top + 4, up = B.top < A.top - 4;
+    const x1 = A.left + A.width / 2 - b.left, y1 = (down ? A.bottom : up ? A.top : A.top + A.height / 2) - b.top;
+    const x2 = B.left + B.width / 2 - b.left, y2 = (down ? B.top : up ? B.bottom : B.top + B.height / 2) - b.top;
+    const m = (y1 + y2) / 2, p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", `M${x1} ${y1} C${x1} ${m} ${x2} ${m} ${x2} ${y2}`);
+    p.setAttribute("fill", "none"); p.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue(col));
+    p.setAttribute("stroke-width", "2"); p.setAttribute("opacity", ".75"); if (dash) p.setAttribute("stroke-dasharray", "5 4");
+    svg.append(p);
+  };
+  const q = Q[sel];
+  for (const n of q.needs) for (const f of fromOf(n)) { const c = document.getElementById("c-" + f); if (c) line(c, s, "--ember", false); }
+  if (q.any) for (const n of q.any[1]) for (const f of fromOf(n)) { const c = document.getElementById("c-" + f); if (c) line(c, s, "--ember", true); }
+  for (const o of opensOf(sel)) { const c = document.getElementById("c-" + o); if (c) line(s, c, "--steel", false); }
+  for (const o of locksOf(sel)) { const c = document.getElementById("c-" + o); if (c) line(s, c, "--blood", true); }
+}
+addEventListener("resize", drawEdges);
+
+// Detalle
+const qLink = (id, cls = "link") => el("button", {cls, on: () => pick(id, true)}, Q[id].title);
+function needItem(n) {
+  if (Q[n]) return el("li", {}, qLink(n, "link need-link"));
+  const li = el("li", {}, D.marks[n] || n);
+  const src = flagFrom[n] || [];
+  if (src.length) { li.append(" (viene de "); src.forEach((s, i) => { if (i) li.append(", "); li.append(qLink(s, "link need-link")); }); li.append(")"); }
+  return li;
+}
+function renderPanel() {
+  const q = Q[sel], p = document.getElementById("panel"); p.textContent = "";
+  p.append(el("button", {id: "close", "aria-label": "Cerrar", on: () => { p.classList.remove("show"); document.body.classList.remove("sheet"); }}, "×"));
+  p.append(el("h3", {}, q.title));
+  p.append(el("p", {style: "color:var(--dim)"}, `${KIND[q.kind]}${q.spine ? " " + q.spine + " de 12" : ""} · Acto ${q.act} · ${D.places[q.place].name}${D.places[q.place].ready ? "" : " (por construir)"}`));
+  p.append(el("p", {}, q.goal));
+  p.append(el("h4", {}, "Cómo te enterás"), el("p", {cls: "heard"}, q.heard), el("p", {style: "font-size:13px;color:var(--dim)"}, q.learn.map(h => HOW[h]).join(" · ") + (q.giver ? ` · La da ${npcName(q.giver)}` : "") + (q.backup ? `; si no está, ${npcName(q.backup)}` : "")));
+  if (q.needs.length || q.any) {
+    p.append(el("h4", {}, "Qué pide"));
+    const ul = el("ul");
+    q.needs.forEach(n => ul.append(needItem(n)));
+    p.append(ul);
+    if (q.any) { p.append(el("p", {style: "margin-top:6px"}, `Y ${q.any[0]} de estas:`)); const u2 = el("ul"); q.any[1].forEach(n => u2.append(needItem(n))); p.append(u2); }
+  }
+  const ends = Object.values(q.ends);
+  p.append(el("h4", {}, ends.length > 1 ? "Cómo la resolvés (elegís)" : "Cómo termina"));
+  const eu = el("ul");
+  for (const e of ends) {
+    const li = el("li", {}, e.text);
+    (e.sets || []).forEach(f => li.append(el("span", {cls: "eff"}, "→ " + D.marks[f])));
+    if (e.locks && !sel.startsWith("f_")) { const s = el("span", {cls: "eff"}, "Cierra: "); e.locks.forEach((l, i) => { if (i) s.append(", "); s.append(qLink(l)); }); li.append(s); }
+    if (e.locks && sel.startsWith("f_")) li.append(el("span", {cls: "eff"}, "Cierra los otros caminos a Kredik Shaw."));
+    eu.append(li);
+  }
+  p.append(eu);
+  if (q.late) {
+    p.append(el("h4", {}, "Si no la hacés"));
+    const u = el("ul");
+    for (const l of q.late) {
+      const li = el("li", {}, `Tras ${l.after} principales: ${l.text}`);
+      li.append(el("span", {cls: "eff"}, `Te avisa un rumor una principal antes: «${l.warn}»`));
+      if (l.lost) li.append(el("span", {cls: "eff"}, "La misión se pierde."));
+      u.append(li);
+    }
+    p.append(u);
+  }
+  const opens = opensOf(sel);
+  if (opens.length) { p.append(el("h4", {}, "Qué abre")); const u = el("ul"); opens.forEach(o => u.append(el("li", {}, qLink(o)))); p.append(u); }
+  if (Object.keys(q.foes).length) p.append(el("h4", {}, "Contra quién"), el("p", {}, Object.entries(q.foes).map(([f, n]) => `${n} ${D.foes[f].name}`).join(", ")));
+  if (q.teaches) p.append(el("h4", {}, "Qué enseña"), el("p", {}, q.teaches));
+}
+function pick(id, scroll) {
+  sel = id; renderPanel(); mark(); drawEdges();
+  if (innerWidth <= 860) { document.getElementById("panel").classList.add("show"); document.body.classList.add("sheet"); }
+  document.getElementById("panel").scrollTop = 0;
+  if (scroll) { const c = document.getElementById("c-" + id); if (c) c.scrollIntoView({block: "center", behavior: "smooth"}); requestAnimationFrame(drawEdges); }
+}
+
+// Mapa
+const SVGNS = "http://www.w3.org/2000/svg";
+const S = (t, a = {}, txt) => { const e = document.createElementNS(SVGNS, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+const col = v => getComputedStyle(document.documentElement).getPropertyValue(v);
+function renderMap() {
+  const n = +document.getElementById("prog").value;
+  document.getElementById("progn").textContent = n;
+  const w = document.getElementById("world"); w.textContent = "";
+  w.setAttribute("viewBox", "-760 -720 1520 1520");
+  const poly = pts => pts.map(p => p.join(",")).join(" ");
+  w.append(S("rect", {x: -760, y: -720, width: 1520, height: 1520, fill: col("--ash")}));
+  w.append(S("polyline", {points: poly(D.river), fill: "none", stroke: "#2d4556", "stroke-width": 26}));
+  w.append(S("polygon", {points: poly(D.wall), fill: col("--slate"), stroke: col("--dim"), "stroke-width": 4}));
+  w.append(S("text", {x: 0, y: -60, fill: col("--dim"), "font-size": 24, "text-anchor": "middle", "font-family": "Spectral, serif"}, "Luthadel"));
+  w.append(S("circle", {cx: -4, cy: -328, r: 84, fill: "none", stroke: col("--blood"), "stroke-width": 3, "stroke-dasharray": "8 7"}));
+  w.append(S("text", {x: -4, y: -424, fill: col("--blood"), "font-size": 20, "text-anchor": "middle"}, "Bruma mortal"));
+  for (const g of D.gates) { w.append(S("rect", {x: g.at[0] - 8, y: g.at[1] - 8, width: 16, height: 16, fill: col("--mist")})); }
+  const by = {};
+  for (const i of ids) { const pl = D.places[Q[i].place]; if (!pl.at || depth[i] > n) continue; (by[Q[i].place] = by[Q[i].place] || []).push(i); }
+  for (const pid in by) {
+    const at = D.places[pid].at;
+    by[pid].forEach((i, k) => {
+      const q = Q[i], total = by[pid].length, a = total > 1 ? k / total * 6.283 : 0, r = total > 1 ? 13 + total * 4 : 0;
+      const x = at[0] + Math.cos(a) * r, y = at[1] + Math.sin(a) * r;
+      const g = S("g", {class: "pt", tabindex: 0, role: "button", "aria-label": q.title});
+      g.append(S("title", {}, `${q.title} (${D.places[pid].name})`));
+      g.append(S("circle", {cx: x, cy: y, r: q.kind === "main" ? 16 : 13, fill: col(KCOL[q.kind]), stroke: col("--ash"), "stroke-width": 3}));
+      const tx = q.spine || (q.learn[0] === "rumor" ? "?" : "");
+      if (tx !== "") g.append(S("text", {x, y: y + 6, "text-anchor": "middle", "font-size": 16, "font-weight": 600, fill: col("--ash")}, tx));
+      const open = () => { location.hash = "decisiones"; show("decisiones"); pick(i, true); };
+      g.addEventListener("click", open); g.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
+      w.append(g);
+    });
+  }
+  for (const pid in D.places) {
+    const pl = D.places[pid]; if (!pl.marks || !pl.at) continue;
+    if (depth.el_taller > n && pid === "taller") continue;
+    w.append(S("text", {x: pl.at[0], y: pl.at[1] + 48, "text-anchor": "middle", "font-size": 18, fill: col("--brass")}, pl.marks.join(" · ")));
+  }
+  const hidden = ids.filter(i => !D.places[Q[i].place].at && depth[i] <= n).length;
+  const lg = document.getElementById("legend"); lg.textContent = "";
+  for (const k in KIND) lg.append(el("span", {}, Object.assign(el("i"), {style: `background:var(${KCOL[k]})`}), KIND[k]));
+  lg.append(el("span", {}, "Número: principal. ? : llega por rumor."), el("span", {}, "Cuadrados blancos: puertas."));
+  if (hidden) lg.append(el("span", {}, `Más ${hidden} en el sótano de Clubs, que no van en el mapa.`));
+}
+document.getElementById("prog").addEventListener("input", renderMap);
+
+// Personajes
+function renderCast() {
+  const usedBy = who => ids.filter(i => Q[i].giver === who).length;
+  const t = document.getElementById("npcs");
+  t.append(el("tr", {}, ...["Quién", "Qué puede cambiar", "Misiones que da", "Modelo", "Clips"].map(h => el("th", {}, h))));
+  for (const k in D.npcs) {
+    const n = D.npcs[k];
+    t.append(el("tr", {}, el("td", {}, el("b", {}, n.name), n.ally ? el("span", {cls: "eff"}, "Puede acompañar al grupo") : null), el("td", {}, n.role), el("td", {}, String(usedBy(k))),
+      el("td", {cls: n.model ? "ok" : "no"}, n.model ? "Hecho" : "Falta"), el("td", {cls: n.clips ? "ok" : "no"}, n.clips ? "Hechos" : "Faltan")));
+  }
+  const f = document.getElementById("foes");
+  f.append(el("tr", {}, ...["Enemigo", "Estado", "Qué falta"].map(h => el("th", {}, h))));
+  for (const k in D.foes) {
+    const e = D.foes[k], placeholder = e.kit && e.note;
+    f.append(el("tr", {}, el("td", {}, e.name), el("td", {cls: e.kit ? (placeholder ? "mid" : "ok") : "no"}, e.kit ? (placeholder ? "Pelea, con modelo prestado" : "Pelea") : "Por hacer"), el("td", {}, e.note || "")));
+  }
+}
+
+// Reglas
+function renderRules() {
+  const R = [
+    ["Del inicio al mundo abierto", "ol", ["Se juntan en la sala y cada uno elige personaje. Arrancan con moneda y tirón básicos.", "Una patrulla los persigue por los tejados del barrio skaa.", "Los atrapan y los mandan a un foso de ceniza.", "Escapan a las afueras: espectros chicos, y koloss a lo lejos.", "Sazed los lleva al taller de Clubs.", "Los maestros muestran los estilos. Se puede saltear y volver a consultar.", "Se abre el mundo."]],
+    ["Grupo", "ul", ["De 1 a 4 jugadores, en la partida guardada del anfitrión, que es el líder y puede pasarle el mando a otro.", "El líder acepta misiones y decide. Se avisa a todos y se esperan unos segundos antes de una decisión o un jefe.", "Se puede entrar en cualquier momento. Si el anfitrión se va, se guarda y termina para todos.", "Cada uno anda libre por el mapa. Se pueden repetir personajes, con otro color de capa.", "Los NPC les hablan en plural; jugando solo, en singular.", "Experiencia compartida. Los objetos son de quien los agarre primero.", "Un aliado por grupo, elegido por el líder.", "Si caés te pueden levantar. Si caen todos, reaparecen en el sótano de Clubs.", "Más jugadores: +50 % de enemigos y +60 % de vida en jefes por cada uno (a ajustar)."]],
+    ["Cómo te enterás", "ul", ["Principales: te las da un NPC o avisa la banda en el taller.", "Secundarias: rumores, carteles, o al llegar al lugar.", "Cuaderno: lo pendiente, lo que sabés y lo que ya pasó. La misión que elegís seguir va a la brújula.", "Mapa de ciudad y mapa de región: el punto aparece cuando te enterás, y el lugar exacto al acercarte.", "Marcas: principal, secundaria, rumor, maestro, guardián, tienda y refugio. Cada tipo se puede ocultar."]],
+    ["Reglas del mundo", "ul", ["Las principales nunca se pierden; si cae quien las da, las da otro.", "Las secundarias traen consecuencias medidas por principales cumplidas, siempre avisadas por un rumor.", "Los NPC mueren solo por una decisión o una consecuencia avisada.", "Ciudad y afueras abiertas. Kredik Shaw con bruma mortal hasta que la historia la abra; mansiones con guardias.", "Monstruos comunes y guardias reaparecen; los guardianes también, pero su recompensa única es una sola vez.", "Tres partidas guardadas, con guardado automático al terminar cada misión y al salir.", `El kandra reemplaza al azar a ${D.hosts.map(h => D.npcs[h].name).join(", ")}. Sin descubrirlo: allanan el taller y después hay emboscada, pero siempre se puede terminar.`]],
+    ["Cómo llega el Lord Legislador", "ul", Object.values(D.finale).map(f => f.text + (f.off.length ? ` Pierde: ${f.off.join(", ")}.` : ""))],
+    ["Orden de construcción", "ol", ["Medir si Luthadel aguanta cuatro jugadores en red.", "Los cuatro caminando y peleando juntos en la ciudad.", "Primer tramo: principales 1 y 2, más una secundaria con decisión y consecuencia; conversación, cuaderno y marcas básicas.", "Modelos y clips que falten, a medida que los pida cada tramo."]],
+  ];
+  const box = document.getElementById("rules");
+  for (const [h, tag, items] of R) box.append(el("div", {}, el("h2", {}, h), el(tag, {}, ...items.map(t => el("li", {}, t)))));
+}
+
+renderBoard(); renderPanel(); renderMap(); renderCast(); renderRules();
+show(location.hash.slice(1));
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 class_name GateForces
 extends Node
-## Lo que espera afuera de cada puerta: koloss al este, el Lord Legislador al oeste, inquisidores al sur. Solo existen con
+## Lo que espera afuera de cada puerta: koloss al este, el Lord Legislador al oeste, inquisidores al sur. También los mataneblinos
+## del Bosque Muerto y la gente de la ciudad, plaza incluida (PEOPLE). Solo existen con
 ## el jugador cerca: el terreno no tiene colisión lejos de él, y se caerían.
 
 const ACTIVE_RADIUS := 130.0
@@ -8,7 +9,24 @@ const FREE_RADIUS := 170.0
 const GATE_POST := 35.0  # m afuera: lejos de los guardias de adentro
 const SPACING := 4.0
 const SPAWN_EVERY := 0.1  # de a uno, para que aparecer no trabe el juego
-const FOES := {"Puerta Este": 7, "Puerta Oeste": 1, "Puerta Sur": 3}
+const FOES := {"Puerta Este": 7, "Puerta Oeste": 1, "Puerta Sur": 3, HAZEKILLERS: 4}
+const HAZEKILLERS := "Bosque Muerto"
+const HAZEKILLER_POST := Vector2(-620, 620)
+## [modelo, XZ, radio por el que pasea]. Los lugares salen de Story.PLACES. "Soldado" y "Obligador" son de la guardia imperial.
+const PEOPLE := [
+	["GordoNoble", Vector2(-18, 10), 18.0], ["GordoNoble", Vector2(-29, 30), 18.0], ["GordoNoble", Vector2(25, 14), 18.0],
+	["GordoNoble", Vector2(16, 2), 18.0], ["GordoNoble", Vector2(-29, 14), 18.0], ["GordoNoble", Vector2(-5, 14), 18.0],
+	["Obligador", Vector2(14, 0), 0.0], ["Obligador", Vector2(4.3, 13.3), 0.0], ["Obligador", Vector2(-11.3, 8.2), 0.0],
+	["Obligador", Vector2(-11.3, -8.2), 0.0], ["Obligador", Vector2(4.3, -13.3), 0.0],
+	["Terrisano", Vector2(-57, 176), 5.0], ["Clubs", Vector2(-63, 177), 3.0], ["Ham", Vector2(-53, 173), 5.0],
+	["Breeze", Vector2(-60, 172), 4.0], ["Dockson", Vector2(-67, 174), 4.0], ["Tindwyl", Vector2(-50, 177), 4.0],
+	["Elend", Vector2(-217, -238), 6.0], ["Straff", Vector2(-205, -241), 4.0],
+	["Cett", Vector2(-110, -70), 0.0], ["Jastes", Vector2(290, -10), 6.0],
+	["NinoSkaa", Vector2(-100, 330), 22.0], ["NinaSkaa", Vector2(-92, 324), 22.0],
+	["NinaSkaa", Vector2(-280, 250), 6.0],  # Tesa, en los corrales
+	["Soldado", Vector2(95, 325), 0.0], ["Soldado", Vector2(90, 331), 0.0], ["Soldado", Vector2(86, 330), 0.0],
+	["Soldado", Vector2(166, -190), 0.0], ["Soldado", Vector2(174, -190), 0.0],
+]
 
 static var _instance: GateForces
 var _posts: Array[Dictionary] = []
@@ -44,7 +62,10 @@ func _ready() -> void:
 		while CityPlan.dist_to_river(gate[1] + gate[2] * out) < CityPlan.RIVER_WIDTH + 20.0:
 			out += 5.0  # el río pasa pegado a la Puerta Este
 		_posts.append({"gate": gate, "node": null, "at": gate[1] + gate[2] * out})
-	for model in ["KolossJoven", "KolossAdulto", "LordRuler", "MistbornHood"]:
+	_posts.append({"gate": [HAZEKILLERS, HAZEKILLER_POST, Vector2.UP, Vector2.RIGHT], "node": null, "at": HAZEKILLER_POST})
+	for i in PEOPLE.size():
+		_posts.append({"gate": ["persona %d" % i, PEOPLE[i][1], Vector2.DOWN, Vector2.RIGHT], "node": null, "at": PEOPLE[i][1]})
+	for model in ["KolossJoven", "KolossAdulto", "LordRuler", "MistbornHood", "Mataneblino", "Soldado", "GordoNoble", "Obligador"]:
 		_keep.append(load(Art.MESHY % model))
 
 
@@ -104,7 +125,27 @@ static func _foes_of(gate_name: String) -> Array[Npc]:
 		"Puerta Sur":
 			for i in FOES[gate_name]:
 				foes.append(Champion.new())
+		HAZEKILLERS:
+			for i in FOES[gate_name]:
+				var hazekiller := Champion.new()
+				hazekiller.kit = "Mataneblino"
+				foes.append(hazekiller)
+		_:
+			foes.append(_person(PEOPLE[gate_name.trim_prefix("persona ").to_int()]))
 	return foes
+
+
+static func _person(spec: Array) -> Npc:
+	if spec[0] in ["Soldado", "Obligador"]:
+		var guard := Champion.new()
+		guard.kit = spec[0]
+		return guard
+	var c := Citizen.new()
+	c.meshy_model = spec[0]
+	c.roam_radius = spec[2]
+	if spec[0] == "Cett":
+		c.add_child((load("res://assets/quaternius/props/Bench_1.glb") as PackedScene).instantiate())
+	return c
 
 
 ## Los que seguían en la cola todavía no están en el árbol: hay que liberarlos a mano.

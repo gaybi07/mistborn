@@ -16,6 +16,8 @@ var move_speed := 0.0
 var vertical_speed := 0.0
 var on_floor := true
 var body_velocity := Vector3.ZERO
+var flying := false  # lo lleva el acero o el hierro, no un salto
+var near_ground := false  # cayendo rápido y por llegar al piso: deja la zambullida
 ## Vector3 global al que apunta el brazo derecho (o el izquierdo), o null.
 var aim_target: Variant = null
 var aim_target_left: Variant = null
@@ -116,6 +118,19 @@ func cancel_action() -> void:
 	_throw = 0.0
 
 
+## Frascos del cinturón; el cuerpo procedural no los saca de ahí (ver ModelRig).
+func set_vials(_kind: String, _capacity: int, _count: int) -> void:
+	pass
+
+
+func take_vial() -> void:
+	pass
+
+
+func drop_vial() -> void:
+	pass
+
+
 ## Recoger algo del suelo (bolsa, objeto, frasco). El cuerpo procedural no lo anima.
 func play_pickup() -> void:
 	pass
@@ -130,14 +145,14 @@ func play_attack(side: int, duration: float, _step := 0) -> float:
 	return duration
 
 
-func play_roll(duration := 0.5) -> void:
+func play_roll(duration := 0.5, _slide := false) -> void:
 	_roll_len = duration
 	_roll = duration
 
 
 ## Impulso al saltar, aterrizaje (strength 0..1 según la caída), dash en el aire y golpe aéreo.
 ## El cuerpo procedural no tiene animaciones para ellos (salvo el golpe); ModelRig sí.
-func play_jump() -> void:
+func play_jump(_air_flip := false) -> void:
 	pass
 
 

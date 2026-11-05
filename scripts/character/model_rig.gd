@@ -91,6 +91,7 @@ const ANIMS := {
 	"vault": ["vault"],
 	"fall_roll": ["fall_roll"],
 	"freefall": ["freefall"],
+	"fly": ["fly"],
 	"drink": ["drink"],
 	"open_door": ["open_door"],
 	"sit": ["sit"],
@@ -123,7 +124,7 @@ const ANIMS := {
 	"mt_jump_attack": ["mt_jump_attack"],
 }
 ## Animaciones que se repiten (el resto se queda en su último fotograma al terminar).
-const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint", "flee", "air", "allomancy", "hang",
+const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint", "flee", "air", "fly", "allomancy", "hang",
 		"swim", "swim_idle", "slide", "burn_focus", "crouch_idle", "crouch_walk", "freefall", "sit", "box_idle",
 		"carry_walk", "dig", "push_heavy", "pull_heavy", "kneel_inspect", "sad_idle", "sad_walk", "warm_hands"]
 ## Velocidad (m/s) a la que cada animación de desplazamiento "pisa" bien.
@@ -175,6 +176,10 @@ const PEWTER_GESTURE := ["pewter_flex", 0.25, 0.68]
 const BURN_GESTURE_TIME := 0.8
 ## jump_start ya bajó los pies pasada esta fracción y jump_land ya se paró: el resto se vería parado en el aire o quieto.
 const JUMP_CUT := 0.55
+const DOUBLE_JUMP_TIME := 0.8  # la voltereta entera, sin cortarla
+## Mezclas lentas en el aire: va levantando los brazos al volar y se da vuelta de a poco al caer.
+const AIR_BLENDS := {"fly": 0.8, "freefall": 1.0}
+const FLY_END_BLEND := 0.6
 const LAND_CUT := 0.7
 ## Cayendo más rápido que esto (m/s) se pasa a la pose de caída libre.
 const FREEFALL_SPEED := 12.0
@@ -257,7 +262,7 @@ void fragment() {
 static var _suit_shader: Shader
 ## IK de pies: estados sin los pies en el suelo (no se corrigen) y de desplazamiento (el pie apoyado
 ## no se clava: el personaje avanza y la animación va en el lugar).
-const IK_OFF := ["air", "jump", "hang", "climb", "swim", "swim_idle", "slide", "down", "roll", "dash",
+const IK_OFF := ["air", "fly", "jump", "hang", "climb", "swim", "swim_idle", "slide", "down", "roll", "dash",
 		"attack_air", "freefall", "fall_roll", "climb_wall", "vault", "mt_jump_attack"]
 const IK_MOVING := ["walk", "run", "sprint", "flee", "carry_walk", "sad_walk", "crouch_walk"]
 ## Clips que se desplazan de verdad (esquives, golpes que te empujan; ver actionforge_to_glb.py): traen
@@ -361,6 +366,15 @@ const FAR_ANIM := 60.0
 ## Capa de bruma y frascos del inventario: siguen a los huesos del cuello y la cadera.
 var _cloak_anchor: Node3D
 var _vial_anchor: Node3D
+var _belt: VialBelt
+var _vial_hand: Node3D
+var _held_vial: Node3D
+const VIAL_HAND := "hand_l"  # la que sube a la boca en Stand_and_Drink
+const CLOAK_NECK := 1.39
+const CLOAK_SHOULDERS := 0.35
+const EMPTY_VIAL_LIFE := 8.0
+## Lleva la capa de bruma puesta de por sí, sin depender del inventario.
+var always_cloak := false
 var _suit := "negro"
 var _outfit := false
 ## Pies apoyados en el suelo real (pendientes, escalones) sin hundirse ni patinar; ver _update_foot_ik.
@@ -688,12 +702,13 @@ func set_suit(s: String) -> void:
 func set_equipment(outfit: bool, cloak_on: bool, vials_on: bool, daggers_on: bool) -> void:
 	_outfit = outfit
 	_apply_tint(OUTFIT_TINT if outfit else tint)
+	cloak_on = cloak_on or always_cloak
 	if cloak_on and _cloak_anchor == null:
 		_add_cloak()
 	if _cloak_anchor:
 		_cloak_anchor.visible = cloak_on
 	if vials_on and _vial_anchor == null:
-		_vial_anchor = _make_vials()
+		_make_belt()
 	if _vial_anchor:
 		_vial_anchor.visible = vials_on
 	daggers_owned = daggers_on
@@ -717,7 +732,14 @@ func _add_cloak() -> void:
 	for c in CLOAK_COLLIDERS:
 		if _bones[c[0]] >= 0 and _bones[c[1]] >= 0:
 			colliders.append([_bones[c[0]], _bones[c[1]], c[2] * s])
-	cloak.build_model(_cloak_suit(), _skel, _bones["torso"], _bones["neck"], colliders)
+	cloak.build_model(_cloak_suit(), _skel, _bones["torso"], _bones["neck"], colliders, _cloak_fit())
+
+
+## Tamaño de la capa según el cuerpo: alto por el cuello, ancho por los hombros (medidas del encapuchado, para el que se armó).
+func _cloak_fit() -> Vector3:
+	var neck: float = _skel.get_bone_global_rest(_bones["neck"]).origin.y
+	var wide: float = _skel.get_bone_global_rest(_bones["upper_r"]).origin.distance_to(_skel.get_bone_global_rest(_bones["upper_l"]).origin)
+	return Vector3(wide / CLOAK_SHOULDERS, neck / CLOAK_NECK, wide / CLOAK_SHOULDERS)
 
 
 ## Con trajes de color la capa se tiñe como el traje; con el negro queda con su textura.
@@ -732,7 +754,7 @@ func _apply_tint(c: Color) -> void:
 		_suit_shader = Shader.new()
 		_suit_shader.code = SUIT_SHADER
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
-		if _items.has(mi):
+		if _items.has(mi) or (_belt and _belt.is_ancestor_of(mi)):
 			continue
 		for i in mi.mesh.get_surface_count():
 			var base := mi.mesh.surface_get_material(i) as BaseMaterial3D
@@ -751,24 +773,89 @@ func _apply_tint(c: Color) -> void:
 				mi.set_surface_override_material(i, m)
 
 
-func _make_vials() -> Node3D:
-	var anchor := Node3D.new()
-	add_child(anchor)
-	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.5, 0.75, 1.0)
-	glass.emission_enabled = true
-	glass.emission = Color(0.4, 0.65, 1.0)
-	glass.emission_energy_multiplier = 1.2
-	glass.roughness = 0.1
-	var cork := HumanoidRig._mat(Color(0.35, 0.25, 0.15))
-	for x in [-0.13, -0.07, 0.11]:
-		_part(anchor, HumanoidRig._cylinder(0.022, 0.022, 0.09), Vector3(x, 0.0, 0.0), glass)
-		_part(anchor, HumanoidRig._cylinder(0.015, 0.015, 0.02), Vector3(x, 0.055, 0.0), cork)
-	_part(anchor, HumanoidRig._cylinder(0.17, 0.17, 0.04), Vector3(0, 0.05, 0.12), HumanoidRig._mat(Color(0.2, 0.15, 0.1)))  # cinturón
-	return anchor
+func _make_belt() -> void:
+	if _skel == null or _bones["hips"] < 0:
+		return
+	var attach := BoneAttachment3D.new()
+	_skel.add_child(attach)
+	attach.bone_idx = _bones["hips"]
+	_belt = VialBelt.new()
+	attach.add_child(_belt)
+	_belt.build(_model, _skel, _bones["hips"])
+	_vial_anchor = attach
 
 
-## Coloca la capa en los hombros y los frascos delante de la cadera, según la pose actual.
+## kind: id del objeto de frascos. Lo llama el jugador en cada cuadro; solo cambia algo si cambió la cantidad.
+func set_vials(kind: String, capacity: int, count: int) -> void:
+	if _belt:
+		_belt.set_vials(kind, capacity)
+		_belt.show_count(count)
+
+
+## Saca un frasco del cinturón y lo lleva a la mano; lo que haya en esa mano se guarda mientras toma.
+func take_vial() -> void:
+	if _belt == null or _vial_hand == null and _make_vial_hand() == null:
+		return
+	var i := _belt.take()
+	if i < 0:
+		return
+	_clear_held_vial()
+	_held_vial = _belt.make_vial(i)
+	_vial_hand.add_child(_held_vial)
+	_show_held_weapon(false)
+
+
+## Tomado: el frasco vacío se suelta y cae al piso.
+func drop_vial() -> void:
+	if _held_vial == null:
+		return
+	var at := _held_vial.global_transform
+	_clear_held_vial()
+	_belt.put_back()
+	_show_held_weapon(true)
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var body := RigidBody3D.new()
+	body.collision_layer = 0
+	body.collision_mask = Props.LAYER_WORLD
+	var shape := CollisionShape3D.new()
+	var ball := SphereShape3D.new()
+	ball.radius = 0.03
+	shape.shape = ball
+	body.add_child(shape)
+	var empty: Node3D = (load(VialBelt.VIAL_MODEL) as PackedScene).instantiate()
+	for mi: MeshInstance3D in empty.find_children("vial_liquid", "MeshInstance3D", true, false):
+		mi.visible = false
+	empty.scale = Vector3.ONE * VialBelt.VIAL_SCALE
+	body.add_child(empty)
+	scene.add_child(body)
+	body.global_position = at.origin
+	body.angular_velocity = Vector3(randf_range(-6, 6), randf_range(-6, 6), randf_range(-6, 6))
+	get_tree().create_timer(EMPTY_VIAL_LIFE).timeout.connect(body.queue_free)
+
+
+func _make_vial_hand() -> Node3D:
+	_vial_hand = _grip(_bones[VIAL_HAND])
+	return _vial_hand
+
+
+func _clear_held_vial() -> void:
+	if _held_vial:
+		_held_vial.queue_free()
+		_held_vial = null
+
+
+func _show_held_weapon(on: bool) -> void:
+	if weapon == Weapon.DAGGERS:
+		(_weapon_nodes[weapon]["held"][1] as Node3D).visible = on
+	elif on:
+		set_weapon(weapon)  # el escudo vuelve si le corresponde
+	if not on and _shield_node:
+		_shield_node.visible = false
+
+
+## Coloca la capa en los hombros, según la pose actual.
 func _update_anchors() -> void:
 	if _skel == null:
 		return
@@ -779,10 +866,6 @@ func _update_anchors() -> void:
 		# La capa se diseñó para un pecho cuyo cuello queda 0,4 m más arriba.
 		_cloak_anchor.scale = Vector3.ONE * s
 		_cloak_anchor.position = neck + Vector3(0, -0.4 * s, 0.06 * s)
-	if _vial_anchor:
-		var hips := to_rig * BoneTools.bone_world_pos(_skel, _bones["hips"])
-		_vial_anchor.scale = Vector3.ONE * s
-		_vial_anchor.position = hips + Vector3(0, 0.02, -0.2 * s)
 
 
 func play_attack(side: int, duration: float, step := 0) -> float:
@@ -804,8 +887,9 @@ func play_attack(side: int, duration: float, step := 0) -> float:
 	return _attack
 
 
-func play_roll(duration := 0.5) -> void:
+func play_roll(duration := 0.5, slide := false) -> void:
 	super(duration)
+	_variant["roll"] = "_slide" if slide else ""
 	_roll = _play_once("roll", duration, FADE_ATTACK)
 
 
@@ -869,6 +953,10 @@ func impact_delay() -> float:
 
 func cancel_action() -> void:
 	super()
+	if _held_vial:  # cortó el trago: el frasco vuelve al cinturón
+		_clear_held_vial()
+		_belt.put_back()
+		_show_held_weapon(true)
 	_spell = 0.0
 	_upper_t = 0.0
 	_land = 0.0
@@ -916,11 +1004,16 @@ func play_pickup() -> void:
 		_pickup = _play_once("pickup", 0.9)
 
 
-func play_jump() -> void:
+## air_flip: segundo salto en el aire, con su propio clip.
+func play_jump(air_flip := false) -> void:
 	if _attack > 0.0 or _roll > 0.0:
 		return
 	_land = 0.0
-	_jump = _play_once("jump", 0.35, FADE_ATTACK) * JUMP_CUT
+	_variant["jump"] = ""
+	if air_flip or next_jump != "":
+		_variant["jump"] = "_double" if air_flip else next_jump
+	next_jump = ""
+	_jump = _play_once("jump", DOUBLE_JUMP_TIME, FADE_ATTACK) if air_flip else _play_once("jump", 0.35, FADE_ATTACK) * JUMP_CUT
 
 
 ## Aterrizaje: si vienes corriendo se corta solo (ver _choose_state).
@@ -975,7 +1068,7 @@ func _play_once(state: String, duration: float, fade := FADE_ONESHOT) -> float:
 		_impact_delay = duration * DEFAULT_IMPACT
 		return duration
 	var clip: String = _resolved.get(state, {}).get("name", "")
-	var cut: Array = state_cuts.get(state, ATTACK_CUT.get(clip, [0.0, 1.0]))
+	var cut: Array = state_cuts.get(state + _suffix(state), state_cuts.get(state, ATTACK_CUT.get(clip, [0.0, 1.0])))
 	if cut[0] > 0.0:
 		(_src_ap if _borrowed else _ap).seek(length * cut[0], true)
 	var used: float = length * (cut[1] - cut[0])
@@ -1009,8 +1102,8 @@ func block_impact() -> void:
 ## derecha), que además empuja el cuerpo (root motion). Aturdido: la que lo tira hacia atrás.
 func play_hit(from: Vector3, heavy: bool, stun := false) -> void:
 	recoil(from, FLINCH_HEAVY if heavy or stun else FLINCH_LIGHT)
-	if armored or (ignore_light_hits and not heavy and not stun):
-		return
+	if armored or (ignore_light_hits and (_spell > 0.0 or (not heavy and not stun))):
+		return  # su golpe o poder sigue: cortar el clip dejaría el daño sin movimiento
 	stagger = 1.0
 	if _attack > 0.0 and not heavy and not stun:
 		return  # un golpe flojo no corta el tuyo: alcanza con el retroceso del torso
@@ -1109,8 +1202,14 @@ func _process(delta: float) -> void:
 	if _ap == null and retarget_from == "":
 		return
 	var state := _choose_state()
+	if stance_suffix() != _stance and state in STANCE_STATES:
+		_stance = stance_suffix()  # cambió de arma sin cambiar de estado: el clip sí cambia
+		_play(state, LOCO_BLEND)
+	var was_crouched := _state.begins_with("crouch")
 	if state != _state:
-		if state == "block":
+		if was_crouched and not state.begins_with("crouch"):
+			_play(state, STAND_UP_BLEND)
+		elif state == "block":
 			_play(state, 0.12)
 			_seek_time(BLOCK_HOLD)
 		elif state in LOCOMOTION and _state in LOCOMOTION:
@@ -1120,12 +1219,16 @@ func _process(delta: float) -> void:
 				_seek_phase(phase)
 		else:
 			# Entrar y salir del aire con una mezcla más larga: el salto se ve más suave.
-			_play(state, 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else FADE_EXIT)
-		if clip_holds.has(state):
-			_seek_time(_current_length() * clip_holds[state])
+			var normal: float = 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else FADE_EXIT
+			_play(state, AIR_BLENDS.get(state, FLY_END_BLEND if _state == "fly" else normal))
+		if clip_holds.has(state + _suffix(state)):
+			var enters: bool = state == "crouch_idle" and not was_crouched
+			_settling = enters
+			_seek_time(0.0 if enters else _current_length() * clip_holds[state + _suffix(state)])
 	var speed := 1.0
-	if clip_holds.has(state):
-		speed = 0.0
+	if clip_holds.has(state + _suffix(state)):
+		_settling = _settling and _current_time() < _current_length() * clip_holds[state + _suffix(state)]
+		speed = CROUCH_ENTER_SPEED if _settling else 0.0
 	elif STRIDE_SPEED.has(state):
 		var stride: float = ANIM_STRIDE.get(_resolved[state]["name"], STRIDE_SPEED[state])
 		speed = clampf(move_speed / (stride * stride_scale), 0.6, 2.2)
@@ -1143,6 +1246,7 @@ func _process(delta: float) -> void:
 	_apply_fade(dt)
 	if not _upper.is_empty():
 		_apply_upper(dt)
+	_apply_fist_hands(state)
 	if not clips_only:
 		_apply_flinch(dt)
 		_apply_allomancy_pose(dt)
@@ -1156,6 +1260,76 @@ func _process(delta: float) -> void:
 	_update_anchors()
 	if cloak and _cloak_anchor.visible:
 		cloak.drive(dt, body_velocity)
+
+
+const STAND_UP_BLEND := 0.35
+const CROUCH_ENTER_SPEED := 0.8
+var _settling := false  # bajando hasta el cuadro en el que se queda
+## Sufijo del próximo salto: sale agachado (ver Player).
+var next_jump := ""
+
+
+func _current_time() -> float:
+	var p := _src_ap if _borrowed else _ap
+	return p.current_animation_position if p else 0.0
+
+
+const STANCE_STATES := ["idle", "idle_armed", "walk", "run", "sprint"]
+const TOP_RUN_SPEED := 10.0
+var _stance := ""
+var _variant := {}
+## Clip con el puño cerrado: de ahí sale la mano sin arma al caminar, correr y saltar. "" = no toca las manos.
+var fist_clip := ""
+var _fist_pose: Array = []  # [hueso, giro]
+const FIST_STATES := ["idle", "walk", "run", "sprint", "jump", "air", "land", "freefall", "roll", "dash"]
+const FIST_WEIGHT := 0.8  # no del todo cerrada: una flexión natural
+
+
+## Qué lleva en las manos, como sufijo del estado: "walk_daggers" reemplaza a "walk" si existe.
+func stance_suffix() -> String:
+	if move_speed > TOP_RUN_SPEED:
+		return "_top"
+	match weapon:
+		Weapon.DAGGERS:
+			return "_daggers"
+		Weapon.SWORD:
+			return "_shield" if shield_up() else "_sword"
+	return "_fist" if brace > 0.5 else ""
+
+
+## El sufijo del clip de este estado: según el arma, o el que salió sorteado.
+func _suffix(state: String) -> String:
+	if state == "attack_air":
+		if weapon == Weapon.NONE:
+			return "_fist"
+		return "" if weapon == Weapon.DAGGERS else ("_shield" if shield_up() else "_sword")
+	return stance_suffix() if state in STANCE_STATES else String(_variant.get(state, ""))
+
+
+## Toma la mano cerrada de un clip real, pasada al reposo de este esqueleto.
+func _build_fist_pose() -> void:
+	if fist_clip == "" or not _fist_pose.is_empty() or not _ensure_upper() or not _upper["ap"].has_animation(fist_clip):
+		return
+	var anim: Animation = _upper["ap"].get_animation(fist_clip)
+	var src: Skeleton3D = _upper["rt"].src
+	for t in anim.get_track_count():
+		var name := String(anim.track_get_path(t).get_subname(0))
+		if anim.track_get_type(t) != Animation.TYPE_ROTATION_3D or not "Hand" in name or name.ends_with("Hand"):
+			continue
+		var d := _skel.find_bone(name)
+		var s := src.find_bone(name)
+		if d >= 0 and s >= 0:
+			var q := anim.rotation_track_interpolate(t, anim.length * 0.5)
+			_fist_pose.append([d, _skel.get_bone_rest(d).basis.get_rotation_quaternion() * (src.get_bone_rest(s).basis.get_rotation_quaternion().inverse() * q)])
+
+
+func _apply_fist_hands(state: String) -> void:
+	var hands_in: bool = state.begins_with("crouch") or (weapon == Weapon.NONE and state in FIST_STATES)
+	if fist_clip == "" or not hands_in or _skel == null:
+		return
+	_build_fist_pose()
+	for f: Array in _fist_pose:
+		_skel.set_bone_pose_rotation(f[0], _skel.get_bone_pose_rotation(f[0]).slerp(f[1], FIST_WEIGHT))
 
 
 func _choose_state() -> String:
@@ -1191,10 +1365,12 @@ func _choose_state() -> String:
 		return "pickup"
 	if stagger > 0.6:
 		return "hit"
+	if flying and not on_floor and _resolved.get("fly", {"name": ""})["name"] != "":
+		return "fly"  # un metal corta el salto: vuela enseguida
 	if _jump > 0.0:
 		return "jump"
 	if not on_floor and _air_time() > 0.15:
-		return "freefall" if body_velocity.y < -FREEFALL_SPEED and _resolved.get("freefall", {"name": ""})["name"] != "" else "air"
+		return "freefall" if body_velocity.y < -FREEFALL_SPEED and not near_ground and _resolved.get("freefall", {"name": ""})["name"] != "" else "air"
 	if _land > 0.0 and on_floor and move_speed < 3.0 and aim_target == null and aim_target_left == null:
 		return "land"
 	if aim_target != null or aim_target_left != null:
@@ -1225,6 +1401,7 @@ func _play(state: String, blend: float, restart := false) -> void:
 	if _ap == null and retarget_from == "":
 		return
 	var info: Dictionary = _resolved.get(state, {"name": "", "borrowed": false})
+	info = _resolved.get(state + _suffix(state), info)
 	if info["name"] == "":
 		info = _resolved.get("idle", info)
 	if info["name"] == "":

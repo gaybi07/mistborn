@@ -68,6 +68,10 @@ func _setup() -> void:
 	rig.slouch = 0.0 if noble else randf_range(0.2, 0.5)
 	walk_speed = 0.72 if skaa else randf_range(1.1, 1.6)  # la de sad_walk
 	run_speed = randf_range(4.0, 5.5)
+	if meshy_model != "":
+		var pace: float = Art.CIVILIANS[meshy_model]["pace"]
+		walk_speed *= pace
+		run_speed *= pace
 	_until = randf_range(0.0, 3.0)
 
 

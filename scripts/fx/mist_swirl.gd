@@ -31,9 +31,7 @@ func _ready() -> void:
 	process_material = pm
 	var quad := QuadMesh.new()
 	quad.size = Vector2(1.0, 1.0)
-	var mat := Fx.particle_material(Color(0.08, 0.08, 0.11, 0.12), false, 0.8)  # la bruma negra
-	mat.disable_fog = true  # si no, la niebla la aclara y parece humo blanco
-	quad.material = mat
+	quad.material = AirFx.mist_material(Color(0.2, 0.19, 0.21, 0.07))  # la bruma negra
 	draw_pass_1 = quad
 	emitting = false
 
