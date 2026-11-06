@@ -1,7 +1,7 @@
 shader_type spatial;
 // Zona de aviso en el piso (ver Telegraph): círculo, anillo, cono o franja. `progress` llena la zona hasta que
 // pega (1); `flash` es el destello del golpe. Borde con bruma que se mueve, para que no parezca un sprite.
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+render_mode unshaded, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled;  // siempre visible: en pendientes y escalones el plano queda bajo el terreno
 
 uniform vec4 color : source_color = vec4(1.0, 0.16, 0.1, 1.0);
 uniform int shape = 0;            // 0 círculo, 1 anillo, 2 cono, 3 franja

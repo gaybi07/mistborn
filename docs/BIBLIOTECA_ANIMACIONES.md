@@ -45,7 +45,7 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | `climb` | `Regular_Jump` | MistbornHood.glb | Meshy, nativa | retocada: tramo 20%–50% |
 | `coin_shield` | `Charged_Spell_Cast` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–80%, golpe 65% |
 | `coin_wave` | `mage_soell_cast_2` | MistbornHood.glb | Meshy, nativa | retocada: tramo 0%–70%, golpe 41% |
-| `crouch_idle` | `crouch_idle_mx` | AFClips.glb | Mixamo, nativa (Crouch Idle) | entera |
+| `crouch_idle` | `crouch_idle_mx` | HeroMixamo.glb | Mixamo, nativa (Crouch Idle) | entera |
 | `crouch_walk` | `Cautious_Crouch_Walk_Forward_inplace` | Vin.glb | Meshy, nativa | entera |
 | `dash` | `Roll_Dodge` | MistbornHood.glb | Meshy, nativa | retocada: tramo 25%–80% |
 | `dodge_left` | `Stand_Dodge` | MistbornHood.glb | Meshy, nativa | entera |
@@ -103,7 +103,7 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | `coin_flick` | `overhandthrow_adjusted` | AFClips.glb | ActionForge, retocada por Claude (Adjust: pecho -20°, cabeza +20°) | retocada: tramo 12%–36%, suelta en 29%, velocidad 0.47 |
 | `coin_magnet` | `mage_soell_cast_7` | Vin.glb | Meshy, nativa | retocada: tramo 30%–90%, suelta en 55% |
 | `coin_shield` | `mage_soell_cast_6` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–70%, suelta en 40% |
-| `coin_wave` | `mage_soell_cast_4` | MistbornHood.glb | Meshy, nativa | retocada: tramo 20%–65%, suelta en 45%, velocidad 0.8 |
+| `coin_wave` | `frisbee_throw_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Frisbee Throw): la Ráfaga de monedas | retocada: tramo 27%–50%, suelta en 44%, velocidad 1.0 |
 | `drink` | `Stand_and_Drink` | Vin.glb | Meshy, nativa | retocada: tramo 20%–60%, suelta en 55% |
 | `field` | `mage_soell_cast_1` | Vin.glb | Meshy, nativa | retocada: tramo 20%–65%, suelta en 50% |
 | `iron_pull` | `mage_soell_cast_3` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–60%, suelta en 27% |
@@ -122,7 +122,6 @@ Origen: ActionForge y Mixamo (ver detalle por clip).
 - `punch_jab`: ActionForge, nativa
 - `overhandthrow_adjusted`: ActionForge, retocada por Claude (Adjust: pecho -20°, cabeza +20°)
 - `idle_loop_adjusted`: ActionForge, retocada por Claude (brazos, cabeza, postura y piernas juntas: pose Ironman)
-- `crouch_idle_mx`: Mixamo, nativa (Crouch Idle)
 - `spell_simple_enter`: ActionForge, nativa (sin uso por ahora)
 - `spell_simple_shoot`: ActionForge, nativa (sin uso por ahora)
 - `spell_simple_exit`: ActionForge, nativa (sin uso por ahora)
@@ -130,6 +129,7 @@ Origen: ActionForge y Mixamo (ver detalle por clip).
 - `ninjajump_start`: ActionForge, nativa: despegue de los saltos del Lord Legislador
 - `ninjajump_land`: ActionForge, nativa: caída de los saltos del Lord Legislador
 - `sword_dash`: ActionForge, nativa (sin uso: trae el avance en la cadera)
+- `coin_throw_af`: ActionForge, retocada por Claude (Sword Regular B: postura y brazos con claves), sin uso por ahora
 
 ### `assets/kaykit/characters/Barbarian.glb` (76)
 
@@ -310,6 +310,18 @@ Origen: Meshy: biblioteca de animaciones de Meshy, nativas (rig de Mixamo).
 Origen: Meshy: Vin re-rigueada (VIN RERIGGED 1 y 2); Vuelo_A, Vuelo_B y Vuelo_Moneda son clips de Meshy que venían sin nombre, solo renombrados.
 
 `Vuelo_A`, `Vuelo_B`, `Vuelo_Moneda`, `Alert`, `Axe_Breathe_and_Look_Around`, `Running`, `Walking`, `Catching_Breath`
+
+### `assets/mixamo/HeroMixamo.glb` (2)
+
+Origen: Mixamo: nativas (Crouch Idle y Wide Arm Spell Casting, para los héroes).
+
+`burst_open_mx`, `crouch_idle_mx`
+
+### `assets/mixamo/HeroMixamoXBot.glb` (1)
+
+Origen: Mixamo: nativas, bajadas sobre el X Bot (Frisbee Throw: la Ráfaga de monedas).
+
+`frisbee_throw_mx`
 
 ### `assets/mixamo/Mistborn.glb` (49)
 

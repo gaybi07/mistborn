@@ -20,6 +20,8 @@ const SCEN := {
 	"frenar": [[0.0, {"move_speed": 5.0}], [1.0, {"move_speed": 2.0}], [1.05, {"move_speed": 0.0}], [2.6, null]],
 	"frenar2": [[0.0, {"move_speed": 5.0}], [1.17, {"move_speed": 2.0}], [1.22, {"move_speed": 0.0}], [2.8, null]],
 	"relajar": [[0.0, {"weapon": 2}], [1.2, {"relaxed": true}], [2.6, {"move_speed": 1.6}], [3.6, {"relaxed": false}], [4.6, {"move_speed": 0.0}], [5.6, null]],
+	"vuelo_piso": [[0.0, {}], [0.3, {"on_floor": false, "flying": true, "body_velocity": Vector3(0, 10, 0)}], [1.6, {"body_velocity": Vector3(0, 0.5, -4)}], [2.8, {"body_velocity": Vector3(0, -11, -3)}], [3.6, {"near_ground": true}], [3.8, {"flying": false, "near_ground": false, "on_floor": true, "land": 0.8, "body_velocity": Vector3.ZERO}], [4.8, null]],
+	"vuelo_salto": [[0.0, {}], [0.3, {"jump": 1, "on_floor": false, "body_velocity": Vector3(0, 5, 0)}], [0.6, {"flying": true, "body_velocity": Vector3(0, 9, -2)}], [1.8, {"body_velocity": Vector3(0, -2, -5)}], [3.0, {"body_velocity": Vector3(0, -10, -2)}], [3.8, {"flying": false, "on_floor": true, "land": 0.8, "body_velocity": Vector3.ZERO}], [4.8, null]],
 	"golpeado": [[0.0, {}], [0.4, {"hit_light": 1}], [1.4, {"hit_heavy": 1}], [3.0, null]],
 	"morir": [[0.0, {}], [0.4, {"down": true}], [2.6, {"down": false}], [3.6, null]],
 	"nadar": [[0.0, {"swimming": true}], [1.0, {"move_speed": 2.0}], [2.4, {"move_speed": 0.0}], [3.4, {"swimming": false}], [4.2, null]],

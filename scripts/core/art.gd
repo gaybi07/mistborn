@@ -182,7 +182,7 @@ static func hero_rig() -> ModelRig:
 	rig.always_cloak = hero.get("cloak", false)
 	rig.retarget_from = MESHY_HOOD
 	rig.retarget_map = _mixamo_same()
-	rig.extra_donors = [[MESHY_CLIPS, _mixamo_same()], [MESHY_FLIGHT, _mixamo_same()], [AF_CLIPS, _mixamo_same()]]
+	rig.extra_donors = [[MESHY_CLIPS, _mixamo_same()], [MESHY_FLIGHT, _mixamo_same()], [AF_CLIPS, _mixamo_same()], [HERO_MIXAMO, _mixamo_same()], [HERO_MIXAMO_XBOT, _mixamo_same()]]
 	rig.clips_only = true
 	rig.anim_overrides = HeroClips.HITS.merged(HeroClips.STATES).merged(HeroClips.STANCES).merged(HeroClips.FISTS).merged(HeroClips.TOP_SPEED)
 	rig.fist_clip = HeroClips.FIST_HAND
@@ -190,7 +190,7 @@ static func hero_rig() -> ModelRig:
 	rig.clip_holds = HeroClips.HOLDS
 	rig.skill_clips = HeroClips.SKILLS
 	rig.upper_donor = MESHY_CLIPS.get_file()
-	rig.upper_extra = [AF_CLIPS.get_file()]
+	rig.upper_extra = [AF_CLIPS.get_file(), HERO_MIXAMO.get_file(), HERO_MIXAMO_XBOT.get_file()]
 	return rig
 
 
@@ -256,6 +256,11 @@ const MESHY_CLIPS := "res://assets/meshy/Vin.glb"
 const MESHY_FLIGHT := "res://assets/meshy/VinCorregida.glb"
 ## Clips de la biblioteca de ActionForge (Quaternius, CC0), exportados con esqueleto de Mixamo (tools/blender/anim_fbx_to_glb.py).
 const AF_CLIPS := "res://assets/actionforge/AFClips.glb"
+## Clips de Mixamo para los héroes (agachado, ráfaga): aparte de AF_CLIPS porque traen su propia pose de reposo, y
+## pegados al esqueleto de ActionForge los brazos quedaban corridos.
+const HERO_MIXAMO := "res://assets/mixamo/HeroMixamo.glb"
+## Los bajados de Mixamo sobre su personaje por defecto (X Bot): otra pose de reposo, otro archivo.
+const HERO_MIXAMO_XBOT := "res://assets/mixamo/HeroMixamoXBot.glb"
 ## Los que no pelean: alto (m), ritmo (1 = normal; los viejos y pesados más lentos, los chicos más rápidos; 0 = no camina) y clips.
 const CIVILIANS := {
 	"Terrisano": {"height": 2.0, "pace": 0.85, "idle": "Idle_11", "down": "falling_down"},

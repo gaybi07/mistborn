@@ -18,6 +18,8 @@ $G --path . -s tools/anim_check/<prueba>.gd -- <argumentos>
 | `lord_check.gd` | El Lord Legislador tira cada poder contra Vin: vida que saca quieta o esquivando (`- all 7 esquivar`), fotos de arriba y saltos de pose con LORD_LOG=1. | `<carpeta|-> [poder,...|all] [dist] [esquivar]` |
 | `champion_check.gd` | Los koloss, el inquisidor y el obligador tiran cada poder contra Vin: cuánto aviso hubo y la vida que sacan, quieta o esquivando. | `[kit,...|all] [esquivar]` |
 | `aim_check.gd` | Tus poderes con zona: mantener para apuntar (zona azul) y soltar. | `<carpeta>` |
+| `arm_measure.gd` | Brazos y torso de Vin cuadro a cuadro en un clip: codo, hacia dónde apunta, altura y mano respecto del pecho. | `clip[@res://donante.glb] [pasos]` |
+| `skill_arm.gd` | Lo mismo, mientras hace un poder en el juego (capa de arriba sobre la guardia), con el momento en que suelta. | `<poder>` |
 | `hit_check.gd` | El jugador de verdad pega con cada arma y golpe del combo a civiles quietos alrededor (adelante a 0,8–2,2 m, en diagonal, al costado, atrás): a quién le saca vida. | — |
 
 Para leer los resultados (Python, `pip install pillow`):

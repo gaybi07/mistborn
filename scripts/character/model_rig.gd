@@ -203,6 +203,8 @@ var _launch := 0.0
 ## al empezar a bajar, la zambullida de la caída libre.
 const COIN_GLIDE_AFTER := 2.0
 const COIN_DESCEND_SPEED := -1.0
+## Héroes volando: bajando más rápido que esto (m/s) pasan de los brazos abiertos a la caída libre.
+const HERO_FREEFALL_SPEED := 6.0
 var _coin_t := 0.0
 ## Mezclas lentas en el aire: va levantando los brazos al volar y se da vuelta de a poco al caer.
 const AIR_BLENDS := {"fly": 0.8, "fly_rise": 0.5, "fly_glide": 0.8, "freefall": 0.5}
@@ -1586,6 +1588,15 @@ func _choose_state() -> String:
 		return "hit"
 	# Ya subiendo, sigue en la pose hasta el punto más alto (si no, cerca de la cima pasaría un rato a volar de frente).
 	var rising: bool = body_velocity.y > (0.0 if _state == "fly_rise" else RISE_SPEED) and body_velocity.y >= Vector2(body_velocity.x, body_velocity.z).length() * 0.6 			and _resolved.get("fly_rise", {"name": ""})["name"] != ""
+	# Héroes: subiendo, Ironman; arriba o bajando despacio, brazos abiertos; cayendo rápido, caída libre. Sin la pose
+	# de "volando" ni la de despegue.
+	var hero_flight: bool = _resolved.get("fly_rise", {"name": ""})["name"] != "" and _resolved.get("fly_glide", {"name": ""})["name"] != ""
+	if hero_flight and (flying or coin_flight) and not on_floor and not near_ground:
+		if rising:
+			return "fly_rise"
+		if body_velocity.y > -HERO_FREEFALL_SPEED or _resolved.get("freefall", {"name": ""})["name"] == "":
+			return "fly_glide"
+		return "freefall"
 	if coin_flight and not on_floor and not near_ground:
 		if rising:
 			return "fly_rise"

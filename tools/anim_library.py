@@ -21,6 +21,8 @@ ORIGIN = {
     "assets/mixamo/MixamoSpells.glb": "Mixamo: nativas",
     "assets/mixamo/MixamoCombat.glb": "Mixamo: nativas",
     "assets/mixamo/Ninja.glb": "Mixamo: nativas",
+    "assets/mixamo/HeroMixamo.glb": "Mixamo: nativas (Crouch Idle y Wide Arm Spell Casting, para los héroes)",
+    "assets/mixamo/HeroMixamoXBot.glb": "Mixamo: nativas, bajadas sobre el X Bot (Frisbee Throw: la Ráfaga de monedas)",
     "assets/koloss/KolossMoves.glb": "Mixamo: nativas (packs Great Sword y Mutant)",
     "assets/skaa/": "ActionForge + Mixamo, con el esqueleto del Mistborn viejo (rig_like_mistborn.py)",
     "assets/kaykit/": "KayKit: pack nativo (personajes chibi)",
@@ -38,10 +40,13 @@ CLIP_ORIGIN = {
     "ninjajump_start": "ActionForge, nativa: despegue de los saltos del Lord Legislador",
     "ninjajump_land": "ActionForge, nativa: caída de los saltos del Lord Legislador",
     "sword_dash": "ActionForge, nativa (sin uso: trae el avance en la cadera)",
+    "burst_open_mx": "Mixamo, nativa (Wide Arm Spell Casting), sin uso por ahora",
+    "frisbee_throw_mx": "Mixamo, nativa (Frisbee Throw): la Ráfaga de monedas",
+    "coin_throw_af": "ActionForge, retocada por Claude (Sword Regular B: postura y brazos con claves), sin uso por ahora",
 }
 # Orden en que el héroe busca cada clip (Art.hero_rig): su propio modelo, el encapuchado y los donantes.
 HERO_SOURCES = ["assets/meshy/VinCorregida.glb", "assets/meshy/MistbornHood.glb", "assets/meshy/Vin.glb",
-                "assets/actionforge/AFClips.glb"]
+                "assets/actionforge/AFClips.glb", "assets/mixamo/HeroMixamo.glb", "assets/mixamo/HeroMixamoXBot.glb"]
 
 
 def clips_of(path):
@@ -90,7 +95,7 @@ def main():
         return None
 
     def origin_clip(clip, f):
-        if f and f.endswith("AFClips.glb"):
+        if f and (f.endswith("AFClips.glb") or "HeroMixamo" in f):
             return CLIP_ORIGIN.get(clip, "ActionForge")
         return origin_of(f).split(":")[0] + ", nativa" if f else "¿no está?"
 

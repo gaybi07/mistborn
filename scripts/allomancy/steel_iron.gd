@@ -77,6 +77,8 @@ var _manual_until := 0
 var _los_cache := {}  # id -> [cuándo, hay línea de vista] (solo en red)
 var _dots: Array[MeshInstance3D] = []  # puntos suaves sobre lo que puedes usar
 
+## Dónde empieza el lazo: tantos metros delante tuyo, hacia el metal.
+const LINE_START := 2.0
 ## Cuántos puntos se muestran: pocos quemando, más (también los lejanos) avivando.
 const DOTS_BURN := 6
 const DOTS_FLARE := 14
@@ -611,12 +613,14 @@ func _draw_lines() -> void:
 		var end := center_of(m)
 		var seed := float(m.get_instance_id() % 997) * 0.37
 		var grip: Grip = push_grip if m == push_grip.target else (pull_grip if m == pull_grip.target else null)
+		# El lazo nace LINE_START m delante tuyo, hacia el metal (no en el medio del cuerpo); cerca, a mitad de camino.
+		var start := origin + (end - origin).normalized() * minf(LINE_START, origin.distance_to(end) * 0.4)
 		if grip:
 			# Agarre activo: cinta intensa con núcleo; el flujo lento marca si empuja (se aleja) o tira.
-			_bolts.add(origin, end, 0.012, Color(grip.color.r, grip.color.g, grip.color.b, 1.0), 0.5 * grip.dir_sign,
+			_bolts.add(start, end, 0.02, Color(grip.color.r, grip.color.g, grip.color.b, 0.85), 0.5 * grip.dir_sign,
 					seed, bolt_amplitude * 0.8, false, true, true)
 		elif m == target:
-			_bolts.add(origin, end, 0.009, Color(0.35, 0.65, 1.0, 0.55), 0.3, seed, bolt_amplitude * 0.7, false, false, true)
+			_bolts.add(start, end, 0.015, Color(0.35, 0.65, 1.0, 0.45), 0.3, seed, bolt_amplitude * 0.7, false, false, true)
 		else:
 			var to := end - cam
 			var depth := to.dot(aim)
