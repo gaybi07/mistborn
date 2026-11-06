@@ -17,6 +17,7 @@ var vertical_speed := 0.0
 var on_floor := true
 var body_velocity := Vector3.ZERO
 var flying := false  # lo lleva el acero o el hierro, no un salto
+var coin_flight := false  # el vuelo salió de impulsarse con una moneda
 var near_ground := false  # cayendo rápido y por llegar al piso: deja la zambullida
 ## Vector3 global al que apunta el brazo derecho (o el izquierdo), o null.
 var aim_target: Variant = null
@@ -28,11 +29,14 @@ var stagger := 0.0
 var blocking := false
 ## Agachado (Alt, ver Player).
 var crouched := false
+## Un empuje o tirón te arrastra por el piso: se queda en la postura de empujar (se desliza) en vez de correr.
+var pushed_on_floor := false
 ## Congelado del golpe (hit stop, en tiempo real): mientras dure, la pose se queda quieta.
 var hitstop := 0.0
 var _flash_mat: StandardMaterial3D
 var _flash_tween: Tween
 var brace := 0.0
+var relaxed := false  # con el arma en la mano pero sin pelear hace rato: reposo y caminata comunes
 ## Colgado de un borde (las manos van a aim_target y aim_target_left).
 var hanging := false
 ## Nadando en el río / resbalando por una pendiente de más de 45° (solo los ModelRig los animan).
@@ -112,6 +116,11 @@ func impact_delay() -> float:
 	return _attack_len * 0.4
 
 
+## Dónde están lo que golpea en este momento; el cuerpo hecho con primitivas no lo sabe (vacío).
+func strike_points() -> Array[Vector3]:
+	return []
+
+
 ## Corta el golpe o gesto en curso (voltereta, bloqueo, golpe fuerte).
 func cancel_action() -> void:
 	_attack = 0.0
@@ -153,6 +162,11 @@ func play_roll(duration := 0.5, _slide := false) -> void:
 ## Impulso al saltar, aterrizaje (strength 0..1 según la caída), dash en el aire y golpe aéreo.
 ## El cuerpo procedural no tiene animaciones para ellos (salvo el golpe); ModelRig sí.
 func play_jump(_air_flip := false) -> void:
+	pass
+
+
+## Arranca a volar: el impulso antes de la pose de vuelo (ver ModelRig).
+func play_fly_launch() -> void:
 	pass
 
 

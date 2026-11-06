@@ -18,14 +18,8 @@ const KITS := {
 			{"anim": "Weapon_Combo", "dur": 2.9, "hits": [0.18, 0.34, 0.6], "damage": 1.0, "push": 6.0, "travel": 0.8},
 			{"anim": "Triple_Combo_Attack", "dur": 3.4, "hits": [0.18, 0.35, 0.51], "damage": 1.2, "push": 9.0, "travel": 1.0},
 		],
-		"powers": [
-			{"name": "Torbellino", "kind": "area", "anim": "Axe_Spin_Attack", "dur": 2.2, "at": [0.39], "radius": 4.0, "damage": 1.6, "push": 10.0, "range": [0.0, 4.0], "cooldown": 9.0},
-			{"name": "Temblor", "kind": "area", "anim": "Kneel_on_One_Knee_and_Stand", "dur": 2.2, "at": [0.08], "radius": 8.0, "damage": 1.0, "push": 8.0, "range": [0.0, 7.0], "cooldown": 15.0},
-			{"name": "Empujón de acero", "kind": "cone", "anim": "Punch_Combo", "dur": 2.0, "at": [0.51], "damage": 0.8, "push": 18.0, "range": [2.0, 12.0], "cooldown": 10.0},
-			{"name": "Tirón de hierro", "kind": "pull", "anim": "Left_Slash", "dur": 2.6, "at": [0.38], "push": 14.0, "range": [5.0, 16.0], "cooldown": 11.0, "then": "Torbellino"},
-			{"name": "Embestida", "kind": "dash", "anim": "Weapon_Combo_1", "dur": 2.8, "hits": [0.23, 0.48, 0.7], "damage": 1.1, "push": 8.0, "range": [4.0, 11.0], "cooldown": 9.0},
-			{"name": "Regeneración", "kind": "heal", "anim": "Limping_Walk", "dur": 3.5, "at": [0.85], "amount": 0.15, "advance": 0.7, "below": 0.6, "range": [0.0, 30.0], "cooldown": 25.0},
-		],
+		"powers": [],  # los suyos están en LordPowers (todos los de Vin más feruquimia)
+		"lord": true,
 	},
 	# Guardia imperial: no te busca pelea salvo que le pegues. Lleva acero: se lo puede tirar y empujar.
 	"Soldado": {
@@ -134,14 +128,18 @@ const PROVOKED_LONG := 30.0
 var kit := "MistbornHood"
 var _next_power := 0.0
 var _power_ready := {}  # nombre del poder -> cuándo se puede volver a usar
+var lord_powers: LordPowers  # solo el Lord Legislador
 
 
 ## Todos los clips sueltos que juega este kit, además de los de `states`.
 static func clips_of(kit_name: String) -> Array:
 	var spec: Dictionary = KITS[kit_name]
 	var out := []
-	for entry: Dictionary in spec["blows"] + spec["powers"]:
-		out.append(entry["anim"])
+	for entry: Dictionary in spec["blows"] + spec["powers"] + (LordPowers.POWERS if spec.get("lord", false) else []):
+		if not entry["anim"] in out:
+			out.append(entry["anim"])
+	if spec.get("lord", false):
+		out.append_array(["Axe_Spin_Attack", "ninjajump_land"])  # el giro de la Atracción masiva y la caída de los saltos
 	for key in ["roar", "rage", "dodge"]:
 		if spec.has(key):
 			out.append(spec[key][0])
@@ -156,6 +154,10 @@ func _setup() -> void:
 	axes = true  # sin la guardia del espadón
 	super()
 	var spec: Dictionary = KITS[kit]
+	if spec.get("lord", false):
+		lord_powers = LordPowers.new()
+		lord_powers.lord = self
+		add_child(lord_powers)
 	max_health = spec["health"]
 	walk_speed = 1.3 * _grow
 	run_speed = spec["speed"]
@@ -182,7 +184,20 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if attacker is Player and KITS[kit].get("passive", false):
 		for other: Champion in get_tree().get_nodes_in_group(&"passive_champion"):
 			other._provoked_until = other._world_time + PROVOKED_LONG
+	if lord_powers:
+		damage = lord_powers.filter_damage(damage, attacker)
+		if damage <= 0.0:
+			return  # lo esquivó (atium) o no le entra (último aliento)
+		impulse = lord_powers.filter_impulse(impulse)
 	super(impulse, damage, attacker)
+
+
+func apply_allomantic_impulse(dv: Vector3) -> void:
+	super(lord_powers.filter_impulse(dv) if lord_powers else dv)
+
+
+func _damage(mult: float) -> float:
+	return super(mult) * (lord_powers.damage_mult() if lord_powers else 1.0)
 
 
 func is_armed() -> bool:
@@ -233,6 +248,8 @@ func _announce(text: String) -> void:
 
 ## Elige un poder que sirva a esta distancia y lo usa. Herido los encadena más seguido.
 func _use_power(d: float) -> bool:
+	if lord_powers:
+		return lord_powers.try_use(d)
 	if _foe != _player or _world_time < _next_power or is_disarmed():
 		return false
 	var options: Array = KITS[kit]["powers"].filter(_fits.bind(d))

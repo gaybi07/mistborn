@@ -27,6 +27,7 @@ var _poly := {}  # modelos de Poly Haven: nombre -> [Transform3D] (ver PolyProps
 var _iron := {}  # "iron"/"glass" -> Array[Transform3D] de los herrajes de las casas
 ## Azar propio de los herrajes, para no alterar el reparto de las casas.
 var _iron_rng := RandomNumberGenerator.new()
+const PERSON_CLEARANCE := 5.0
 var _m := {}
 ## Lo que generan las casas (modelos, anclas de metal, ventanas, herrajes y el estado del azar),
 ## guardado la primera vez: al volver a la ciudad por una puerta no hace falta generarlas otra vez.
@@ -521,6 +522,8 @@ func _build_houses() -> void:
 		_stamp_line(s[0], s[1], s[2])
 	for o in _occupied:
 		_stamp_disc(o[0], o[1])
+	for person: Array in GateForces.PEOPLE:
+		_stamp_disc(person[1], PERSON_CLEARANCE)  # que ninguna casa les caiga encima
 	for e in CityPlan.ESTATES + CityPlan.BARRACKS + [CityPlan.VENTURE]:
 		_stamp_rect(e[0], e[3], Rect2(-e[1] / 2.0 - 2.0, -e[2] / 2.0 - 2.0, e[1] + 4.0, e[2] + 4.0))
 

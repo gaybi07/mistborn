@@ -118,7 +118,8 @@ const DISTRICTS := [
 		"houses": [["buildings/Stable", 2.5, 2.8, 3], ["buildings/Blacksmith", 2.6, 2.9, 1]]},
 	{"name": "Distrito Skaa", "centers": [Vector2(-100, 190), Vector2(-150, 330), Vector2(30, 230), Vector2(-90, 80), Vector2(-40, 380)],
 		"density": "dense", "tint": Color(0.56, 0.53, 0.5),
-		"houses": [["buildings/House_3", 2.5, 2.9, 5], ["buildings/House_1", 2.3, 2.7, 4], ["buildings/House_2", 2.3, 2.7, 2], ["buildings/Stable", 2.2, 2.5, 1]]},
+		"houses": [["buildings/House_3", 2.5, 2.9, 5], ["buildings/House_1", 2.3, 2.7, 4], ["buildings/House_2", 2.3, 2.7, 2], ["buildings/Stable", 2.2, 2.5, 1],
+			["res://assets/meshy/casas/CasaSkaa6", 15.55, 15.55, 3]]},  # 8 m de alto
 	{"name": "Talleres y almacenes", "centers": [Vector2(190, 200), Vector2(220, 330), Vector2(90, 120)], "density": "dense",
 		"tint": Color(0.6, 0.56, 0.52),
 		"houses": [["buildings/Blacksmith", 2.7, 3.0, 3], ["buildings/Stable", 2.5, 2.8, 3], ["buildings/Sawmill", 2.4, 2.6, 1], ["buildings/House_3", 2.6, 3.0, 2]]},

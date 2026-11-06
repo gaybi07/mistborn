@@ -1,7 +1,7 @@
 """Junta un personaje de Meshy (FBX "All animation", esqueleto de Mixamo) en un solo .glb para el juego.
 
 Uso (desde la carpeta del proyecto):
-  blender -b -P tools/blender/meshy_to_glb.py -- <salida.glb> <textura.png> <modelo.fbx> [más_clips.fbx ...]
+  blender -b -P tools/blender/meshy_to_glb.py -- <salida.glb> <textura.png> <modelo.fbx> [más_clips.fbx ...] [viejo=nuevo ...]
 
 - <modelo.fbx> da la malla, el esqueleto y sus clips; los demás FBX (otras tandas del mismo personaje,
   con el mismo esqueleto) solo suman clips. Si un clip se repite queda el primero.
@@ -19,6 +19,9 @@ PREFIX = r"mixamorig[0-9]*:"
 BLOAT = 12.0  # segundos: los clips más largos no se usan y pesan mucho
 
 out_path, texture, model_path, *more = sys.argv[sys.argv.index("--") + 1:]
+# viejo=nuevo: renombra un clip (Meshy a veces los exporta con un código en vez del nombre).
+RENAME = dict(m.split("=", 1) for m in more if "=" in m)
+more = [m for m in more if "=" not in m]
 
 
 def fcurves(action):
@@ -50,7 +53,8 @@ def clean(action, name):
 
 def clip_name(action):
     parts = action.name.split("|")
-    return parts[1] if len(parts) > 1 else action.name
+    name = parts[1] if len(parts) > 1 else action.name
+    return RENAME.get(name, name)
 
 
 def import_fbx(path):

@@ -59,6 +59,8 @@ const WEAPONS := [
 		"combo": [[0.55, 1.0, 1.0], [0.6, 1.1, 1.2], [0.6, 1.2, 1.3], [0.7, 1.4, 1.6], [0.85, 1.8, 3.0]]},
 ]
 ## Espada con escudo: su propio combo; el remate es un golpe de escudo que empuja lejos.
+## Los golpes del combo antes del remate casi no empujan: el rival queda a tiro del siguiente. El remate sí lo tira.
+const COMBO_KNOCK := 0.25
 const SHIELD_COMBO := [[0.5, 1.0, 1.0], [0.55, 1.1, 1.2], [0.8, 1.5, 3.5]]
 ## Al golpear en el suelo el cuerpo frena a esta aceleración (m/s²): de correr a parado en ~0,2 s.
 const ATTACK_BRAKE := 28.0
@@ -66,6 +68,8 @@ const ATTACK_BRAKE := 28.0
 const COMBO_WINDOW := 0.45
 ## Segundos sin pelear tras los que se considera que el combate terminó.
 const COMBAT_TIMEOUT := 6.0
+## Segundos con el arma recién sacada en guardia antes de relajarse (si no peleás).
+const RELAX_AFTER := 6.0
 
 var health := 100.0
 ## Lo que se puede usar con E aquí al lado (puerta, armario...); lo pone Interactable.
@@ -288,6 +292,7 @@ var _shoved := 0.0
 ## Las dagas se desenvainan solas al atacar y se guardan al terminar el combate,
 ## salvo que hayas elegido pelear con los puños (rueda del ratón).
 var _auto_drawn := false
+var _drawn_ms := 0  # cuándo sacaste el arma a mano (ver RELAX_AFTER)
 var _fists_chosen := false
 ## Bolsa de monedas soltada en el suelo (null: la llevas encima).
 var _guide: JumpGuide
@@ -396,6 +401,7 @@ func _build_body() -> void:
 	col.shape = shape
 	col.position.y = 0.9
 	add_child(col)
+	_body_col = col
 
 	visual = Node3D.new()
 	visual.name = "Visual"
@@ -406,6 +412,7 @@ func _build_body() -> void:
 
 ## Ritmo del personaje elegido (ver Art.HEROES): Vin es más rápida, el terrisano más lento. También en los golpes.
 var _base_walk_speed := 0.0
+var _body_col: CollisionShape3D
 
 
 func _pace() -> float:
@@ -422,7 +429,19 @@ func change_character(who: String) -> void:
 	character_changed.emit()
 
 
+## La cápsula a la medida del personaje elegido: con la de 1,8 m Vin (1,55 m) chocaba con lo que no tocaba.
+func _fit_body() -> void:
+	if _body_col == null:
+		return
+	var h: float = Art.HEROES.get(Art.player_model, {}).get("height", 1.8)
+	var cap := _body_col.shape as CapsuleShape3D
+	cap.radius = 0.3 if h < 1.7 else 0.35
+	cap.height = clampf(h + 0.05, 1.5, 1.8)
+	_body_col.position.y = cap.height * 0.5
+
+
 func _add_rig() -> void:
+	_fit_body()
 	if _base_walk_speed == 0.0:
 		_base_walk_speed = walk_speed
 	walk_speed = _base_walk_speed * _pace()
@@ -524,6 +543,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		weapon = w as HumanoidRig.Weapon
 		_fists_chosen = weapon == HumanoidRig.Weapon.NONE
 		_auto_drawn = false
+		_drawn_ms = Time.get_ticks_msec()
 		rig.set_weapon(weapon)
 	elif event.is_action_pressed(&"interact") and interactable and interactable.prompt != "":
 		interactable.use()
@@ -1152,20 +1172,49 @@ func _start_coin_push(back := Vector3.ZERO) -> void:
 ## mantengas el clic. Sirve para pegar con la moneda o, apuntando abajo, para frenar una caída.
 ## Punto del mundo al que apunta la moneda de combate y velocidad a la que va hacia él (ver _assist_coin_push).
 var _shot_point := Vector3.ZERO
+var _push_slide := false  # un empuje te arrastra por el piso (ver rig.pushed_on_floor)
 var _shot_speed := 0.0
 
 
 func _start_coin_shot(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> void:
-	if dead:
+	if dead or _coin_windup:
 		return
 	if not skill_unlocked(&"steel_combat_coin"):
 		notice.emit("Moneda de combate bloqueada: gasta un punto en acero (K)")
+		return
+	if not _check_coins():
+		return
+	# Primero el gesto; la moneda sale cuando el brazo la tira (ver _release_coin_shot).
+	var look := (aim_dir if aim_dir.is_finite() else aim_direction())
+	visual.rotation.y = atan2(-look.x, -look.z)
+	rig.play_skill("coin_flick", 0.7, COIN_FLICK_FROM)
+	_coin_windup = true
+	_coin_tap_ms = -1
+	_coin_press_ms = Time.get_ticks_msec()
+	get_tree().create_timer(rig.impact_delay(), false, false, true).timeout.connect(_release_coin_shot.bind(aim_target, aim_dir))
+
+
+## Mientras el brazo arma el tiro: la moneda todavía no salió.
+var _coin_windup := false
+var _coin_press_ms := 0
+## Si soltaste el clic antes del tiro: cuánto lo mantuviste (ms); -1 si sigue apretado.
+var _coin_tap_ms := -1
+
+
+func _release_coin_shot(aim_target: Vector3, aim_dir: Vector3) -> void:
+	_coin_windup = false
+	if dead:
 		return
 	var coin := throw_coin(aim_target, aim_dir)
 	if coin == null:
 		return
 	_coin_shot = true
 	_engage_coin_push(coin)
+	if _coin_tap_ms >= 0:
+		# Clic corto: se empuja solo lo que duró el clic, como si hubiera salido al apretar.
+		get_tree().create_timer(_coin_tap_ms / 1000.0, false, false, true).timeout.connect(func() -> void:
+			if steel_iron.auto_push == coin:
+				_end_coin_push())
 
 
 # ---------------------------------------------------------------- Ranuras de habilidades
@@ -1314,6 +1363,9 @@ func _can_steel_jump() -> bool:
 
 
 func _end_coin_push() -> void:
+	if _coin_windup:
+		_coin_tap_ms = Time.get_ticks_msec() - _coin_press_ms
+		return
 	var was_shot := _coin_shot
 	_jump_push = false
 	_coin_shot = false
@@ -1336,6 +1388,9 @@ func _end_coin_push() -> void:
 func _assist_coin_push() -> bool:
 	var coin := steel_iron.auto_push as RigidBody3D
 	if not is_instance_valid(coin):
+		return false
+	if _coin_shot and coin.global_position.distance_to(chest_position()) > ANCHOR_RANGE:
+		_end_coin_push()  # la moneda de combate llegó a su alcance: se corta el enlace y volvés al reposo
 		return false
 	if not coin is Coin:
 		return steel_iron.push_grip.active and steel_iron.push_grip.target == coin  # ya se empuja el objeto que chocó
@@ -1500,6 +1555,7 @@ func _physics_process(delta: float) -> void:
 			_net_coin_ready_ms = now + COIN_COOLDOWN_MS
 			_start_coin_push(back.normalized() * STEEL_JUMP_BACK)
 			_jump_push = steel_iron.auto_push != null
+			_coin_flight = true
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
 		elif double_tap and not is_on_floor() and not _swimming and _air_action_free() and _spend_stamina(JUMP_COST):
 			# Doble Espacio en el aire sin acero: segundo salto.
@@ -1525,6 +1581,9 @@ func _physics_process(delta: float) -> void:
 	var hv := Vector2(velocity.x, velocity.z)
 	_shoved -= rd
 	var being_pushed := _allomantic_accel > 2.0 or _shoved > 0.0
+	# Desde que el empuje te arrastra hasta soltar o despegar: si no, al debilitarse con la distancia se pondría a correr.
+	_push_slide = (_push_slide or _allomantic_accel > 2.0) and is_on_floor() 			and (steel_iron.push_grip.active or steel_iron.pull_grip.active)
+	rig.pushed_on_floor = _push_slide
 	_attack_cd -= rd
 	_combo_window -= rd
 	if _attack_buffered and _attack_cd <= 0.0 and _commit_t <= 0.0:
@@ -1806,7 +1865,9 @@ func _process(delta: float) -> void:
 	if is_local_player():
 		# Hacia abajo la cámara pasa del hombro al eje del personaje: la mira apunta justo bajo tus pies.
 		var down := clampf(inverse_lerp(deg_to_rad(40.0), deg_to_rad(80.0), -pitch_pivot.rotation.x), 0.0, 1.0)
-		spring_arm.position.x = lerpf(CAMERA_SHOULDER, 0.0, down)
+		var shoulder := _shoulder_room(lerpf(CAMERA_SHOULDER, 0.0, down))
+		# Se mete enseguida si hay pared; vuelve despacio, así no salta al pasar junto a un poste.
+		spring_arm.position.x = shoulder if shoulder < spring_arm.position.x else move_toward(spring_arm.position.x, shoulder, 1.5 * rd)
 		_update_camera_boom(rd)
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
@@ -1823,6 +1884,8 @@ func _process(delta: float) -> void:
 		rig.stagger = 1.0 if dead else move_toward(rig.stagger, 0.0, recover)
 		visual.rotation.x = lerpf(visual.rotation.x, PI / 2 if dead else 0.0, minf(rd * 6.0, 1.0))  # tumbado al morir
 	rig.brace = 1.0 if in_combat() else 0.0  # a puños, en guardia solo peleando
+	# Con el arma en la mano, un rato sin pelear (ni recién sacada): reposo común, sin la guardia.
+	rig.relaxed = not in_combat() and Time.get_ticks_msec() - _drawn_ms > RELAX_AFTER * 1000.0
 	# Dagas desenvainadas solas: se guardan un rato después de dejar de pelear.
 	if _auto_drawn and not in_combat() and _attack_cd < -4.0:
 		_auto_drawn = false
@@ -2171,6 +2234,21 @@ func _update_camera_boom(rd: float) -> void:
 	yaw_pivot.rotate_y(push if left >= right else -push)
 
 
+## Cuánto se puede correr la cámara al hombro sin meterse en una pared de al lado: el brazo de la cámara
+## arranca ahí, y si arranca dentro del muro no lo ve y la cámara queda del otro lado.
+func _shoulder_room(want: float) -> float:
+	if want <= 0.0:
+		return want
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = spring_arm.shape
+	q.transform = Transform3D(Basis(), pitch_pivot.global_position)
+	q.motion = pitch_pivot.global_basis.x * want
+	q.collision_mask = spring_arm.collision_mask
+	q.exclude = [get_rid()]
+	var free := get_world_3d().direct_space_state.cast_motion(q)
+	return want * free[0]
+
+
 ## Distancia libre desde `origin` en `dir` (hasta `length`).
 func _camera_room(origin: Vector3, dir: Vector3, length: float) -> float:
 	var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * length, spring_arm.collision_mask, [get_rid()])
@@ -2271,7 +2349,19 @@ func attack() -> void:
 		velocity.z = fwd.z * 4.0
 		_shoved = 0.15
 	Sfx.play("swing", global_position + Vector3(0, 1.2, 0))
-	_after(impact, _resolve_hit.bind(stats, pewter, step[1], step[2], 1.2, 0.0, finisher))
+	_after(impact, _resolve_hit.bind(stats, pewter, step[1], step[2] * (1.0 if finisher else COMBO_KNOCK), 1.2, 0.0, finisher))
+
+
+## Golpe por el miembro: cuánto se perdona (m) entre lo que golpea y el cuerpo del otro, y cuánto se alarga más allá.
+const STRIKE_RADIUS := 0.5
+const STRIKE_SLACK := 0.15
+const ARM_REACH := 0.6  # del pecho a la mano con el brazo estirado
+
+
+## Si el tramo pecho -> puño/hoja toca el cuerpo de alguien parado en `feet` (de los pies a `top` de alto).
+func _limb_hits(from: Vector3, tip: Vector3, feet: Vector3, top: float) -> bool:
+	var pts := Geometry3D.get_closest_points_between_segments(from, tip, feet + Vector3.UP * 0.2, feet + Vector3.UP * maxf(top, 0.6))
+	return pts[0].distance_to(pts[1]) < STRIKE_RADIUS
 
 
 ## Corre `effect` en el impacto, salvo que antes hayan cortado la acción.
@@ -2332,11 +2422,24 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		damage *= 1.15
 	damage *= _fury_mult()
 	var knockback: float = stats["knockback"] * knockback_mult * (1.0 + 1.0 * pewter)
+	# Pega donde está de verdad el puño, el pie o la hoja en este cuadro (no en un cono delante del cuerpo).
+	# Los giros (arco de media vuelta o más) pegan alrededor, como antes.
+	var from := chest_position()
+	var tips: Array[Vector3] = []
+	for p in rig.strike_points():
+		if forward.dot(p - global_position) > 0.0:  # lo que queda atrás (la hoja en el armado) no pega
+			# En el pico de velocidad el brazo todavía no se estiró: se cuenta hasta su alcance, en la dirección del golpe.
+			var arm: float = ARM_REACH + float(ModelRig.STRIKE_REACH.get(weapon, 0.05))
+			tips.append(from + (p - from).normalized() * (maxf(from.distance_to(p), arm) + STRIKE_SLACK + extra_reach))
+	var by_limb := arc < PI and not tips.is_empty()
 	for n in get_tree().get_nodes_in_group(&"npc"):
 		var npc := n as Npc
 		var to := npc.global_position - global_position
 		to.y = 0.0
-		if to.length() > reach or forward.angle_to(to) > arc:
+		if by_limb:
+			if to.length() > reach + 1.0 or not tips.any(func(t: Vector3) -> bool: return _limb_hits(from, t, npc.global_position, npc.head_y(0.0))):
+				continue
+		elif to.length() > reach or forward.angle_to(to) > arc:
 			continue
 		# Crítico: la suerte de siempre (más con atium), un rival aturdido (parry) o por la espalda.
 		var behind := (-npc.global_basis.z).dot(-to.normalized()) < -0.4
@@ -2367,11 +2470,17 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		if rb == null:
 			continue
 		var to := rb.global_position - global_position
-		if to.length() <= reach + 0.5 and forward.angle_to(Vector3(to.x, 0, to.z)) < arc:
+		var near_limb := tips.any(func(t: Vector3) -> bool: return Geometry3D.get_closest_point_to_segment(rb.global_position, from, t).distance_to(rb.global_position) < STRIKE_RADIUS + 0.2)
+		if near_limb if by_limb else to.length() <= reach + 0.5 and forward.angle_to(Vector3(to.x, 0, to.z)) < arc:
 			rb.apply_central_impulse(forward * knockback * minf(rb.mass, 20.0) * 0.5)
 
 
 ## Voltereta en el suelo; en el aire, un dash hacia delante (uno por salto).
+## En el aire, por encima de esta velocidad vertical (m/s; un salto normal llega a ~5) no se puede hacer el dash ni dejar
+## pedida la voltereta del aterrizaje.
+const AIR_ROLL_MAX_VSPEED := 12.0
+
+
 func roll() -> void:
 	if dead or _roll_cd > 0.0 or _hanging or _climb_t >= 0.0 or _swimming:
 		return
@@ -2390,7 +2499,7 @@ func roll() -> void:
 		if not _spend_stamina(ROLL_COST):
 			return
 		_start_roll(dir)
-	else:
+	elif absf(velocity.y) <= AIR_ROLL_MAX_VSPEED:  # cayendo o subiendo a toda velocidad no hay voltereta ni dash
 		_roll_buffer = 0.35  # si tocas el suelo enseguida, ruedas al aterrizar
 		if _air_action_free():
 			if not _spend_stamina(DASH_COST):
@@ -2511,23 +2620,31 @@ func real_delta(delta: float) -> float:
 const FLY_MIN_ACCEL := 4.0
 const FLY_KEEP_TIME := 0.25
 const FLY_END_SPEED := -2.0
+const FLY_LAND_HEIGHT := 1.5
 const DIVE_END_TIME := 0.35  # a cuántos segundos del piso deja la zambullida para caer de pie
 var _fly_t := 0.0
 var _flying := false
+var _coin_flight := false  # salto de acero con moneda: vuela con Vuelo_Moneda, sin el impulso
 
 
 func _update_air_pose(rd: float) -> void:
 	_fly_t -= rd
 	if is_on_floor() or _swimming:
 		_flying = false
+		_coin_flight = false
 	elif _fly_t > 0.0:
+		if not _flying and not _coin_flight:
+			rig.play_fly_launch()
 		_flying = true
 	elif velocity.y < FLY_END_SPEED:
 		_flying = false
 	rig.flying = _flying
+	rig.coin_flight = _coin_flight
 	rig.near_ground = false
-	if velocity.y < -ModelRig.FREEFALL_SPEED:
-		var ray := PhysicsRayQueryParameters3D.create(global_position, global_position + Vector3.UP * velocity.y * DIVE_END_TIME, Props.LAYER_WORLD, [get_rid()])
+	if velocity.y < 0.0 and not is_on_floor():
+		# Bajando y cerca del piso: deja el vuelo o la zambullida para caer de pie.
+		var reach := maxf(-velocity.y * DIVE_END_TIME, FLY_LAND_HEIGHT)
+		var ray := PhysicsRayQueryParameters3D.create(global_position, global_position + Vector3.DOWN * reach, Props.LAYER_WORLD, [get_rid()])
 		rig.near_ground = not get_world_3d().direct_space_state.intersect_ray(ray).is_empty()
 
 
@@ -2742,7 +2859,6 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 			_shot_point = fixed["position"]
 			_shot_speed = 0.0
 			visual.rotation.y = atan2(-dir.x, -dir.z)
-			rig.play_skill("coin_flick", 0.7, COIN_FLICK_FROM)
 			return anchor
 	var coin := _spawn_coin(start + dir * 0.35)
 	coin.gravity_scale = 0.0  # vuela en línea recta hasta el punto apuntado (se restaura en _end_coin_push)
@@ -2750,7 +2866,6 @@ func throw_coin(aim_target := Vector3.INF, aim_dir := Vector3.INF) -> RigidBody3
 	_shot_point = hit
 	_shot_speed = speed
 	visual.rotation.y = atan2(-dir.x, -dir.z)
-	rig.play_skill("coin_flick", 0.7, COIN_FLICK_FROM)
 	Sfx.play("coin_throw", global_position + Vector3(0, 1.2, 0))
 	AirFx.wave(get_tree().current_scene, start + dir * 0.5, 0.7, AirFx.STEEL, 0.28, 0.025, dir)
 	return coin
@@ -2884,8 +2999,7 @@ func toggle_coin_shield() -> void:
 		return
 	if not _check_coins():
 		return
-	rig.open_arms(0.6, 0.25, 0.4)
-	_after(ARMS_OPEN_TIME, _raise_shield)
+	_cast("coin_shield", 0.9, 0.0, _raise_shield)
 
 
 ## Lo que tardan los brazos en abrirse (ver ModelRig.open_arms): recién ahí nace el efecto.
@@ -3204,6 +3318,9 @@ func start_charge() -> void:
 
 
 ## Martillazo: una onda de choque en el suelo que daña, empuja y aturde a todos los que te rodean.
+const SLAM_CAST_TIME := 1.3
+
+
 func start_slam() -> void:
 	if dead or not _iron_ready(_slam_ready_ms, "Martillazo"):
 		return
@@ -3211,8 +3328,9 @@ func start_slam() -> void:
 		notice.emit("El Martillazo se hace en el suelo")
 		return
 	_slam_ready_ms = Time.get_ticks_msec() + int(SkillTree.SLAM_COOLDOWN * 1000.0)
-	rig.play_land(1.0)
-	get_tree().create_timer(0.3, true, false, true).timeout.connect(_slam_hit)
+	# Golpe al piso con el puño: la onda sale cuando la mano llega al suelo.
+	rig.play_spell("slam", SLAM_CAST_TIME)
+	get_tree().create_timer(rig.impact_delay(), true, false, true).timeout.connect(_slam_hit)
 
 
 func _slam_hit() -> void:
@@ -3477,6 +3595,17 @@ func _update_hook_rope() -> void:
 	_hook_rope.global_transform = Transform3D(Basis(x, y * span.length(), z), a + span * 0.5)
 
 
+## Te sacan el arma (el Desarme del Lord Legislador): quedas a puños; la volvés a sacar con la rueda.
+func lose_weapon() -> void:
+	if dead or weapon == HumanoidRig.Weapon.NONE:
+		return
+	weapon = HumanoidRig.Weapon.NONE
+	_fists_chosen = true
+	_auto_drawn = false
+	rig.set_weapon(weapon)
+	notice.emit("¡Te sacaron el arma!")
+
+
 ## Desarme: el arma del enemigo que apuntas sale despedida y cae al piso a mitad de camino entre él y tú.
 func start_disarm() -> void:
 	if dead or not _iron_ready(_disarm_ready_ms, "Desarme"):
@@ -3551,6 +3680,10 @@ func _update_iron_powers(delta: float, rd: float) -> void:
 var _spear_ready_ms := 0
 
 
+## El gesto de la lanza a la velocidad propia del clip: más rápido no se lee.
+const SPEAR_CAST_TIME := 1.5
+
+
 func fire_steel_spear(aim := Vector3.INF) -> void:
 	if dead or not _check_coins():
 		return
@@ -3564,7 +3697,7 @@ func fire_steel_spear(aim := Vector3.INF) -> void:
 	_spear_ready_ms = now + int(SkillTree.SPEAR_COOLDOWN * 1000.0)
 	var dir := _burst_aim(aim)
 	visual.rotation.y = atan2(-dir.x, -dir.z)
-	_cast("steel_push", 0.9, 0.25, _launch_spear.bind(aim))
+	_cast("spear", SPEAR_CAST_TIME, 0.0, _launch_spear.bind(aim))
 
 
 func _launch_spear(aim: Vector3) -> void:
@@ -3602,8 +3735,7 @@ func activate_magnetic_field() -> void:
 		return
 	_field_until_ms = now + int(SkillTree.FIELD_DURATION * 1000.0 + ARMS_OPEN_TIME * 1000.0)
 	_field_ready_ms = now + int(SkillTree.FIELD_COOLDOWN * 1000.0)
-	rig.open_arms(0.7, -0.1, 0.6)
-	_after(ARMS_OPEN_TIME, _raise_field)
+	_cast("field", 1.0, 0.0, _raise_field)
 
 
 func _raise_field() -> void:
@@ -3700,7 +3832,7 @@ func start_gather(aim := Vector3.INF) -> void:
 	if _gathering.is_empty():
 		notice.emit("No hay monedas cerca")
 	else:
-		rig.play_skill("pull_heavy", 0.9)
+		rig.play_skill("coin_magnet", 0.9)
 		AirFx.wave(get_tree().current_scene, chest + base * 0.5, 2.6, AirFx.IRON, 0.55, 0.035, null, true)
 		_gather_blast_ms = Time.get_ticks_msec() + BLAST_WAIT_MS if blast else 0
 

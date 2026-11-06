@@ -1,5 +1,8 @@
 # Animaciones del nacido de la bruma
 
+> Esto describe el modelo viejo del Mistborn de ActionForge. La lista al día de todos los clips, de dónde salen y qué usa
+> cada acción de Vin y los demás héroes está en [BIBLIOTECA_ANIMACIONES.md](BIBLIOTECA_ANIMACIONES.md).
+
 Qué animación usa cada acción del jugador cuando lleva un modelo de Mixamo (`Art.PLAYER_MODELS`),
 de dónde sale y cuáles faltan. La elección está en `ModelRig.ANIMS`
 (`scripts/character/model_rig.gd`): para cada estado se prueba una lista de nombres y se usa el

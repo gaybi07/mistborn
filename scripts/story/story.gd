@@ -92,10 +92,11 @@ const FOES := {
 	"lord_ruler": {"name": "Lord Legislador", "kit": "LordRuler"},
 }
 
-## Cómo llega el Lord Legislador a la pelea final según las marcas que dejaste: poderes de Champion.KITS["LordRuler"] que pierde y ayuda.
+## Cómo llega el Lord Legislador a la pelea final según las marcas que dejaste: poderes de LordPowers.POWERS que pierde
+## (van a LordPowers.off) y ayuda.
 const FINALE := {
-	"secreto_reserva": {"off": ["Regeneración"], "text": "Vaciaron la reserva que lo cura."},
-	"armadura_madera": {"off": ["Empujón de acero", "Tirón de hierro"], "text": "Su equipo de madera no le da metal del que agarrarlos."},
+	"secreto_reserva": {"off": ["Mente de oro"], "text": "Vaciaron la reserva que lo cura."},
+	"armadura_madera": {"off": ["Empuje de acero", "Tirón de hierro", "Atracción masiva", "Desarme"], "text": "Su equipo de madera no le da metal del que agarrarlos."},
 	"aliada_vin": {"off": [], "text": "Vin pelea con ustedes."},
 	"aliado_kelsier": {"off": [], "text": "Kelsier distrae a los inquisidores del salón."},
 	"soldados_cett": {"off": [], "text": "Los soldados de Cett frenan a los refuerzos."},

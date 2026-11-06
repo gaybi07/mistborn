@@ -91,7 +91,10 @@ const ANIMS := {
 	"vault": ["vault"],
 	"fall_roll": ["fall_roll"],
 	"freefall": ["freefall"],
+	"slam": ["slam"],
 	"fly": ["fly"],
+	"fly_rise": ["fly_rise"],
+	"fly_glide": ["fly_glide"],
 	"drink": ["drink"],
 	"open_door": ["open_door"],
 	"sit": ["sit"],
@@ -124,14 +127,16 @@ const ANIMS := {
 	"mt_jump_attack": ["mt_jump_attack"],
 }
 ## Animaciones que se repiten (el resto se queda en su último fotograma al terminar).
-const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint", "flee", "air", "fly", "allomancy", "hang",
+const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint", "flee", "air", "fly", "fly_rise", "allomancy", "hang",
 		"swim", "swim_idle", "slide", "burn_focus", "crouch_idle", "crouch_walk", "freefall", "sit", "box_idle",
 		"carry_walk", "dig", "push_heavy", "pull_heavy", "kneel_inspect", "sad_idle", "sad_walk", "warm_hands"]
 ## Velocidad (m/s) a la que cada animación de desplazamiento "pisa" bien.
 const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swim": 2.0, "crouch_walk": 0.7}
 ## Lo mismo por nombre de animación, para las que se apartan del valor de su estado (ActionForge).
 const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7, "sad_walk": 0.72, "carry_walk": 1.1, "crouch_walk": 0.7,
-		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.4, "Running": 4.9, "RunFast": 7.0}
+		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.47, "Running": 5.0, "RunFast": 7.0,
+		# Medidas en Vin con el pie apoyado (tools: feet_check): si no, el pie patina.
+		"Spear_Walk": 1.46, "Cautious_Crouch_Walk_Forward_inplace": 1.27, "Walk_Fight_Forward": 0.77}
 ## Por encima de esta velocidad (peltre) se esprinta.
 const SPRINT_SPEED := 8.0
 ## Golpes con dagas o espada: a esta fracción de la velocidad a la que entrarían en su duración.
@@ -153,9 +158,18 @@ var _impact_delay := 0.0
 var _attack_hit := 0.0
 ## Al cambiar de clip, la pose de antes se apaga en estos segundos (sirve también entre esqueletos distintos).
 const FADE_ATTACK := 0.08
+## Golpe tras golpe: el cuerpo pasa un poco más suave y las piernas (cadera incluida) mucho más, para que los pies no salten.
+const COMBO_FADE := 0.15
+const ATTACK_LEG_FADE := 0.32
+var _fade_leg_t := 0.0
+var _fade_leg_len := 1.0
+var _leg_bone := PackedByteArray()
 const FADE_ONESHOT := 0.12
+## Entrar a una voltereta (desde la carrera o al caer): a 0,08 s las manos saltaban 0,5 m en un cuadro.
+const ROLL_FADE := 0.16  # también el dash y el doble salto (voltereta en el aire)
+const PICKUP_FADE := 0.25  # agacharse a juntar algo no apura: la cabeza bajaba de golpe
 const FADE_LONG := 0.35
-const FADE_EXIT := 0.22
+const FADE_EXIT := 0.32  # volver a reposo tras un golpe o un bloqueo: a 0,22 s el brazo volvía de un tirón
 var _fade_pose: Array[Quaternion] = []
 var _fade_hips := Vector3.ZERO
 var _fade_t := 0.0
@@ -165,6 +179,12 @@ var _fade_len := 1.0
 const UPPER_DONOR := "MixamoSpells.glb"
 const UPPER_BONES := ["Spine2", "Head", "LeftArm", "LeftForeArm", "LeftHand", "RightArm", "RightForeArm", "RightHand"]  # del donante
 const UPPER_FADE := 0.12
+## Al soltar un gesto vuelve a la guardia en este tiempo, quieto en su último cuadro: a 0,12 s el brazo volvía de un tirón.
+const UPPER_EXIT_FADE := 0.3
+## Gestos lentos (los que fijan su velocidad en HeroClips.SKILLS): entran y salen más suave y se frenan al final.
+const SLOW_SKILL_FADE := 0.3
+const SLOW_SKILL_HOLD := 0.35
+var _upper_fade := UPPER_FADE
 ## Golpe flojo de costado o por la espalda: la primera sacudida del clip direccional, solo en torso y brazos (el primer
 ## pico cae entre 0,1 y 0,15 del clip), así no empuja el cuerpo ni frena las piernas.
 const LIGHT_HIT_CUT := 0.2
@@ -177,9 +197,19 @@ const BURN_GESTURE_TIME := 0.8
 ## jump_start ya bajó los pies pasada esta fracción y jump_land ya se paró: el resto se vería parado en el aire o quieto.
 const JUMP_CUT := 0.55
 const DOUBLE_JUMP_TIME := 0.8  # la voltereta entera, sin cortarla
+const FLY_LAUNCH_TIME := 0.6
+var _launch := 0.0
+## Salto de acero con moneda: vuela (Vuelo_Moneda), a los COIN_GLIDE_AFTER s pasa a Fall2 y lo mantiene mientras sube;
+## al empezar a bajar, la zambullida de la caída libre.
+const COIN_GLIDE_AFTER := 2.0
+const COIN_DESCEND_SPEED := -1.0
+var _coin_t := 0.0
 ## Mezclas lentas en el aire: va levantando los brazos al volar y se da vuelta de a poco al caer.
-const AIR_BLENDS := {"fly": 0.8, "freefall": 1.0}
-const FLY_END_BLEND := 0.6
+const AIR_BLENDS := {"fly": 0.8, "fly_rise": 0.5, "fly_glide": 0.8, "freefall": 0.5}
+## Volando hacia arriba (más que de costado) a más de esto (m/s): pose de subida tipo Ironman (fly_rise). Al empezar a
+## bajar, la de caída.
+const RISE_SPEED := 2.0
+const FLY_END_BLEND := 0.3
 const LAND_CUT := 0.7
 ## Cayendo más rápido que esto (m/s) se pasa a la pose de caída libre.
 const FREEFALL_SPEED := 12.0
@@ -190,11 +220,18 @@ var _upper := {}
 var _upper_bones: Array[int] = []
 var _upper_t := 0.0
 var _upper_w := 0.0
+var _upper_stop := INF  # segundo del clip en el que se queda quieto (ver play_skill)
+var _upper_impact_at := -1.0  # segundo del clip del tiro; antes va a _upper_windup_speed
+var _upper_windup_speed := 0.0
+var _left_lag := 0.0  # segundos de retraso del brazo izquierdo (0: sigue al clip)
+var _lagged := {}  # hueso -> giro con retraso
 var _upper_speed := 1.0
 ## Quieto, caminar, correr...: al pasar de una a otra se mezclan durante LOCO_BLEND segundos y la
 ## nueva arranca en el mismo punto del paso (fase) que la anterior, así no se cortan de golpe.
 const LOCOMOTION := ["idle", "idle_armed", "walk", "run", "sprint", "flee", "crouch_idle", "crouch_walk", "allomancy"]
 const LOCO_BLEND := 0.4
+## Al empezar a empujar (p. ej. la moneda recién lanzada) el cuerpo baja a la postura sin caer de golpe.
+const PUSH_STANCE_BLEND := 0.9
 ## Bloqueo: la animación "block" se queda quieta en este punto (guardia arriba); al recibir un golpe
 ## retrocede a BLOCK_KICK_FROM y vuelve a subir.
 const BLOCK_HOLD := 0.5
@@ -262,9 +299,9 @@ void fragment() {
 static var _suit_shader: Shader
 ## IK de pies: estados sin los pies en el suelo (no se corrigen) y de desplazamiento (el pie apoyado
 ## no se clava: el personaje avanza y la animación va en el lugar).
-const IK_OFF := ["air", "fly", "jump", "hang", "climb", "swim", "swim_idle", "slide", "down", "roll", "dash",
+const IK_OFF := ["air", "fly", "fly_rise", "fly_glide", "fly_launch", "slam", "jump", "hang", "climb", "swim", "swim_idle", "slide", "down", "roll", "dash",
 		"attack_air", "freefall", "fall_roll", "climb_wall", "vault", "mt_jump_attack"]
-const IK_MOVING := ["walk", "run", "sprint", "flee", "carry_walk", "sad_walk", "crouch_walk"]
+const IK_MOVING := ["walk", "run", "sprint", "flee", "carry_walk", "sad_walk", "crouch_walk", "stop"]  # stop: da pasos, no se clava
 ## Clips que se desplazan de verdad (esquives, golpes que te empujan; ver actionforge_to_glb.py): traen
 ## el avance en el hueso root. Se saca del esqueleto y se mueve al personaje lo mismo (ver
 ## _take_root_motion): en el lugar los pies patinarían más de un metro.
@@ -275,6 +312,14 @@ const FOOT_REACH := 0.4
 const FOOT_TOE := 0.12
 ## Si la animación deja los dos pies en el aire menos que esto (m), se los apoya (ver _update_foot_ik).
 const GROUND_FLOAT := 0.15
+## Pie hundido menos que esto (m) se deja: es el tobillo doblado. Más, el cuerpo sube (clips de otro esqueleto,
+## p. ej. el Crouch Idle de Mixamo, que bajaba la cadera 26 cm).
+const SINK_OK := 0.04
+## Estados en el suelo sin IK de pies que igual apoyan el cuerpo (ver _contact_drop), y cuánto va el hueso por dentro.
+const GROUND_CONTACT := ["roll", "fall_roll", "slide", "down"]
+const BODY_PAD := 0.07
+## Andando, a qué velocidad (m/s) se olvida lo más bajo que pisó el pie (ver _move_low).
+const MOVE_LOW_RISE := 0.15
 ## Lo más que se separa un pie clavado de donde lo pone la animación antes de soltarlo (m).
 const FOOT_LOCK_SLACK := 0.25
 ## Lo más que se acelera un golpe o una voltereta para que quepa en su tiempo.
@@ -309,6 +354,9 @@ var state_cuts := {}  # estado -> [desde, hasta, golpe (opcional)], fracciones d
 var clip_holds := {}  # estado -> fracción del clip en la que se queda quieto
 var skill_clips := {}  # gesto de play_skill -> [clip, desde, hasta, golpe]
 var upper_donor := UPPER_DONOR
+## Más donantes para los gestos de la capa superior (se usa el primero que tenga el clip).
+var upper_extra: Array = []
+var _uppers := {}  # archivo -> {"ap", "rt", "bones"}
 ## No reacciona a los golpes flojos (no le cortan el suyo): solo a los fuertes y al aturdimiento.
 var ignore_light_hits := false
 ## En pleno salto, rugido o furia: ningún golpe le corta la animación.
@@ -347,6 +395,8 @@ var _pull_blend := 0.0
 var _oneshot_speed := 1.0
 var _jump := 0.0
 var _land := 0.0
+var _stop := 0.0  # frenada desde la carrera (ver _start_stop)
+var _recent_speed := 0.0  # la velocidad de hace un momento: al frenar se pasa unos cuadros por caminar
 var _dash := 0.0
 var _climb := 0.0
 var _pickup := 0.0
@@ -388,6 +438,7 @@ var _ik_lock: Array = [null, null]  # punto (Vector3) donde quedó clavado cada 
 var _ik_corr: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var _ik_unlocking: Array[bool] = [false, false]  # recién soltado: no se vuelve a clavar hasta llegar
 var _float_by := 0.0  # cuánto flota la animación (suavizado: es parejo, no cambia de un cuadro al otro)
+var _move_low := 0.0  # andando: lo más bajo que pisa el pie en la zancada (baja enseguida, sube despacio)
 var _ankle := 0.0  # altura del tobillo en reposo, en metros del personaje
 var _hips_drop := 0.0  # cuánto se baja el cuerpo para que llegue el pie que pisa más abajo
 var _model_y := 0.0
@@ -879,7 +930,10 @@ func play_attack(side: int, duration: float, step := 0) -> float:
 		state = "%s_%d" % [state, step]
 	_upper_t = 0.0
 	_spell = 0.0
-	_attack = _play_once(state, duration, FADE_ATTACK)
+	_attack = _play_once(state, duration, COMBO_FADE if _attack > 0.0 else FADE_ATTACK)
+	if _fade_t > 0.0:
+		_fade_leg_t = ATTACK_LEG_FADE
+		_fade_leg_len = ATTACK_LEG_FADE
 	if weapon != Weapon.NONE:
 		_slow_attack()
 	_attack_full = _attack
@@ -890,7 +944,7 @@ func play_attack(side: int, duration: float, step := 0) -> float:
 func play_roll(duration := 0.5, slide := false) -> void:
 	super(duration)
 	_variant["roll"] = "_slide" if slide else ""
-	_roll = _play_once("roll", duration, FADE_ATTACK)
+	_roll = _play_once("roll", duration, ROLL_FADE)
 
 
 func play_throw() -> void:
@@ -918,13 +972,22 @@ func open_arms(duration: float, lift := 0.0, bend := 0.0) -> void:
 ## from, to: tramo del clip que se usa (se salta la preparación, o el resto de un clip largo). Devuelve cuánto dura.
 func play_skill(state: String, duration: float, from := 0.0, to := 1.0) -> float:
 	var impact: float = IMPACT.get(state, DEFAULT_IMPACT)
+	var fixed_speed := 0.0
+	var blend_out := 0.0
+	var windup_speed := 0.0
+	_left_lag = 0.0
+	_lagged.clear()
 	if skill_clips.has(state):
 		var skill: Array = skill_clips[state]
 		state = skill[0]
 		from = skill[1]
 		to = skill[2]
 		impact = skill[3]
-	if not _ensure_upper() or not _upper["ap"].has_animation(state):
+		fixed_speed = skill[4] if skill.size() > 4 else 0.0
+		blend_out = skill[5] if skill.size() > 5 else 0.0
+		windup_speed = skill[6] if skill.size() > 6 else 0.0
+		_left_lag = skill[7] if skill.size() > 7 else 0.0
+	if not _ensure_upper(state) or not _upper["ap"].has_animation(state):
 		play_throw()
 		_impact_delay = 0.0
 		return _throw
@@ -932,10 +995,30 @@ func play_skill(state: String, duration: float, from := 0.0, to := 1.0) -> float
 	var length := ap.get_animation(state).length
 	ap.get_animation(state).loop_mode = Animation.LOOP_NONE
 	ap.play(state, 0.0)
-	ap.seek(length * from, false)
+	ap.seek(length * from, true)  # ya en la pose del tramo: si no, al entrar se ve la pose en T
 	_upper_speed = clampf(length * (to - from) / duration, 1.0, MAX_ONESHOT_SPEED)
+	_upper_fade = UPPER_FADE
+	if fixed_speed > 0.0:
+		_upper_speed = fixed_speed
+		_upper_fade = SLOW_SKILL_FADE
 	_upper_t = length * (to - from) / _upper_speed
 	_impact_delay = maxf(impact - from, 0.0) * length / _upper_speed
+	_upper_impact_at = -1.0
+	_upper_windup_speed = 0.0
+	if windup_speed > 0.0 and impact > from:
+		# Hasta el tiro, a su propia velocidad (más rápido); de ahí en adelante, a la del resto.
+		_upper_impact_at = length * impact
+		_upper_windup_speed = windup_speed
+		_impact_delay = (impact - from) * length / windup_speed
+		_upper_t = _impact_delay + maxf(to - impact, 0.0) * length / _upper_speed
+	_upper_stop = INF
+	if blend_out > 0.0:
+		# Se queda en el último cuadro del tramo y desde ahí se funde con lo que hace el cuerpo (el empuje).
+		_upper_stop = length * to
+		_upper_fade = blend_out
+		_upper_t += blend_out
+	elif fixed_speed > 0.0:
+		_upper_t += SLOW_SKILL_HOLD  # se queda un momento en la pose final antes de soltar
 	return _upper_t
 
 
@@ -951,6 +1034,45 @@ func impact_delay() -> float:
 	return _impact_delay
 
 
+## Hasta dónde llega el arma más allá de la mano (m).
+const KICK_CLIPS := ["Step_in_High_Kick", "Rising_Flying_Kick", "Double_kick_forward", "Flying_Fist_Kick"]
+const STRIKE_REACH := {Weapon.NONE: 0.05, Weapon.DAGGERS: 0.3, Weapon.SWORD: 0.85}
+## Lo que barrió el golpe en este tiempo antes del impacto también pega: en un tajo ancho, en el pico de velocidad
+## la hoja ya pasó por delante y está al costado.
+const STRIKE_WINDOW := 0.15
+var _strike_pts: Array[Vector3] = []
+var _strike_hist: Array = []  # [tiempo, puntos]
+
+
+## Mientras pega: dónde están lo que golpea (las manos con su arma, o los pies en las patadas).
+func _track_strike(_dt: float) -> void:
+	_strike_pts.clear()
+	if _attack <= 0.0 or _skel == null:
+		_strike_hist.clear()
+		return
+	# Los pies solo en las patadas: en los demás golpes el pie que da el paso no pega.
+	var kick: bool = _resolved.get(_state, {}).get("name", "") in KICK_CLIPS
+	for key in (["foot_l", "foot_r"] if kick else ["hand_l", "hand_r"]):
+		if _bones.get(key, -1) < 0:
+			continue
+		var p := BoneTools.bone_world_pos(_skel, _bones[key])
+		if not kick:
+			var elbow := BoneTools.bone_world_pos(_skel, _bones["lower" + key.substr(4)])
+			p += (p - elbow).normalized() * float(STRIKE_REACH.get(weapon, 0.05)) * scale.y
+		_strike_pts.append(p)
+	_strike_hist.append([_t, _strike_pts.duplicate()])
+	while _strike_hist.size() > 1 and _t - float(_strike_hist[0][0]) > STRIKE_WINDOW:
+		_strike_hist.pop_front()
+
+
+## Por dónde pasó lo que golpea en los últimos STRIKE_WINDOW s (vacío si no está pegando o no se sabe).
+func strike_points() -> Array[Vector3]:
+	var all: Array[Vector3] = []
+	for h: Array in _strike_hist:
+		all.append_array(h[1])
+	return all
+
+
 func cancel_action() -> void:
 	super()
 	if _held_vial:  # cortó el trago: el frasco vuelve al cinturón
@@ -962,33 +1084,50 @@ func cancel_action() -> void:
 	_land = 0.0
 
 
-func _ensure_upper() -> bool:
-	if not _upper.is_empty():
-		return true
+## anim: el clip que se va a usar; elige el donante que lo tenga. Sin anim, el principal.
+func _ensure_upper(anim := "") -> bool:
 	if _skel == null:
 		return false
-	for spec: Array in _donor_specs:
-		if not String(spec[0]).ends_with(upper_donor):
-			continue
-		var map: Array = (spec[1] as Array).filter(func(m: Array) -> bool: return m[1] in UPPER_BONES)
-		var model := _instance(spec[0])
-		model.visible = false
-		_fit_height(model, false)
-		model.rotation.y = _model.rotation.y
-		_upper = {"ap": _first(model, "AnimationPlayer"), "rt": BoneTools.Retargeter.new(_first(model, "Skeleton3D"), _skel, map)}
-		for m: Array in map:
-			if _skel.find_bone(m[0]) >= 0:
-				_upper_bones.append(_skel.find_bone(m[0]))
+	if not _upper.is_empty() and (anim == "" or (_upper["ap"] as AnimationPlayer).has_animation(anim)):
 		return true
+	for spec: Array in _donor_specs:
+		var file := String(spec[0]).get_file()
+		if file != upper_donor and not file in upper_extra:
+			continue
+		if not _uppers.has(file):
+			var map: Array = (spec[1] as Array).filter(func(m: Array) -> bool: return m[1] in UPPER_BONES)
+			var model := _instance(spec[0])
+			model.visible = false
+			_fit_height(model, false)
+			model.rotation.y = _model.rotation.y
+			var bones: Array[int] = []
+			for m: Array in map:
+				if _skel.find_bone(m[0]) >= 0:
+					bones.append(_skel.find_bone(m[0]))
+			_uppers[file] = {"ap": _first(model, "AnimationPlayer"), "rt": BoneTools.Retargeter.new(_first(model, "Skeleton3D"), _skel, map), "bones": bones}
+		var e: Dictionary = _uppers[file]
+		if e["ap"] != null and (anim == "" or (e["ap"] as AnimationPlayer).has_animation(anim)):
+			_upper = e
+			_upper_bones = e["bones"]
+			return true
 	return false
 
 
 func _apply_upper(dt: float) -> void:
 	_upper_t -= dt
-	_upper_w = move_toward(_upper_w, 1.0 if _upper_t > UPPER_FADE and not hanging else 0.0, dt / UPPER_FADE)
+	var rising := _upper_t > _upper_fade and not hanging
+	# Con armado rápido, entra rápido: si no, el armado pasaría a medio fundir.
+	var fade := UPPER_FADE if rising and _upper_windup_speed > 0.0 else _upper_fade
+	if not rising and not hanging:
+		fade = maxf(fade, UPPER_EXIT_FADE)
+	_upper_w = move_toward(_upper_w, 1.0 if rising else 0.0, dt / fade)
 	if _upper_w <= 0.0:
+		_apply_left_lag(dt)  # el brazo izquierdo termina de llegar con su retraso: si no, salta al soltar
 		return
-	(_upper["ap"] as AnimationPlayer).advance(dt * _upper_speed)
+	var ap := _upper["ap"] as AnimationPlayer
+	var speed := _upper_windup_speed if ap.current_animation_position < _upper_impact_at else _upper_speed
+	if _upper_t > 0.0:  # terminado el tramo, se funde quieto (si no, sigue el resto del clip)
+		ap.advance(minf(dt * speed, maxf(_upper_stop - ap.current_animation_position, 0.0)))
 	var before: Array[Quaternion] = []
 	for b in _upper_bones:
 		before.append(_skel.get_bone_pose_rotation(b))
@@ -996,12 +1135,33 @@ func _apply_upper(dt: float) -> void:
 	var w := smoothstep(0.0, 1.0, _upper_w)
 	for i in _upper_bones.size():
 		_skel.set_bone_pose_rotation(_upper_bones[i], before[i].slerp(_skel.get_bone_pose_rotation(_upper_bones[i]), w))
+	_apply_left_lag(dt)
+
+
+## El brazo izquierdo sigue al clip con retraso: su balanceo queda más lento y suave. Ya soltado el gesto, se apaga
+## cuando alcanza la pose del cuerpo.
+func _apply_left_lag(dt: float) -> void:
+	if _left_lag <= 0.0:
+		return
+	var k := 1.0 - exp(-dt / _left_lag)
+	var behind := false
+	for key in ["upper_l", "lower_l", "hand_l"]:
+		var b: int = _bones[key]
+		if b < 0:
+			continue
+		var now := _skel.get_bone_pose_rotation(b)
+		_lagged[b] = (_lagged[b] as Quaternion).slerp(now, k) if _lagged.has(b) else now
+		behind = behind or (_lagged[b] as Quaternion).angle_to(now) > 0.01
+		_skel.set_bone_pose_rotation(b, _lagged[b])
+	if _upper_w <= 0.0 and not behind:
+		_left_lag = 0.0
+		_lagged.clear()
 
 
 ## Solo parado o caminando: a la carrera la animación entera se vería deslizándose.
 func play_pickup() -> void:
 	if move_speed < 3.0 and _attack <= 0.0 and _roll <= 0.0:
-		_pickup = _play_once("pickup", 0.9)
+		_pickup = _play_once("pickup", 0.9, PICKUP_FADE)
 
 
 ## air_flip: segundo salto en el aire, con su propio clip.
@@ -1013,23 +1173,58 @@ func play_jump(air_flip := false) -> void:
 	if air_flip or next_jump != "":
 		_variant["jump"] = "_double" if air_flip else next_jump
 	next_jump = ""
-	_jump = _play_once("jump", DOUBLE_JUMP_TIME, FADE_ATTACK) if air_flip else _play_once("jump", 0.35, FADE_ATTACK) * JUMP_CUT
+	_jump = _play_once("jump", DOUBLE_JUMP_TIME, ROLL_FADE) if air_flip else _play_once("jump", 0.35, FADE_ATTACK) * JUMP_CUT
+
+
+func play_fly_launch() -> void:
+	if _resolved.get("fly_launch", {"name": ""})["name"] != "" and _attack <= 0.0:
+		_jump = 0.0
+		_launch = _play_once("fly_launch", FLY_LAUNCH_TIME, FADE_ONESHOT)
+
+
+## Frenada desde la carrera (Sprint_and_Sudden_Stop): el clip corre en el lugar, frena con el pie izquierdo
+## (25 %), da un paso más con el derecho y queda parado con los pies juntos (STOP_END). Se entra en el punto de su
+## carrera que coincide con el paso que trae (izquierdo apoyado: 6,5 % del clip = 30 % del ciclo de Running;
+## derecho: 16,5 % = 80 %): sigue con el pie que toca y no patina. Medido en Vin con tools/anim_check.
+const STOP_LEFT_AT := 0.065
+const STOP_RIGHT_AT := 0.165
+const STOP_END := 0.62
+const STOP_SPEED := 1.2
+const STOP_FADE := 0.15
+const STOP_FROM := 3.5  # m/s: más lento que esto se para sin frenada
+
+
+func _start_stop() -> bool:
+	if _resolved.get("stop", {"name": ""})["name"] == "" or not on_floor or crouched or _attack > 0.0 or _roll > 0.0:
+		return false
+	var phase := _cycle_phase()  # de la carrera que viene
+	if phase < 0.0:
+		return false
+	var entry := STOP_LEFT_AT + fposmod(phase - 0.3, 1.0) * 2.0 * (STOP_RIGHT_AT - STOP_LEFT_AT)
+	_play("stop", STOP_FADE, true)
+	var length := _current_length()
+	(_src_ap if _borrowed else _ap).seek(length * entry, true)
+	_oneshot_speed = STOP_SPEED
+	_stop = (STOP_END - entry) * length / STOP_SPEED
+	return true
 
 
 ## Aterrizaje: si vienes corriendo se corta solo (ver _choose_state).
+const LAND_FADE := 0.22  # del ovillo del aire a la pose de caída: más corto, los brazos se abren de un salto
 func play_land(strength := 1.0) -> void:
 	if _attack > 0.0 or _roll > 0.0 or _dash > 0.0:
 		return
 	_jump = 0.0
 	if strength >= LAND_ROLL_STRENGTH and move_speed > LAND_ROLL_SPEED and _resolved.get("fall_roll", {"name": ""})["name"] != "":
-		play_spell("fall_roll", 1.0)
+		_spell_state = "fall_roll"
+		_spell = _play_once("fall_roll", 1.0, ROLL_FADE)
 		return
-	_land = _play_once("land", lerpf(0.52, 0.9, strength)) * LAND_CUT
+	_land = _play_once("land", lerpf(0.52, 0.9, strength), LAND_FADE) * LAND_CUT
 
 
 func play_dash(duration := 0.45) -> void:
 	_jump = 0.0
-	_dash = minf(_play_once("dash", duration), duration)  # el final del clip es pararse: en el aire no va
+	_dash = minf(_play_once("dash", duration, ROLL_FADE), duration)  # el final del clip es pararse: en el aire no va
 
 
 func play_climb(duration := 0.65) -> float:
@@ -1131,12 +1326,12 @@ func play_hit(from: Vector3, heavy: bool, stun := false) -> void:
 
 ## De qué lado del cuerpo viene un golpe: el clip hit_* que le corresponde.
 func _hit_side(from: Vector3) -> String:
-	var torso: int = _bones["torso"]
-	var center := BoneTools.bone_world_pos(_skel, torso) if torso >= 0 else global_position
-	var up := global_basis.orthonormalized() * Vector3.UP
-	var right := BoneTools.bone_world_pos(_skel, _bones["upper_r"]) - center
-	right = (right - up * right.dot(up)).normalized()
-	var forward := up.cross(right)
+	# Hacia dónde mira el personaje (-Z), no la línea de los hombros: con el torso girado por otro golpe, uno de
+	# frente salía de costado.
+	var b := global_basis.orthonormalized()
+	var up := b.y
+	var forward := -b.z
+	var right := forward.cross(up)
 	var to := from - global_position
 	to = (to - up * to.dot(up)).normalized()
 	if absf(to.dot(forward)) >= absf(to.dot(right)):
@@ -1187,7 +1382,11 @@ func _process(delta: float) -> void:
 	_roll -= dt
 	_throw -= dt
 	_jump -= dt
+	_launch -= dt
+	_coin_t = _coin_t + dt if coin_flight and not on_floor else 0.0
 	_land -= dt
+	_stop -= dt
+	_recent_speed = maxf(move_speed, _recent_speed - dt * 10.0)
 	_dash -= dt
 	_climb -= dt
 	_pickup -= dt
@@ -1202,6 +1401,8 @@ func _process(delta: float) -> void:
 	if _ap == null and retarget_from == "":
 		return
 	var state := _choose_state()
+	if state in ["idle", "idle_armed"] and _state in ["run", "sprint", "walk"] and _recent_speed > STOP_FROM and _start_stop():
+		state = "stop"
 	if stance_suffix() != _stance and state in STANCE_STATES:
 		_stance = stance_suffix()  # cambió de arma sin cambiar de estado: el clip sí cambia
 		_play(state, LOCO_BLEND)
@@ -1209,12 +1410,14 @@ func _process(delta: float) -> void:
 	if state != _state:
 		if was_crouched and not state.begins_with("crouch"):
 			_play(state, STAND_UP_BLEND)
+		elif state.begins_with("crouch") and not was_crouched:
+			_play(state, CROUCH_BLEND)
 		elif state == "block":
-			_play(state, 0.12)
+			_play(state, 0.16)
 			_seek_time(BLOCK_HOLD)
 		elif state in LOCOMOTION and _state in LOCOMOTION:
 			var phase := _cycle_phase() if STRIDE_SPEED.has(_state) and STRIDE_SPEED.has(state) else -1.0
-			_play(state, LOCO_BLEND)
+			_play(state, PUSH_STANCE_BLEND if state == "allomancy" else LOCO_BLEND)
 			if phase >= 0.0:
 				_seek_phase(phase)
 		else:
@@ -1224,17 +1427,22 @@ func _process(delta: float) -> void:
 		if clip_holds.has(state + _suffix(state)):
 			var enters: bool = state == "crouch_idle" and not was_crouched
 			_settling = enters
-			_seek_time(0.0 if enters else _current_length() * clip_holds[state + _suffix(state)])
+			if not enters:
+				# Mismo clip que el estado anterior (salto -> aire, los dos de Regular_Jump): _play no mezcló y
+				# el salto al cuadro fijo se vería de golpe.
+				_begin_fade(AIR_BLENDS.get(state, 0.25))
+			# Aplicando la pose ya: quieto (velocidad 0) no avanza y se quedaba en la pose en T del reposo.
+			(_src_ap if _borrowed else _ap).seek(0.0 if enters else _current_length() * clip_holds[state + _suffix(state)], true)
 	var speed := 1.0
 	if clip_holds.has(state + _suffix(state)):
 		_settling = _settling and _current_time() < _current_length() * clip_holds[state + _suffix(state)]
 		speed = CROUCH_ENTER_SPEED if _settling else 0.0
 	elif STRIDE_SPEED.has(state):
-		var stride: float = ANIM_STRIDE.get(_resolved[state]["name"], STRIDE_SPEED[state])
+		var stride: float = ANIM_STRIDE.get(_resolved.get(state + _suffix(state), _resolved[state])["name"], STRIDE_SPEED[state])  # el clip que suena (con arma: Spear_Walk...)
 		speed = clampf(move_speed / (stride * stride_scale), 0.6, 2.2)
 	elif state == "block":
 		speed = 1.0 if _block_kick > 0.0 else 0.0
-	elif state in ["roll", "throw", "jump", "land", "dash", "climb", "pickup"] or state.begins_with("attack") 			or (_spell > 0.0 and state == _spell_state):
+	elif state in ["roll", "throw", "jump", "fly_launch", "land", "dash", "climb", "pickup", "stop"] or state.begins_with("attack") 			or (_spell > 0.0 and state == _spell_state):
 		speed = _oneshot_speed
 	if _borrowed and _src_ap:
 		_src_ap.advance(dt * speed)
@@ -1243,6 +1451,11 @@ func _process(delta: float) -> void:
 	elif _ap:
 		_ap.advance(dt * speed)
 		_take_root_motion()
+	if state == "fly_launch" and _bones["hips"] >= 0:
+		# El impulso del clip sube el cuerpo; acá lo sube el metal: la cadera no pasa de su altura de reposo.
+		var hp := _skel.get_bone_pose_position(_bones["hips"])
+		hp.y = minf(hp.y, _skel.get_bone_rest(_bones["hips"]).origin.y)
+		_skel.set_bone_pose_position(_bones["hips"], hp)
 	_apply_fade(dt)
 	if not _upper.is_empty():
 		_apply_upper(dt)
@@ -1257,12 +1470,14 @@ func _process(delta: float) -> void:
 		_close_fists(state)
 	_update_two_hand(dt, state)
 	_update_foot_ik(dt, state)
+	_track_strike(dt)
 	_update_anchors()
 	if cloak and _cloak_anchor.visible:
 		cloak.drive(dt, body_velocity)
 
 
 const STAND_UP_BLEND := 0.35
+const CROUCH_BLEND := 0.45  # de parado a agachado se mezcla, no salta
 const CROUCH_ENTER_SPEED := 0.8
 var _settling := false  # bajando hasta el cuadro en el que se queda
 ## Sufijo del próximo salto: sale agachado (ver Player).
@@ -1289,6 +1504,8 @@ const FIST_WEIGHT := 0.8  # no del todo cerrada: una flexión natural
 func stance_suffix() -> String:
 	if move_speed > TOP_RUN_SPEED:
 		return "_top"
+	if relaxed:
+		return ""
 	match weapon:
 		Weapon.DAGGERS:
 			return "_daggers"
@@ -1299,6 +1516,8 @@ func stance_suffix() -> String:
 
 ## El sufijo del clip de este estado: según el arma, o el que salió sorteado.
 func _suffix(state: String) -> String:
+	if state == "fly" and coin_flight:
+		return "_coin"
 	if state == "attack_air":
 		if weapon == Weapon.NONE:
 			return "_fist"
@@ -1365,16 +1584,30 @@ func _choose_state() -> String:
 		return "pickup"
 	if stagger > 0.6:
 		return "hit"
-	if flying and not on_floor and _resolved.get("fly", {"name": ""})["name"] != "":
-		return "fly"  # un metal corta el salto: vuela enseguida
+	# Ya subiendo, sigue en la pose hasta el punto más alto (si no, cerca de la cima pasaría un rato a volar de frente).
+	var rising: bool = body_velocity.y > (0.0 if _state == "fly_rise" else RISE_SPEED) and body_velocity.y >= Vector2(body_velocity.x, body_velocity.z).length() * 0.6 			and _resolved.get("fly_rise", {"name": ""})["name"] != ""
+	if coin_flight and not on_floor and not near_ground:
+		if rising:
+			return "fly_rise"
+		if body_velocity.y < COIN_DESCEND_SPEED:
+			return "freefall"
+		return "fly_glide" if _coin_t > COIN_GLIDE_AFTER else "fly"
+	if flying and not on_floor and not near_ground and _resolved.get("fly", {"name": ""})["name"] != "":
+		if rising:
+			return "fly_rise"
+		if body_velocity.y >= 0.0:
+			return "fly_launch" if _launch > 0.0 else "fly"  # un metal corta el salto: vuela enseguida
+		# bajando: la pose de caída (abajo)
 	if _jump > 0.0:
 		return "jump"
 	if not on_floor and _air_time() > 0.15:
 		return "freefall" if body_velocity.y < -FREEFALL_SPEED and not near_ground and _resolved.get("freefall", {"name": ""})["name"] != "" else "air"
 	if _land > 0.0 and on_floor and move_speed < 3.0 and aim_target == null and aim_target_left == null:
 		return "land"
+	if _stop > 0.0 and on_floor and move_speed < 1.0 and not crouched and aim_target == null and aim_target_left == null:
+		return "stop"
 	if aim_target != null or aim_target_left != null:
-		return "allomancy" if move_speed < 3.0 else "run"
+		return "allomancy" if move_speed < 3.0 or pushed_on_floor else "run"
 	if panic > 0.5 and move_speed > 0.5:
 		return "flee"
 	if crouched and on_floor:
@@ -1385,7 +1618,7 @@ func _choose_state() -> String:
 		return "run"
 	if move_speed > 0.3:
 		return "walk"
-	return "idle_armed" if weapon != Weapon.NONE or brace > 0.5 else "idle"
+	return "idle_armed" if (weapon != Weapon.NONE and not relaxed) or brace > 0.5 else "idle"
 
 
 func _air_time() -> float:
@@ -1395,7 +1628,8 @@ func _air_time() -> float:
 
 
 func _play(state: String, blend: float, restart := false) -> void:
-	var both_loco: bool = state in LOCOMOTION and _state in LOCOMOTION
+	# Agacharse o pararse cambia toda la pose: siempre se mezcla la pose, no el reproductor.
+	var both_loco: bool = state in LOCOMOTION and _state in LOCOMOTION and state.begins_with("crouch") == _state.begins_with("crouch")
 	_state = state
 	# Sin animaciones propias (modelo recién rigueado) todo sale del donante.
 	if _ap == null and retarget_from == "":
@@ -1406,6 +1640,7 @@ func _play(state: String, blend: float, restart := false) -> void:
 		info = _resolved.get("idle", info)
 	if info["name"] == "":
 		return
+	var before := _src_ap if _borrowed else _ap
 	_borrowed = info["borrowed"]
 	var player := _ap
 	if _borrowed:
@@ -1415,11 +1650,15 @@ func _play(state: String, blend: float, restart := false) -> void:
 			_borrowed = false
 			return
 	var anim: String = info["name"]
-	var looping: bool = state in LOOPING
+	# El vuelo con moneda trae su despegue al principio: se pasa una vez y se queda en la pose final.
+	var looping: bool = state in LOOPING and not (state == "fly" and coin_flight)
 	player.get_animation(anim).loop_mode = Animation.LOOP_LINEAR if looping else Animation.LOOP_NONE
-	if restart or player.current_animation != anim:
-		if both_loco and not restart and player.current_animation != "":
-			player.play(anim, blend)  # misma fase del paso: mezcla el reproductor
+	# Volver a un clip de otro reproductor (p. ej. el reposo del donante, que quedó cargado) también se mezcla.
+	if restart or player.current_animation != anim or player != before:
+		# Misma fase del paso: mezcla el reproductor. Si el clip viene de otro donante, ese reproductor no tiene
+		# de dónde mezclar y la pose saltaría: se mezcla la pose.
+		if both_loco and not restart and player.current_animation != "" and player == before:
+			player.play(anim, blend)
 		else:
 			_begin_fade(blend)
 			player.play(anim, 0.0)
@@ -1438,17 +1677,26 @@ func _begin_fade(time: float) -> void:
 		_fade_hips = _skel.get_bone_pose_position(_bones["hips"])
 	_fade_t = time
 	_fade_len = time
+	_fade_leg_t = time
+	_fade_leg_len = time
+	if _leg_bone.size() != _fade_pose.size():
+		_leg_bone.resize(_fade_pose.size())
+		for b in _leg_bone.size():
+			var n := _skel.get_bone_name(b)
+			_leg_bone[b] = 1 if b == _bones["hips"] or "Leg" in n or "Foot" in n or "Toe" in n else 0
 
 
 func _apply_fade(dt: float) -> void:
-	if _fade_t <= 0.0 or _skel == null:
+	if (_fade_t <= 0.0 and _fade_leg_t <= 0.0) or _skel == null:
 		return
 	_fade_t -= dt
+	_fade_leg_t -= dt
 	var w := smoothstep(0.0, 1.0, clampf(_fade_t / _fade_len, 0.0, 1.0))
+	var wl := smoothstep(0.0, 1.0, clampf(_fade_leg_t / _fade_leg_len, 0.0, 1.0))
 	for b in _fade_pose.size():
-		_skel.set_bone_pose_rotation(b, _skel.get_bone_pose_rotation(b).slerp(_fade_pose[b], w))
+		_skel.set_bone_pose_rotation(b, _skel.get_bone_pose_rotation(b).slerp(_fade_pose[b], wl if _leg_bone[b] == 1 else w))
 	if _bones["hips"] >= 0:
-		_skel.set_bone_pose_position(_bones["hips"], _skel.get_bone_pose_position(_bones["hips"]).lerp(_fade_hips, w))
+		_skel.set_bone_pose_position(_bones["hips"], _skel.get_bone_pose_position(_bones["hips"]).lerp(_fade_hips, wl))
 
 
 ## Clip de ROOT_MOTION: el avance del root en este cuadro pasa del esqueleto al personaje (el
@@ -1495,13 +1743,13 @@ func _update_foot_ik(dt: float, state: String) -> void:
 		_ik_corr = [Vector3.ZERO, Vector3.ZERO]
 		_ik_unlocking = [false, false]
 		_float_by = 0.0
-		_hips_drop = move_toward(_hips_drop, 0.0, dt)
+		_hips_drop = move_toward(_hips_drop, _contact_drop(state), dt * (3.0 if state in GROUND_CONTACT else 1.0))
 		_model.position.y = _model_y + _hips_drop / maxf(scale.y, 1e-4)
 		return
 	var space := get_world_3d().direct_space_state
 	var ground := global_position.y  # el suelo de la animación
 	var fwd := -global_basis.z.normalized()
-	var drop := 0.0
+	var drop := INF  # cuánto se mueve el cuerpo: baja para que llegue el pie más bajo, sube si los dos se hunden
 	var goals: Array[Vector3] = []
 	var anim_feet: Array[Vector3] = []
 	for side in ["_l", "_r"]:
@@ -1509,16 +1757,22 @@ func _update_foot_ik(dt: float, state: String) -> void:
 	# Animaciones que dejan al personaje flotando (los dos pies arriba, p. ej. el reposo del Mistborn
 	# a 10 cm): se apoya el pie más bajo. Más de GROUND_FLOAT ya es un salto a propósito.
 	var float_target := 0.0
+	var low := minf(anim_feet[0].y, anim_feet[1].y) - ground - _ankle
 	if not state in IK_MOVING:
-		var low := minf(anim_feet[0].y, anim_feet[1].y) - ground - _ankle
 		if low > 0.04 and low < GROUND_FLOAT:
 			float_target = low
+	else:
+		# Andando siempre hay un pie arriba (y corriendo, ratos con los dos): manda lo más bajo que pisa en la zancada.
+		_move_low = low if low < _move_low else _move_low + dt * MOVE_LOW_RISE
+		float_target = clampf(_move_low, 0.0, GROUND_FLOAT)
 	_float_by = lerpf(_float_by, float_target, minf(dt * (8.0 if state in IK_MOVING else 3.0), 1.0))
 	var float_by := _float_by
 	for i in 2:
 		var side: String = ["_l", "_r"][i]
 		var foot := anim_feet[i]
-		var lift := maxf(foot.y - ground - _ankle - float_by, 0.0)  # nunca por debajo del suelo
+		var rel := foot.y - ground - _ankle - float_by
+		# Nunca por debajo del suelo; hundido apenas (el tobillo se dobla) se deja como está.
+		var lift := rel if rel < 0.0 and rel > -SINK_OK else maxf(rel, 0.0)
 		# Suelo bajo el talón y bajo la punta: en el borde de un escalón manda el más alto (si no, la
 		# punta se mete en el escalón).
 		# Cuenta como escalón si la punta está más alta de lo que da la pendiente bajo el talón.
@@ -1562,10 +1816,23 @@ func _update_foot_ik(dt: float, state: String) -> void:
 		goals.append(goal)
 		var knee := BoneTools.bone_world_pos(_skel, _bones["calf" + side])
 		_ik_poles[i].global_position = knee + fwd * 0.5
-	_hips_drop = lerpf(_hips_drop, maxf(drop, -FOOT_REACH), minf(dt * 12.0, 1.0))
+	_hips_drop = lerpf(_hips_drop, clampf(drop, -FOOT_REACH, FOOT_REACH), minf(dt * 12.0, 1.0))
 	_model.position.y = _model_y + _hips_drop / maxf(scale.y, 1e-4)
 	for i in 2:
 		_ik_targets[i].global_position = goals[i]
+
+
+## Rodando, deslizando o tirado en el suelo (sin IK de pies): cuánto mover el cuerpo para que su punto más bajo
+## apoye en el suelo de la animación. Los clips de otros esqueletos dejaban el cuerpo flotando o metido en el piso.
+func _contact_drop(state: String) -> float:
+	if not state in GROUND_CONTACT or not on_floor:
+		return 0.0
+	var low := INF
+	for key in ["hips", "torso", "head", "hand_l", "hand_r", "calf_l", "calf_r", "foot_l", "foot_r", "upper_l", "upper_r"]:
+		if _bones.get(key, -1) >= 0:
+			low = minf(low, BoneTools.bone_world_pos(_skel, _bones[key]).y - _hips_drop)
+	# El hueso va por dentro: la superficie del cuerpo queda unos cm más abajo.
+	return clampf(global_position.y + BODY_PAD - low, -FOOT_REACH, FOOT_REACH) if low < INF else 0.0
 
 
 func _floor_hit(space: PhysicsDirectSpaceState3D, at: Vector3, ground: float) -> Dictionary:
@@ -1686,6 +1953,16 @@ func _orient_shield() -> void:
 		return
 	var b := global_basis.orthonormalized()
 	var face := (-b.z * 0.8 - b.x * 0.6).normalized()
+	if _skel and _bones["lower_l"] >= 0 and _bones["hand_l"] >= 0:
+		# Atado al antebrazo: va con el brazo (colgando, levantado para bloquear) y mira hacia afuera del cuerpo.
+		var elbow := BoneTools.bone_world_pos(_skel, _bones["lower_l"])
+		var hand := BoneTools.bone_world_pos(_skel, _bones["hand_l"])
+		var along := (hand - elbow).normalized()
+		var out := (face - along * face.dot(along)).normalized()
+		if out.length_squared() > 0.5:
+			_shield_node.global_basis = Basis(along.cross(out).normalized(), along, out).scaled(Vector3.ONE * SHIELD_SCALE)
+			_shield_node.global_position = elbow.lerp(hand, 0.6) + out * 0.08
+			return
 	_shield_node.global_basis = Basis(b.y.cross(face).normalized(), b.y, face).scaled(Vector3.ONE * SHIELD_SCALE)
 	_shield_node.global_position = _shield_node.get_parent().global_position + face * 0.14  # la mano queda detrás
 

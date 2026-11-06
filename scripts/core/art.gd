@@ -162,7 +162,7 @@ const HEROES := {
 	"encapuchado": {"name": "Mistborn", "height": 1.8, "pace": 1.0, "model": MESHY_HOOD, "portrait": "res://assets/meshy/retrato_encapuchado.png"},
 	"terrisano": {"name": "Terrisano", "height": 2.0, "pace": 0.85, "model": "res://assets/meshy/Terrisano.glb", "portrait": "res://assets/meshy/retrato_terrisano.png"},
 	"kelsier": {"name": "Kelsier", "height": 1.8, "pace": 1.0, "cloak": true, "model": "res://assets/meshy/Kelsier.glb", "portrait": "res://assets/meshy/retrato_kelsier.png"},
-	"vin": {"name": "Vin", "height": 1.55, "pace": 1.2, "cloak": true, "model": "res://assets/meshy/Vin.glb", "portrait": "res://assets/meshy/retrato_vin.png"},
+	"vin": {"name": "Vin", "height": 1.55, "pace": 1.2, "model": MESHY_FLIGHT, "portrait": "res://assets/meshy/retrato_vin.png"},
 }
 
 ## Tonos para que los colores de los packs encajen con la ciudad apagada (y varíe la gente).
@@ -182,7 +182,7 @@ static func hero_rig() -> ModelRig:
 	rig.always_cloak = hero.get("cloak", false)
 	rig.retarget_from = MESHY_HOOD
 	rig.retarget_map = _mixamo_same()
-	rig.extra_donors = [[MESHY_CLIPS, _mixamo_same()]]
+	rig.extra_donors = [[MESHY_CLIPS, _mixamo_same()], [MESHY_FLIGHT, _mixamo_same()], [AF_CLIPS, _mixamo_same()]]
 	rig.clips_only = true
 	rig.anim_overrides = HeroClips.HITS.merged(HeroClips.STATES).merged(HeroClips.STANCES).merged(HeroClips.FISTS).merged(HeroClips.TOP_SPEED)
 	rig.fist_clip = HeroClips.FIST_HAND
@@ -190,6 +190,7 @@ static func hero_rig() -> ModelRig:
 	rig.clip_holds = HeroClips.HOLDS
 	rig.skill_clips = HeroClips.SKILLS
 	rig.upper_donor = MESHY_CLIPS.get_file()
+	rig.upper_extra = [AF_CLIPS.get_file()]
 	return rig
 
 
@@ -251,6 +252,10 @@ const MESHY := "res://assets/meshy/%s.glb"
 const MESHY_HOOD := "res://assets/meshy/MistbornHood.glb"
 ## Biblioteca de clips (los 177 que se generaron sobre Vin): cualquier personaje de Meshy puede usarlos.
 const MESHY_CLIPS := "res://assets/meshy/Vin.glb"
+## Vin con el esqueleto corregido (5/11) y los clips del vuelo: impulso (Vuelo_A) y volando (Vuelo_B).
+const MESHY_FLIGHT := "res://assets/meshy/VinCorregida.glb"
+## Clips de la biblioteca de ActionForge (Quaternius, CC0), exportados con esqueleto de Mixamo (tools/blender/anim_fbx_to_glb.py).
+const AF_CLIPS := "res://assets/actionforge/AFClips.glb"
 ## Los que no pelean: alto (m), ritmo (1 = normal; los viejos y pesados más lentos, los chicos más rápidos; 0 = no camina) y clips.
 const CIVILIANS := {
 	"Terrisano": {"height": 2.0, "pace": 0.85, "idle": "Idle_11", "down": "falling_down"},
@@ -312,9 +317,13 @@ static func champion_rig(kit: String) -> ModelRig:
 		for blow: Dictionary in Champion.FIST_BLOWS:
 			states[blow["anim"]] = [blow["anim"]]
 	var rig := _pack_rig(kit, spec["height"], states)
+	if spec.get("lord", false):
+		rig.extra_donors = [[AF_CLIPS, _mixamo_same()]]  # poderes con clips de ActionForge (ver LordPowers)
 	rig.ignore_light_hits = true
 	rig.held_weapons = spec["weapons"]
 	rig.state_cuts = HeroClips.HIT_CUTS.merged(spec.get("cuts", {}))
+	if spec.get("lord", false):
+		rig.state_cuts.merge(LordPowers.CUTS)  # tramos de los clips de sus poderes
 	rig.clip_holds = spec.get("holds", {})
 	return rig
 

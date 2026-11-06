@@ -12,7 +12,7 @@ static var _shapes := {}  # "ruta|escala" -> ConcavePolygonShape3D
 
 
 static func path(name: String) -> String:
-	return ROOT + name + ".glb"
+	return (name if name.begins_with("res://") else ROOT + name) + ".glb"
 
 
 static func parts(model_path: String) -> Array:
@@ -52,8 +52,8 @@ static func footprint(model_path: String, scale: float) -> float:
 	return maxf(s.x, s.z) * scale / 2.0
 
 
-## Modelos que se atraviesan por un hueco (portones de la muralla, glorieta): colisión exacta.
-const OPEN_MODELS := ["Entrance", "Gazebo"]
+## Modelos que se atraviesan por un hueco (portones de la muralla, glorieta) o con aleros y galerías (casas de Meshy): colisión exacta.
+const OPEN_MODELS := ["Entrance", "Gazebo", "CasaSkaa"]
 
 
 ## Colisión de un modelo: una envolvente convexa por pieza (maciza: no se puede entrar al hueco de
