@@ -25,6 +25,7 @@ var _done := false
 var _end := 0.0
 var _width := 0.0
 var _solid := false
+var _length := 0.0  # franja: su largo (para retarget)
 
 
 static func _make(parent: Node, shape: int, size: Vector2, time: float, color: Color) -> Telegraph:
@@ -77,6 +78,7 @@ static func strip(parent: Node, from: Vector3, dir: Vector3, length: float, widt
 	var t := _make(parent, 3, Vector2(width, length), time, color)
 	t._mat.set_shader_parameter("edge", clampf(0.1 / length, 0.005, 0.1))
 	var flat := Vector3(dir.x, 0.0, dir.z).normalized()
+	t._length = length
 	t._place(from + flat * length * 0.5)
 	t._aim(flat)
 	return t
@@ -91,6 +93,13 @@ static func line(parent: Node, from_node: Node3D, to_node: Node3D, time: float, 
 	t._width = width
 	t._update_line()
 	return t
+
+
+## Mueve un cono o una franja a otro origen y dirección (la zona de apuntado del jugador).
+func retarget(from: Vector3, dir: Vector3) -> void:
+	var flat := Vector3(dir.x, 0.0, dir.z).normalized()
+	_place(from + flat * _length * 0.5 if _length > 0.0 else from)
+	_aim(flat)
 
 
 ## Solo el borde, sin relleno: zonas que no dañan (el campo magnético, la nube de cobre).

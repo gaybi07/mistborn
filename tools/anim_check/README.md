@@ -16,6 +16,8 @@ $G --path . -s tools/anim_check/<prueba>.gd -- <argumentos>
 | `strike_check.gd` | Dónde están el puño, la hoja o el pie en el cuadro del impacto de cada golpe del combo. | — |
 | `clip_measure.gd` | Largo de cada clip, cuándo se mueve y el pico de velocidad de la mano (el golpe), para cortar y sincronizar. | `clip1,clip2,... [kit]` |
 | `lord_check.gd` | El Lord Legislador tira cada poder contra Vin: vida que saca quieta o esquivando (`- all 7 esquivar`), fotos de arriba y saltos de pose con LORD_LOG=1. | `<carpeta|-> [poder,...|all] [dist] [esquivar]` |
+| `champion_check.gd` | Los koloss, el inquisidor y el obligador tiran cada poder contra Vin: cuánto aviso hubo y la vida que sacan, quieta o esquivando. | `[kit,...|all] [esquivar]` |
+| `aim_check.gd` | Tus poderes con zona: mantener para apuntar (zona azul) y soltar. | `<carpeta>` |
 | `hit_check.gd` | El jugador de verdad pega con cada arma y golpe del combo a civiles quietos alrededor (adelante a 0,8–2,2 m, en diagonal, al costado, atrás): a quién le saca vida. | — |
 
 Para leer los resultados (Python, `pip install pillow`):

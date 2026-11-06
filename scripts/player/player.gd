@@ -1244,7 +1244,23 @@ func _slot_key(key: InputEventKey) -> bool:
 	return true
 
 
+## Poderes que se apuntan: mantenés la tecla y ves la zona donde va a pegar (Telegraph, en azul: es tuya); al soltar,
+## sale. [forma, alcance (m), ancho (franja) o medio ángulo (cono)].
+const AIMED := {
+	&"steel_coin_burst": ["cone", 16.0, 0.0], &"steel_spear": ["strip", 30.0, 1.2], &"pewter_charge": ["strip", CHARGE_SPEED * CHARGE_TIME, 1.4],
+	&"pewter_slam": ["disc", SkillTree.SLAM_RADIUS, 0.0], &"iron_mass_yank": ["disc", SkillTree.YANK_RADIUS, 0.0],
+	&"steel_magnetic_field": ["disc", SkillTree.FIELD_RADIUS, 0.0],
+}
+var _aim_skill := &""
+var _aim_preview: Telegraph
+var _aim_firing := false
+
+
 func _skill_press(skill: StringName) -> void:
+	if AIMED.has(skill) and not _aim_firing and skill_unlocked(skill):
+		if _aim_skill == &"":
+			_start_aim(skill)
+		return  # sale al soltar (_skill_release)
 	if _commit_t > 0.0 and not skill in [&"iron_pull", &"steel_light_push"]:
 		_queued_skill = skill
 		return
@@ -1288,11 +1304,57 @@ func _skill_press(skill: StringName) -> void:
 
 
 func _skill_release(skill: StringName) -> void:
+	if skill == _aim_skill:
+		_end_aim()
+		_aim_firing = true
+		_skill_press(skill)
+		_aim_firing = false
+		return
 	match skill:
 		&"iron_pull":
 			_grip_skill(steel_iron.pull_grip, &"iron", false)
 		&"steel_light_push":
 			_grip_skill(steel_iron.push_grip, &"steel", false)
+
+
+func _start_aim(skill: StringName) -> void:
+	_aim_skill = skill
+	var spec: Array = AIMED[skill]
+	var scene := get_tree().current_scene
+	var dir := _aim_flat()
+	match spec[0]:
+		"cone":
+			var half := SkillTree.fan_angle(metal_level(&"steel"), SkillTree.BURST_MIN_LEVEL) * 0.5
+			_aim_preview = Telegraph.cone(scene, global_position, dir, spec[1], minf(half + 0.08, PI), 1e6, Telegraph.BLUE)
+		"strip":
+			_aim_preview = Telegraph.strip(scene, global_position, dir, spec[1], spec[2], 1e6, Telegraph.BLUE)
+		_:
+			_aim_preview = Telegraph.disc(scene, global_position, spec[1], 1e6, Telegraph.BLUE, self)
+	# Relleno suave y borde: no se llena (eso es de los avisos de daño), solo muestra dónde pega.
+
+
+func _end_aim() -> void:
+	_aim_skill = &""
+	if is_instance_valid(_aim_preview):
+		_aim_preview.queue_free()
+	_aim_preview = null
+
+
+## Apuntando: la zona sigue la mira (los círculos van alrededor tuyo).
+func _update_aim() -> void:
+	if _aim_skill == &"" or not is_instance_valid(_aim_preview):
+		return
+	if dead:
+		_end_aim()
+		return
+	if AIMED[_aim_skill][0] != "disc":
+		_aim_preview.retarget(global_position, _aim_flat())
+
+
+func _aim_flat() -> Vector3:
+	var dir := aim_direction()
+	dir.y = 0.0
+	return dir.normalized() if dir.length() > 0.1 else -visual.global_basis.z
 
 
 ## Habilidad sostenida (tirón, empuje): enciende su metal mientras mantienes la tecla y suelta al terminar.
@@ -1521,7 +1583,9 @@ func _physics_process(delta: float) -> void:
 	if _commit_t <= 0.0 and _queued_skill != &"":
 		var queued := _queued_skill
 		_queued_skill = &""
+		_aim_firing = true  # ya se apuntó y se soltó: sale directo
 		_skill_press(queued)
+		_aim_firing = false
 	var was_swimming := _swimming
 	_swimming = _in_deep_water()
 	if _swimming and not was_swimming:
@@ -1869,6 +1933,7 @@ func _process(delta: float) -> void:
 		# Se mete enseguida si hay pared; vuelve despacio, así no salta al pasar junto a un poste.
 		spring_arm.position.x = shoulder if shoulder < spring_arm.position.x else move_toward(spring_arm.position.x, shoulder, 1.5 * rd)
 		_update_camera_boom(rd)
+		_update_aim()
 	# Regeneración; el peltre acelera la curación.
 	_since_damage += rd
 	if not dead and _since_damage > regen_delay and is_simulated():

@@ -289,6 +289,11 @@ func _rage() -> void:
 func _leap() -> void:
 	var total := _commit("mt_jump_attack", LEAP_DUR)
 	_next_leap = _world_time + randf_range(7.0, 12.0)
+	# Círculo rojo donde va a caer: te sigue hasta que despega.
+	if is_instance_valid(_foe):
+		var tel := Telegraph.disc(get_tree().current_scene, _foe.global_position, LEAP_RADIUS * _grow, total * LEAP_LAND, Telegraph.RED, _foe)
+		tel.alive = func() -> bool: return is_instance_valid(self) and not down and not is_stunned()
+		get_tree().create_timer(total * LEAP_OFF, false).timeout.connect(func() -> void: tel.follow = null)
 	get_tree().create_timer(total * LEAP_OFF, false).timeout.connect(_leap_off.bind(total * (LEAP_LAND - LEAP_OFF)))
 	get_tree().create_timer(total * LEAP_LAND, false).timeout.connect(_leap_land)
 

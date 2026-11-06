@@ -274,20 +274,70 @@ func _power(p: Dictionary, d: float) -> void:
 		var strike := _strike(lunge)
 		(rig as ModelRig).armored = true
 		_next_blow = _world_time + strike * 0.85
+		# Franja roja hasta donde llega la estocada.
+		_warn(Telegraph.strip(get_tree().current_scene, global_position, _forward(), d + 1.5 * _grow, 1.4 * _grow, p["hits"][0] * strike))
 		return
 	_blow_id += 1
+	# Aviso mínimo: si el clip pega antes de POWER_WARN s, espera quieto un momento antes de arrancar.
+	var first: float = p["at"][0] * p["dur"] if p["kind"] != "leap" else p["at"][1] * p["dur"]
+	var wait := maxf(POWER_WARN - first, 0.0) if p["kind"] in ["area", "cone", "leap"] else 0.0
+	# El aviso sale ya; _power_go le pone el tiempo cuando sabe cuándo pega el clip.
+	var scene := get_tree().current_scene
+	var tel: Telegraph = null
+	match p["kind"]:
+		"area":
+			tel = Telegraph.disc(scene, global_position, p["radius"] * sqrt(_grow), 1e6)
+		"cone":
+			tel = Telegraph.cone(scene, global_position, _forward(), p["range"][1] * sqrt(_grow), acos(CONE_DOT), 1e6)
+		"leap":
+			if is_instance_valid(_foe):
+				tel = Telegraph.disc(scene, _foe.global_position, LEAP_RADIUS * _grow, 1e6, Telegraph.RED, _foe)
+		"pull":
+			if is_instance_valid(_foe):
+				tel = Telegraph.line(scene, self, _foe, 1e6, Telegraph.CYAN, 0.25)
+	if tel:
+		_warn(tel)
+	if wait > 0.0:
+		_busy_until = _world_time + wait + 0.1
+		_move_now(Vector3.ZERO)
+		(rig as ModelRig).armored = true
+		get_tree().create_timer(wait, false).timeout.connect(_power_go.bind(p, _blow_id, wait, tel))
+	else:
+		_power_go(p, _blow_id, 0.0, tel)
+
+
+## Aviso mínimo (s) de los poderes que pegan en una zona (ver _power).
+const POWER_WARN := 0.6
+
+
+func _power_go(p: Dictionary, id: int, waited: float, tel: Telegraph) -> void:
+	if id != _blow_id or down or is_stunned():
+		return
 	var total := _commit(p["anim"], p["dur"])
 	if p["kind"] == "leap":
 		var off: float = p["at"][0] * total
 		var land: float = p["at"][1] * total
+		if is_instance_valid(tel):
+			tel.time = waited + land  # el círculo te sigue hasta que despega y queda donde va a caer
+			get_tree().create_timer(off, false).timeout.connect(func() -> void:
+				if is_instance_valid(tel):
+					tel.follow = null)
 		get_tree().create_timer(off, false).timeout.connect(_leap_off.bind(land - off))
 		get_tree().create_timer(land, false).timeout.connect(_leap_land)
 		return
+	if is_instance_valid(tel):
+		tel.time = waited + p["at"][0] * total
 	if p.has("advance"):
 		_move_now(_forward() * p["advance"])
 		get_tree().create_timer(total * 0.9, false).timeout.connect(_end_travel.bind(_blow_id))
 	for at: float in p["at"]:
 		get_tree().create_timer(at * total, false).timeout.connect(_release.bind(p, _blow_id))
+
+
+## El aviso se apaga si lo aturden o lo tiran antes de pegar.
+func _warn(tel: Telegraph) -> void:
+	var id := _blow_id
+	tel.alive = func() -> bool: return is_instance_valid(self) and not down and not is_stunned() and id == _blow_id
 
 
 ## Llega el poder, si no lo cortaron.
@@ -309,6 +359,9 @@ func _release(p: Dictionary, id: int) -> void:
 
 func _hit_around(p: Dictionary) -> void:
 	var radius: float = p["radius"] * sqrt(_grow)
+	AirFx.ground(get_tree().current_scene, global_position, radius, AirFx.ASH, 0.7)
+	AirFx.wave(get_tree().current_scene, global_position + Vector3.UP * 0.8, radius * 0.6, AirFx.ASH, 0.45, 0.05)
+	Fx.dust(get_tree().current_scene, global_position, 1.2)
 	for v in _victims():
 		var away := v.global_position - global_position
 		away.y = 0.0
@@ -319,6 +372,9 @@ func _hit_around(p: Dictionary) -> void:
 
 
 func _hit_ahead(p: Dictionary) -> void:
+	var reach: float = p["range"][1] * sqrt(_grow)
+	for i in 3:
+		AirFx.push(get_tree().current_scene, global_position + Vector3.UP * 1.2 + _forward() * reach * i / 3.0, _forward(), AirFx.ASH, 1.2)
 	for v in _victims():
 		var to := v.global_position - global_position
 		to.y = 0.0
