@@ -6,7 +6,7 @@ class_name HeroClips
 ## Postura y caminata según lo que tenga en las manos (ver ModelRig.stance_suffix). Los puños van en guardia solo peleando.
 const STANCES := {
 	"idle_armed_sword": ["Alert"], "walk_sword": ["Spear_Walk"],  # Combat_Stance es de puños: la espada colgaba hacia atrás
-	"idle_armed_shield": ["Alert"], "walk_shield": ["Walk_Fight_Forward"],
+	"idle_armed_shield": ["Alert"], "walk_shield": ["Spear_Walk"],  # Walk_Fight_Forward pisa 0,64 m: a 1,6 m/s pedía 2,5× y el pie patinaba
 	"idle_armed_daggers": ["Lower_Weapon_Look_Raise"],
   # con dagas camina normal (walk)
 }
@@ -77,6 +77,10 @@ const CUTS := {
 
 ## Estados que se quedan quietos en un cuadro del clip: el aire no tiene un clip que se repita. Fracción del clip.
 const HOLDS := {"idle_armed_fist": 0.0, "fly_glide": 0.95, "air": 0.55, "freefall": 0.8, "slide": 0.25, "allomancy": 0.5}
+
+## Cuánto puede girar el pecho siguiendo al clip en cada poder (grados; si no está, ModelRig.CHEST_TWIST_MAX).
+## Encender metal: el clip gira el cuerpo de -43° a +44° y Vin quedaba de espaldas en un gesto de concentración.
+const CHEST_TWIST := {"burn_focus": 20.0}
 
 ## Gestos de poderes en la mitad de arriba del cuerpo: nombre en el juego -> [clip, desde, hasta, golpe].
 const SKILLS := {

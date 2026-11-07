@@ -92,7 +92,7 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | `throw` | `mage_soell_cast_4` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–70%, golpe 24% |
 | `walk` | `Walking` | VinCorregida.glb | Meshy, nativa | entera |
 | `walk_fist` | `Walking` | VinCorregida.glb | Meshy, nativa | entera |
-| `walk_shield` | `Walk_Fight_Forward` | Vin.glb | Meshy, nativa | entera |
+| `walk_shield` | `Spear_Walk` | Vin.glb | Meshy, nativa | entera |
 | `walk_sword` | `Spear_Walk` | Vin.glb | Meshy, nativa | entera |
 
 ## Gestos de poderes (mitad de arriba del cuerpo)

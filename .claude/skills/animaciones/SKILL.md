@@ -88,6 +88,10 @@ Criterios: ningún hueso a más del doble que en los cuadros vecinos; suela ±2 
   su dirección **en el mundo**: si el clip gira todo el cuerpo (los lanzamientos giran la cadera 60–145°), la mano
   pasa por la espalda. `ModelRig._twist_chest` gira Spine1 hacia el pecho del clip (tope 50°). Antes de elegir un
   clip, medir el giro de cadera del clip crudo.
+  Tope propio por poder en `HeroClips.CHEST_TWIST` (encender metal: 20°).
+- **Falsos saltos**: `saltos.py` marca la entrada de cada poder (0,12 s, rápida a propósito) y la del bloqueo. Un salto
+  es real si aparece en medio del gesto o en un hueso que no participa.
+- **Patinado al correr**: `feet_check` mide el tobillo; al correr mirar que "pie" ≈ "cuerpo", no la mediana de patina.
 - **Dos estados con el mismo clip** (salto/aire): `_play` no mezcla; las poses fijas necesitan `seek(..., true)`.
 - **Sin capa**: para filmar, ocultar `rig._cloak_anchor` (tapa el cuerpo).
 - **Borrar temporales con rutas exactas**, nunca con comodines (el sistema lo bloquea).

@@ -134,9 +134,9 @@ const LOOPING := ["block_shield", "idle", "idle_armed", "walk", "run", "sprint",
 const STRIDE_SPEED := {"walk": 1.6, "run": 5.0, "sprint": 5.0, "flee": 5.0, "swim": 2.0, "crouch_walk": 0.7}
 ## Lo mismo por nombre de animación, para las que se apartan del valor de su estado (ActionForge).
 const ANIM_STRIDE := {"walk": 0.92, "sprint": 7.7, "sad_walk": 0.72, "carry_walk": 1.1, "crouch_walk": 0.7,
-		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.47, "Running": 5.0, "RunFast": 7.0,
+		"gs_walk": 1.17, "gs_run": 4.61, "mt_walk": 1.38, "mt_run": 2.51, "Walking": 1.47, "Running": 4.4, "RunFast": 7.0,
 		# Medidas en Vin con el pie apoyado (tools: feet_check): si no, el pie patina.
-		"Spear_Walk": 1.46, "Cautious_Crouch_Walk_Forward_inplace": 1.27, "Walk_Fight_Forward": 0.77}
+		"Spear_Walk": 1.26, "Cautious_Crouch_Walk_Forward_inplace": 1.27, "Walk_Fight_Forward": 0.64}  # 0.64 medido (8/11/2026); a 1,6 m/s queda en el tope de 2,2×
 ## Por encima de esta velocidad (peltre) se esprinta.
 const SPRINT_SPEED := 8.0
 ## Golpes con dagas o espada: a esta fracción de la velocidad a la que entrarían en su duración.
@@ -158,6 +158,8 @@ var _impact_delay := 0.0
 var _attack_hit := 0.0
 ## Al cambiar de clip, la pose de antes se apaga en estos segundos (sirve también entre esqueletos distintos).
 const FADE_ATTACK := 0.08
+## Del ovillo del aire al golpe: con 0,08 s las manos llegaban a 10-12 m/s en dos cuadros (el triple que alrededor).
+const AIR_ATTACK_FADE := 0.15
 ## Golpe tras golpe: el cuerpo pasa un poco más suave y las piernas (cadera incluida) mucho más, para que los pies no salten.
 const COMBO_FADE := 0.15
 const ATTACK_LEG_FADE := 0.32
@@ -178,7 +180,7 @@ var _fade_len := 1.0
 ## Un esqueleto invisible de MixamoSpells reproduce el clip y se copian solo estos huesos.
 const UPPER_DONOR := "MixamoSpells.glb"
 const UPPER_BONES := ["Spine2", "Head", "LeftArm", "LeftForeArm", "LeftHand", "RightArm", "RightForeArm", "RightHand"]  # del donante
-const UPPER_FADE := 0.12
+const UPPER_FADE := 0.16  # a 0,12 s la mano que arma el gesto saltaba a 6-9 m/s en un cuadro
 ## Al soltar un gesto vuelve a la guardia en este tiempo, quieto en su último cuadro: a 0,12 s el brazo volvía de un tirón.
 const UPPER_EXIT_FADE := 0.3
 ## Gestos lentos (los que fijan su velocidad en HeroClips.SKILLS): entran y salen más suave y se frenan al final.
@@ -955,10 +957,12 @@ func play_throw() -> void:
 
 
 ## Gesto de alomancia con monedas (coin_wave, coin_shield) de unos `duration` segundos.
+## Entrada a un gesto de cuerpo entero (caer de pecho al piso...): a 0,12 s la mano y los pies saltaban a 6 m/s.
+const SPELL_FADE := 0.16
 func play_spell(state: String, duration: float) -> void:
 	_spell_state = state
 	# Los de duración larga son trabajos en bucle (skaa): cambian despacio.
-	_spell = _play_once(state, duration, FADE_LONG if duration > 5.0 else FADE_ONESHOT)
+	_spell = _play_once(state, duration, FADE_LONG if duration > 5.0 else SPELL_FADE)
 
 
 ## Brazos abiertos hacia los costados (escudo de monedas, golpe giratorio con las armas por fuera).
@@ -979,6 +983,7 @@ func play_skill(state: String, duration: float, from := 0.0, to := 1.0) -> float
 	var windup_speed := 0.0
 	_left_lag = 0.0
 	_lagged.clear()
+	_twist_max = deg_to_rad(HeroClips.CHEST_TWIST.get(state, rad_to_deg(CHEST_TWIST_MAX)))
 	if skill_clips.has(state):
 		var skill: Array = skill_clips[state]
 		state = skill[0]
@@ -988,7 +993,7 @@ func play_skill(state: String, duration: float, from := 0.0, to := 1.0) -> float
 		fixed_speed = skill[4] if skill.size() > 4 else 0.0
 		blend_out = skill[5] if skill.size() > 5 else 0.0
 		windup_speed = skill[6] if skill.size() > 6 else 0.0
-		_left_lag = skill[7] if skill.size() > 7 else 0.0
+		_left_lag = skill[7] if skill.size() > 7 else SKILL_LEFT_LAG
 	if not _ensure_upper(state) or not _upper["ap"].has_animation(state):
 		play_throw()
 		_impact_delay = 0.0
@@ -1145,6 +1150,10 @@ func _apply_upper(dt: float) -> void:
 ## 145° en Frisbee Throw): con el pecho quieto en la guardia la mano pasaba por detrás del cuerpo. Gira la columna
 ## (Spine1) hacia donde mira el pecho del clip, como mucho CHEST_TWIST_MAX: los hombros quedan bajo los brazos.
 const CHEST_TWIST_MAX := deg_to_rad(50.0)
+## Retraso del brazo izquierdo en los poderes que no fijan el suyo: al entrar al gesto la mano izquierda saltaba de
+## la guardia a la pose del clip a 5-9 m/s (tres veces más que en los cuadros vecinos).
+const SKILL_LEFT_LAG := 0.08
+var _twist_max := CHEST_TWIST_MAX
 var _twist_bone := -2
 var _twist_written := Quaternion.IDENTITY
 var _twist_base := Quaternion.IDENTITY
@@ -1168,7 +1177,7 @@ func _twist_chest(w: float) -> void:
 	var yaw := func(sk: Skeleton3D, l: int, r: int) -> float:
 		var d := sk.global_transform * sk.get_bone_global_pose(r).origin - sk.global_transform * sk.get_bone_global_pose(l).origin
 		return atan2(-d.z, d.x)
-	var turn := clampf(wrapf(yaw.call(src, sl, sr) - yaw.call(_skel, _bones["upper_l"], _bones["upper_r"]), -PI, PI), -CHEST_TWIST_MAX, CHEST_TWIST_MAX) * w
+	var turn := clampf(wrapf(yaw.call(src, sl, sr) - yaw.call(_skel, _bones["upper_l"], _bones["upper_r"]), -PI, PI), -_twist_max, _twist_max) * w
 	var parent := _skel.get_bone_parent(_twist_bone)
 	var pg := _skel.global_basis.orthonormalized() * (_skel.get_bone_global_pose(parent).basis.orthonormalized() if parent >= 0 else Basis())
 	var axis := (pg.inverse() * Vector3.UP).normalized()
@@ -1229,7 +1238,7 @@ const STOP_LEFT_AT := 0.065
 const STOP_RIGHT_AT := 0.165
 const STOP_END := 0.62
 const STOP_SPEED := 1.2
-const STOP_FADE := 0.15
+const STOP_FADE := 0.25  # entre la carrera y la frenada los pies quedan a 0,1-0,5 m: a 0,15 s saltaban a 9 m/s
 const STOP_FROM := 3.5  # m/s: más lento que esto se para sin frenada
 
 
@@ -1239,7 +1248,11 @@ func _start_stop() -> bool:
 	var phase := _cycle_phase()  # de la carrera que viene
 	if phase < 0.0:
 		return false
-	var entry := STOP_LEFT_AT + fposmod(phase - 0.3, 1.0) * 2.0 * (STOP_RIGHT_AT - STOP_LEFT_AT)
+	# Ajustado a la entrada que deja los pies más cerca, medida en Vin cada 5 % de la carrera (pie izquierdo a 30 %:
+	# 8,5 %; derecho a 80 %: 18,5 %). Pasado el 87,5 % el paso que viene es otra vez el izquierdo y se entra al
+	# principio del clip (antes seguía de largo hasta el 26 %, donde ya frena: los pies entraban a 0,7 m).
+	var p := phase if phase < 0.875 else phase - 1.0
+	var entry := maxf(STOP_LEFT_AT + 0.02 + (p - 0.3) * 2.0 * (STOP_RIGHT_AT - STOP_LEFT_AT), 0.0)
 	_play("stop", STOP_FADE, true)
 	var length := _current_length()
 	(_src_ap if _borrowed else _ap).seek(length * entry, true)
@@ -1279,7 +1292,7 @@ func play_air_attack(duration: float) -> float:
 	_dash = 0.0
 	_upper_t = 0.0
 	_spell = 0.0
-	_attack = _play_once("attack_air", duration, FADE_ATTACK)
+	_attack = _play_once("attack_air", duration, AIR_ATTACK_FADE)
 	_attack_full = _attack
 	_attack_hit = _impact_delay
 	_spin = 0.0 if clips_only else SPIN_TIME
@@ -1461,7 +1474,8 @@ func _process(delta: float) -> void:
 				_seek_phase(phase)
 		else:
 			# Entrar y salir del aire con una mezcla más larga: el salto se ve más suave.
-			var normal: float = 0.25 if state in ["air", "land"] or _state in ["air", "jump", "dash"] else FADE_EXIT
+			# Saliendo de un golpe (también en el aire) vuelve despacio: a 0,25 s la mano volvía a 10 m/s.
+			var normal: float = 0.25 if (state in ["air", "land"] or _state in ["air", "jump", "dash"]) and not _state.begins_with("attack") else FADE_EXIT
 			_play(state, AIR_BLENDS.get(state, FLY_END_BLEND if _state == "fly" else normal))
 		if clip_holds.has(state + _suffix(state)):
 			var enters: bool = state == "crouch_idle" and not was_crouched
