@@ -1130,6 +1130,7 @@ func _apply_upper(dt: float) -> void:
 	var speed := _upper_windup_speed if ap.current_animation_position < _upper_impact_at else _upper_speed
 	if _upper_t > 0.0:  # terminado el tramo, se funde quieto (si no, sigue el resto del clip)
 		ap.advance(minf(dt * speed, maxf(_upper_stop - ap.current_animation_position, 0.0)))
+	_twist_chest(smoothstep(0.0, 1.0, _upper_w))
 	var before: Array[Quaternion] = []
 	for b in _upper_bones:
 		before.append(_skel.get_bone_pose_rotation(b))
@@ -1138,6 +1139,42 @@ func _apply_upper(dt: float) -> void:
 	for i in _upper_bones.size():
 		_skel.set_bone_pose_rotation(_upper_bones[i], before[i].slerp(_skel.get_bone_pose_rotation(_upper_bones[i]), w))
 	_apply_left_lag(dt)
+
+
+## Los brazos del gesto copian su dirección en el mundo, y en los lanzamientos el cuerpo del clip gira entero (hasta
+## 145° en Frisbee Throw): con el pecho quieto en la guardia la mano pasaba por detrás del cuerpo. Gira la columna
+## (Spine1) hacia donde mira el pecho del clip, como mucho CHEST_TWIST_MAX: los hombros quedan bajo los brazos.
+const CHEST_TWIST_MAX := deg_to_rad(50.0)
+var _twist_bone := -2
+var _twist_written := Quaternion.IDENTITY
+var _twist_base := Quaternion.IDENTITY
+
+
+func _twist_chest(w: float) -> void:
+	if _twist_bone == -2:
+		_twist_bone = -1
+		for b in _skel.get_bone_count():
+			if _skel.get_bone_name(b).ends_with("Spine1"):
+				_twist_bone = b
+	var src: Skeleton3D = _upper["rt"].src
+	var sl := src.find_bone("LeftArm")
+	var sr := src.find_bone("RightArm")
+	if _twist_bone < 0 or sl < 0 or sr < 0 or _bones.get("upper_l", -1) < 0:
+		return
+	# Si nada reescribió el hueso desde el cuadro anterior, se parte de la pose sin girar (si no, el giro se suma).
+	var now := _skel.get_bone_pose_rotation(_twist_bone)
+	var base := _twist_base if now.is_equal_approx(_twist_written) else now
+	_skel.set_bone_pose_rotation(_twist_bone, base)
+	var yaw := func(sk: Skeleton3D, l: int, r: int) -> float:
+		var d := sk.global_transform * sk.get_bone_global_pose(r).origin - sk.global_transform * sk.get_bone_global_pose(l).origin
+		return atan2(-d.z, d.x)
+	var turn := clampf(wrapf(yaw.call(src, sl, sr) - yaw.call(_skel, _bones["upper_l"], _bones["upper_r"]), -PI, PI), -CHEST_TWIST_MAX, CHEST_TWIST_MAX) * w
+	var parent := _skel.get_bone_parent(_twist_bone)
+	var pg := _skel.global_basis.orthonormalized() * (_skel.get_bone_global_pose(parent).basis.orthonormalized() if parent >= 0 else Basis())
+	var axis := (pg.inverse() * Vector3.UP).normalized()
+	_twist_base = base
+	_twist_written = Quaternion(axis, turn) * base
+	_skel.set_bone_pose_rotation(_twist_bone, _twist_written)
 
 
 ## El brazo izquierdo sigue al clip con retraso: su balanceo queda más lento y suave. Ya soltado el gesto, se apaga

@@ -103,7 +103,7 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | `coin_flick` | `overhandthrow_adjusted` | AFClips.glb | ActionForge, retocada por Claude (Adjust: pecho -20°, cabeza +20°) | retocada: tramo 12%–36%, suelta en 29%, velocidad 0.47 |
 | `coin_magnet` | `mage_soell_cast_7` | Vin.glb | Meshy, nativa | retocada: tramo 30%–90%, suelta en 55% |
 | `coin_shield` | `mage_soell_cast_6` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–70%, suelta en 40% |
-| `coin_wave` | `frisbee_throw_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Frisbee Throw): la Ráfaga de monedas | retocada: tramo 27%–50%, suelta en 44%, velocidad 1.0 |
+| `coin_wave` | `frisbee_throw_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Frisbee Throw): la Ráfaga de monedas | retocada: tramo 27%–47%, suelta en 44%, velocidad 1.0 |
 | `drink` | `Stand_and_Drink` | Vin.glb | Meshy, nativa | retocada: tramo 20%–60%, suelta en 55% |
 | `field` | `mage_soell_cast_1` | Vin.glb | Meshy, nativa | retocada: tramo 20%–65%, suelta en 50% |
 | `iron_pull` | `mage_soell_cast_3` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–60%, suelta en 27% |

@@ -93,8 +93,9 @@ const SKILLS := {
 	## último cuadro y se funde en esos segundos, sin la pausa de SLOW_SKILL_HOLD).
 	# Ráfaga: lanzamiento de revés tipo kunai: "Frisbee Throw" de Mixamo (HeroMixamoXBot). La mano derecha va al lado
 	# izquierdo del pecho (codo ~105°, 30-37 %) y barre paralela al piso hacia afuera estirando el codo hasta ~166°;
-	# las monedas salen al 44 %. A su velocidad.
-	"coin_wave": ["frisbee_throw_mx", 0.27, 0.5, 0.44, 1.0, 0.25],
+	# las monedas salen al 44 %. A su velocidad. Termina al 47 %: hasta el 50 % el brazo quedaba estirado y colgando.
+	# El clip gira todo el cuerpo; el pecho lo acompaña con ModelRig._twist_chest (si no, la mano pasaba por la espalda).
+	"coin_wave": ["frisbee_throw_mx", 0.27, 0.47, 0.44, 1.0, 0.25],
 	"field": ["mage_soell_cast_1", 0.2, 0.65, 0.5],
 	"coin_shield": ["mage_soell_cast_6", 0.1, 0.7, 0.4],
 	"coin_magnet": ["mage_soell_cast_7", 0.3, 0.9, 0.55],

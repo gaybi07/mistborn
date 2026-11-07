@@ -34,5 +34,7 @@ func _init() -> void:
 		var elbow := 180.0 - rad_to_deg((el - sh).angle_to(ha - el))
 		var arm := ha - sh
 		var rel := ha - chest
-		print("%.2fs codo %3.0f° brazo %+4.0f° alto %+.2f  mano-pecho x%+.2f y%+.2f z%+.2f torso %+3.0f°%s" % [t, elbow, rad_to_deg(atan2(arm.x, -arm.z)), arm.y, rel.x, rel.y, rel.z, lean, "  <- suelta" if absf(t - rig.impact_delay()) < 0.034 else ""])
+		var shl: Vector3 = inv * BoneTools.bone_world_pos(skel, b["upper_l"])
+		var shoulders := rad_to_deg(atan2(-(sh - shl).z, (sh - shl).x))  # giro del pecho (0 = de frente)
+		print("%.2fs codo %3.0f° brazo %+4.0f° alto %+.2f  mano-pecho x%+.2f y%+.2f z%+.2f torso %+3.0f° hombros %+4.0f°%s" % [t, elbow, rad_to_deg(atan2(arm.x, -arm.z)), arm.y, rel.x, rel.y, rel.z, lean, shoulders, "  <- suelta" if absf(t - rig.impact_delay()) < 0.034 else ""])
 	quit()
