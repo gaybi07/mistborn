@@ -608,7 +608,14 @@ func _resolve_animations() -> void:
 	_donor_specs += extra_donors
 	var lists := []  # qué animaciones tiene cada donante
 	for spec: Array in _donor_specs:
-		var root: Node = (load(spec[0]) as PackedScene).instantiate()
+		var packed := load(spec[0]) as PackedScene
+		if packed == null:
+			# Falta el archivo o no está importado (tras un git pull, abrí el editor para que importe): sin esto el
+			# personaje se quedaba clavado en una pose. La lista queda vacía para no correr los índices de los donantes.
+			push_warning("ModelRig: no se pudo cargar el donante de animaciones %s (¿falta importar los assets?)" % spec[0])
+			lists.append(PackedStringArray())
+			continue
+		var root: Node = packed.instantiate()
 		var ap := _first(root, "AnimationPlayer") as AnimationPlayer
 		lists.append(ap.get_animation_list() if ap else PackedStringArray())
 		root.free()
