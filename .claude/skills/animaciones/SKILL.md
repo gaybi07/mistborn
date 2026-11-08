@@ -94,6 +94,15 @@ Criterios: ningún hueso a más del doble que en los cuadros vecinos; suela ±2 
 - **Patinado al correr**: `feet_check` mide el tobillo; al correr mirar que "pie" ≈ "cuerpo", no la mediana de patina.
 - **Dos estados con el mismo clip** (salto/aire): `_play` no mezcla; las poses fijas necesitan `seek(..., true)`.
 - **Sin capa**: para filmar, ocultar `rig._cloak_anchor` (tapa el cuerpo).
+- **Nombres que chocan**: el .glb le saca "_loop" al nombre del clip (`crouch_idle_loop` -> `crouch_idle`, que ya
+  existía): renombrar siempre con `"archivo.fbx=nombre_af"` y medir que el largo sea el del clip de ActionForge.
+- **FBX de Mixamo en Descargas**: muchos se bajaron sobre un personaje con huesos raros (antebrazo de 88 cm): los
+  brazos salen corridos. Mirar el reposo antes (`brazo`/`antebrazo` en Blender) y bajar sobre el X Bot.
+- **Cadera que vuela metros**: si un clip de cuerpo entero mueve al personaje cientos de cm, es el escalado de la
+  cadera (`BoneTools.Retargeter`, modo "root") con un esqueleto rotado. Ya está corregido para los de Mixamo;
+  medir el rango de cabeza y manos en la guardia (que respire: 5-25 cm).
+- **Descargas desde el panel del navegador**: llegan a `Descargas` como `<uuid>.tmp` (el más nuevo); copiarlas
+  con nombre a la carpeta de FBX fuente. Ajustes de Mixamo por JS: los `select` de FBX, skin `false`, 30, `0`.
 - **Borrar temporales con rutas exactas**, nunca con comodines (el sistema lo bloquea).
 
 ## 6. Cerrar

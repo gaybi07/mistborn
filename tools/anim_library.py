@@ -34,7 +34,11 @@ CLIP_ORIGIN = {
     "punch_jab": "ActionForge, nativa",
     "overhandthrow_adjusted": "ActionForge, retocada por Claude (Adjust: pecho -20°, cabeza +20°)",
     "idle_loop_adjusted": "ActionForge, retocada por Claude (brazos, cabeza, postura y piernas juntas: pose Ironman)",
-    "crouch_idle_mx": "Mixamo, nativa (Crouch Idle)",
+    "crouch_idle_mx": "Mixamo, nativa (Crouch Idle), sin uso: cruzaba los brazos",
+    "fight_idle_mx": "Mixamo, nativa (Fighting Idle, sobre CH36): guardia de puños",
+    "bounce_fight_idle_mx": "Mixamo, nativa (Bouncing Fight Idle, sobre CH36), sin uso por ahora",
+    "knife_idle_mx": "Mixamo, nativa (Knife Idle, sobre CH36): guardia de dagas",
+    "crouch_idle_af": "ActionForge, retocada por Claude (Crouch Idle Loop, Adjust: pecho -20°, cabeza +25°)",
     "spell_simple_enter": "ActionForge, nativa (sin uso por ahora)", "spell_simple_shoot": "ActionForge, nativa (sin uso por ahora)",
     "spell_simple_exit": "ActionForge, nativa (sin uso por ahora)", "push_loop": "ActionForge, nativa (sin uso por ahora)",
     "ninjajump_start": "ActionForge, nativa: despegue de los saltos del Lord Legislador",
@@ -46,7 +50,8 @@ CLIP_ORIGIN = {
 }
 # Orden en que el héroe busca cada clip (Art.hero_rig): su propio modelo, el encapuchado y los donantes.
 HERO_SOURCES = ["assets/meshy/VinCorregida.glb", "assets/meshy/MistbornHood.glb", "assets/meshy/Vin.glb",
-                "assets/actionforge/AFClips.glb", "assets/mixamo/HeroMixamo.glb", "assets/mixamo/HeroMixamoXBot.glb"]
+                "assets/actionforge/AFClips.glb", "assets/mixamo/HeroMixamo.glb", "assets/mixamo/HeroMixamoXBot.glb",
+                "assets/actionforge/AFCrouch.glb"]
 
 
 def clips_of(path):
@@ -95,7 +100,7 @@ def main():
         return None
 
     def origin_clip(clip, f):
-        if f and (f.endswith("AFClips.glb") or "HeroMixamo" in f):
+        if f and (f.endswith("AFClips.glb") or f.endswith("AFCrouch.glb") or "HeroMixamo" in f):
             return CLIP_ORIGIN.get(clip, "ActionForge")
         return origin_of(f).split(":")[0] + ", nativa" if f else "¿no está?"
 

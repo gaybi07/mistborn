@@ -7,10 +7,14 @@ class_name HeroClips
 const STANCES := {
 	"idle_armed_sword": ["Alert"], "walk_sword": ["Spear_Walk"],  # Combat_Stance es de puños: la espada colgaba hacia atrás
 	"idle_armed_shield": ["Alert"], "walk_shield": ["Spear_Walk"],  # Walk_Fight_Forward pisa 0,64 m: a 1,6 m/s pedía 2,5× y el pie patinaba
-	"idle_armed_daggers": ["Lower_Weapon_Look_Raise"],
+	# Dagas: "Knife Idle" de Mixamo (HeroMixamoXBot), en guardia con el cuchillo al revés; respira y se balancea.
+	# Lower_Weapon_Look_Raise era un gesto de bajar y subir el arma (las manos recorrían 60 cm).
+	"idle_armed_daggers": ["knife_idle_mx"],
   # con dagas camina normal (walk)
 }
-const FISTS := {"idle_armed_fist": ["punch_cross"], "walk_fist": ["Walking"]}
+## Puños en guardia: "Fighting Idle" de Mixamo (HeroMixamoXBot): puños arriba, respira y se balancea. Antes era el
+## primer cuadro de punch_cross congelado (una estatua).
+const FISTS := {"idle_armed_fist": ["fight_idle_mx"], "walk_fist": ["Walking"]}
 ## A toda velocidad (peltre avivado), con cualquier arma. Ver ModelRig.stance_suffix.
 const TOP_SPEED := {"sprint_top": ["RunFast"]}  # Lean_Forward_Sprint va a 2,5 m/s: a 11 m/s el pie patinaba 5 m/s
 ## Clip del que sale la mano cerrada para caminar y correr sin arma (ver ModelRig.fist_clip).
@@ -31,7 +35,9 @@ const HIT_CUTS := {
 const STATES := {
 	"idle": ["Idle_11"], "idle_armed": ["Combat_Stance"],
 	"walk": ["Walking"], "run": ["Running"], "sprint": ["RunFast"], "flee": ["Running"],
-	"crouch_idle": ["crouch_idle_mx"],  # agachado quieto: "Crouch Idle" de Mixamo (AFClips); el de Meshy tenía los brazos como con arco
+	# Agachado quieto: Crouch Idle Loop de ActionForge (AFCrouch.glb) con Adjust pecho -20° y cabeza +25° (iba encorvado
+	# mirando al piso). Respira y se balancea. El "Crouch Idle" de Mixamo cruzaba los brazos sobre el pecho.
+	"crouch_idle": ["crouch_idle_af"],
 	 "crouch_walk": ["Cautious_Crouch_Walk_Forward_inplace"],
 	"jump": ["Regular_Jump"], "air": ["Regular_Jump"], "land": ["Regular_Jump"], "hang": ["Bar_Hang_Idle"], "climb": ["Regular_Jump"],
 	"freefall": ["Dive_Down_and_Land"], "fly": ["Vuelo_B"], "fly_rise": ["idle_loop_adjusted"], "fly_coin": ["Vuelo_Moneda"], "fly_glide": ["Fall2"], "fly_launch": ["Vuelo_A"], "slam": ["Charged_Ground_Slam"], "fall_roll": ["Roll_Dodge_1"],
@@ -76,7 +82,7 @@ const CUTS := {
 }
 
 ## Estados que se quedan quietos en un cuadro del clip: el aire no tiene un clip que se repita. Fracción del clip.
-const HOLDS := {"idle_armed_fist": 0.0, "fly_glide": 0.95, "air": 0.55, "freefall": 0.8, "slide": 0.25, "allomancy": 0.5}
+const HOLDS := {"fly_glide": 0.95, "air": 0.55, "freefall": 0.8, "slide": 0.25, "allomancy": 0.5}
 
 ## Cuánto puede girar el pecho siguiendo al clip en cada poder (grados; si no está, ModelRig.CHEST_TWIST_MAX).
 ## Encender metal: el clip gira el cuerpo de -43° a +44° y Vin quedaba de espaldas en un gesto de concentración.

@@ -316,6 +316,8 @@ const FOOT_REACH := 0.4
 const FOOT_TOE := 0.12
 ## Si la animación deja los dos pies en el aire menos que esto (m), se los apoya (ver _update_foot_ik).
 const GROUND_FLOAT := 0.15
+## Desde cuánto (m) se cuenta como flotando: a 4 cm las guardias de Mixamo (dagas, puños) quedaban 2-5 cm en el aire.
+const FLOAT_FROM := 0.015
 ## Pie hundido menos que esto (m) se deja: es el tobillo doblado. Más, el cuerpo sube (clips de otro esqueleto,
 ## p. ej. el Crouch Idle de Mixamo, que bajaba la cadera 26 cm).
 const SINK_OK := 0.04
@@ -1469,9 +1471,14 @@ func _process(delta: float) -> void:
 			_seek_time(BLOCK_HOLD)
 		elif state in LOCOMOTION and _state in LOCOMOTION:
 			var phase := _cycle_phase() if STRIDE_SPEED.has(_state) and STRIDE_SPEED.has(state) else -1.0
+			var was_player := _src_ap if _borrowed else _ap
 			_play(state, PUSH_STANCE_BLEND if state == "allomancy" else LOCO_BLEND)
 			if phase >= 0.0:
 				_seek_phase(phase)
+				# El salto de fase corta la mezcla del reproductor: correr -> caminar pasaba de golpe (pies a 8 m/s).
+				# Se mezcla la pose, que todavía es la del paso anterior. Con clips de otro donante _play ya lo hizo.
+				if was_player == (_src_ap if _borrowed else _ap):
+					_begin_fade(LOCO_BLEND)
 		else:
 			# Entrar y salir del aire con una mezcla más larga: el salto se ve más suave.
 			# Saliendo de un golpe (también en el aire) vuelve despacio: a 0,25 s la mano volvía a 10 m/s.
@@ -1821,7 +1828,7 @@ func _update_foot_ik(dt: float, state: String) -> void:
 	var float_target := 0.0
 	var low := minf(anim_feet[0].y, anim_feet[1].y) - ground - _ankle
 	if not state in IK_MOVING:
-		if low > 0.04 and low < GROUND_FLOAT:
+		if low > FLOAT_FROM and low < GROUND_FLOAT:
 			float_target = low
 	else:
 		# Andando siempre hay un pie arriba (y corriendo, ratos con los dos): manda lo más bajo que pisa en la zancada.

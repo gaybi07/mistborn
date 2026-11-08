@@ -45,7 +45,7 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | `climb` | `Regular_Jump` | MistbornHood.glb | Meshy, nativa | retocada: tramo 20%–50% |
 | `coin_shield` | `Charged_Spell_Cast` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–80%, golpe 65% |
 | `coin_wave` | `mage_soell_cast_2` | MistbornHood.glb | Meshy, nativa | retocada: tramo 0%–70%, golpe 41% |
-| `crouch_idle` | `crouch_idle_mx` | HeroMixamo.glb | Mixamo, nativa (Crouch Idle) | entera |
+| `crouch_idle` | `crouch_idle_af` | AFCrouch.glb | ActionForge, retocada por Claude (Crouch Idle Loop, Adjust: pecho -20°, cabeza +25°) | entera |
 | `crouch_walk` | `Cautious_Crouch_Walk_Forward_inplace` | Vin.glb | Meshy, nativa | entera |
 | `dash` | `Roll_Dodge` | MistbornHood.glb | Meshy, nativa | retocada: tramo 25%–80% |
 | `dodge_left` | `Stand_Dodge` | MistbornHood.glb | Meshy, nativa | entera |
@@ -70,8 +70,8 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | `hit_right` | `Slap_Reaction` | Vin.glb | Meshy, nativa | retocada: tramo 10%–50% |
 | `idle` | `Idle_11` | Vin.glb | Meshy, nativa | entera |
 | `idle_armed` | `Combat_Stance` | MistbornHood.glb | Meshy, nativa | entera |
-| `idle_armed_daggers` | `Lower_Weapon_Look_Raise` | Vin.glb | Meshy, nativa | entera |
-| `idle_armed_fist` | `punch_cross` | AFClips.glb | ActionForge, nativa | retocada: pose fija en el 0% |
+| `idle_armed_daggers` | `knife_idle_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Knife Idle, sobre CH36): guardia de dagas | entera |
+| `idle_armed_fist` | `fight_idle_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Fighting Idle, sobre CH36): guardia de puños | entera |
 | `idle_armed_shield` | `Alert` | VinCorregida.glb | Meshy, nativa | entera |
 | `idle_armed_sword` | `Alert` | VinCorregida.glb | Meshy, nativa | entera |
 | `jump` | `Regular_Jump` | MistbornHood.glb | Meshy, nativa | retocada: tramo 12%–60% |
@@ -130,6 +130,12 @@ Origen: ActionForge y Mixamo (ver detalle por clip).
 - `ninjajump_land`: ActionForge, nativa: caída de los saltos del Lord Legislador
 - `sword_dash`: ActionForge, nativa (sin uso: trae el avance en la cadera)
 - `coin_throw_af`: ActionForge, retocada por Claude (Sword Regular B: postura y brazos con claves), sin uso por ahora
+
+### `assets/actionforge/AFCrouch.glb` (1)
+
+Origen: sin clasificar.
+
+`crouch_idle_af`
 
 ### `assets/kaykit/characters/Barbarian.glb` (76)
 
@@ -317,11 +323,11 @@ Origen: Mixamo: nativas (Crouch Idle y Wide Arm Spell Casting, para los héroes)
 
 `burst_open_mx`, `crouch_idle_mx`
 
-### `assets/mixamo/HeroMixamoXBot.glb` (1)
+### `assets/mixamo/HeroMixamoXBot.glb` (4)
 
 Origen: Mixamo: nativas, bajadas sobre el X Bot (Frisbee Throw: la Ráfaga de monedas).
 
-`frisbee_throw_mx`
+`frisbee_throw_mx`, `fight_idle_mx`, `bounce_fight_idle_mx`, `knife_idle_mx`
 
 ### `assets/mixamo/Mistborn.glb` (49)
 

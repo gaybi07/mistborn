@@ -91,6 +91,13 @@ class Retargeter:
 						var src_h := src.get_bone_global_rest(s).origin.y * src_scale
 						var dst_h := dst.get_bone_global_rest(d).origin.y * dst_scale
 						var offset := src_basis * (src.get_bone_global_pose(s).origin - src.get_bone_global_rest(s).origin) * src_scale
+						# Esqueletos rotados (FBX de Mixamo pasados a .glb, con el alto en z): su "y" daba 3 cm en vez de 1 m
+						# y la cadera se movía 30 veces más. Ahí manda la altura en el mundo. (Los que dan ~0, como los de
+						# ActionForge, siguen sin escalar: así están ajustados sus clips.)
+						var src_world_h := (src.global_basis * src.get_bone_global_rest(s).origin).y
+						if src_h > 0.001 and src_world_h > src_h * 3.0:
+							src_h = src_world_h
+							dst_h = (dst.global_basis * dst.get_bone_global_rest(d).origin).y
 						if src_h > 0.001:
 							offset *= dst_h / src_h
 						var parent_pose := dst.get_bone_global_pose(parent) if parent >= 0 else Transform3D()
