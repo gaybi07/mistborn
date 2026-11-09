@@ -8,7 +8,7 @@ signal picked
 signal cleared
 signal rebind_requested
 
-const GOLD := Color(0.95, 0.8, 0.35)
+const GOLD := Color(0.78, 0.66, 1.0)  # elegido, teclas y realces: el violeta de los menús (HudKit.PICK, más claro)
 const KEY_SIZE := Vector2(60.0, 60.0)
 const DEPTH := 5.0
 

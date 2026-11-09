@@ -7,11 +7,11 @@ extends CanvasLayer
 
 const DIM := Color(0.6, 0.62, 0.68)
 const GOOD := Color(0.5, 0.9, 0.55)
-const GOLD := Color(0.95, 0.8, 0.35)
-const GOLD_SOFT := Color(0.95, 0.86, 0.66)
+const GOLD := Color(0.78, 0.66, 1.0)  # elegido, teclas y realces: el violeta de los menús (HudKit.PICK, más claro)
+const GOLD_SOFT := Color(0.78, 0.93, 1.0)  # títulos: acero claro (HudKit.ACCENT_LIGHT)
 const LOCKED := Color(1.0, 0.65, 0.35)
 const ACTIVE_COLOR := Color(0.36, 0.55, 0.78)
-const PASSIVE_COLOR := Color(0.78, 0.58, 0.3)
+const PASSIVE_COLOR := Color(0.85, 0.45, 0.8)  # magenta: se distingue del celeste de las activas sin el marrón de antes
 const BG := Color(0.035, 0.04, 0.055, 0.98)
 ## Ancho del panel de detalle (px): el de partida y lo que se puede estirar arrastrando la barra.
 const DETAIL_WIDTH := 350.0
@@ -43,6 +43,8 @@ var _side_col: VBoxContainer
 var _detail_width := DETAIL_WIDTH
 var _body: HBoxContainer
 var _canvas: SkillTreeCanvas
+## Ctrl apretado: se resaltan las habilidades que se pueden poner en una ranura y se apagan las demás.
+var _assign_mode := false
 ## Vista de árbol (true) o de lista (false).
 var _tree_mode := true
 var _selected: StringName = &"steel_light_push"
@@ -197,8 +199,6 @@ func _build_header() -> Control:
 	_xp_bar.show_percentage = false
 	_xp_bar.custom_minimum_size = Vector2(240, 10)
 	_xp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_xp_bar.add_theme_stylebox_override("background", _box(Color(0.1, 0.11, 0.14), Color(0.3, 0.3, 0.34), 1, 3, 0))
-	_xp_bar.add_theme_stylebox_override("fill", _box(Color(0.8, 0.82, 0.88), Color(0.8, 0.82, 0.88), 0, 3, 0))
 	xp_box.add_child(_xp_bar)
 	header.add_child(xp_box)
 	_points_label = Label.new()
@@ -413,7 +413,12 @@ func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> 
 	row.add_theme_stylebox_override("panel", _box(Color(color, 0.14) if selected else Color(0, 0, 0, 0),
 			Color(GOLD, 0.8) if selected else Color(0, 0, 0, 0), 1, 6, 4))
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	if not unlocked:
+	if _assign_mode:
+		if unlocked and SkillTree.is_assignable(id):
+			row.add_theme_stylebox_override("panel", _box(Color(SkillTreeCanvas.ASSIGN, 0.05), Color(SkillTreeCanvas.ASSIGN, 0.35), 1, 6, 4))
+		else:
+			row.modulate = Color(1, 1, 1, 0.25)  # pasiva o bloqueada: no va en una ranura
+	elif not unlocked:
 		row.modulate = Color(0.62, 0.62, 0.66, 0.6)  # bloqueada por nivel o por puntos: se ve apagada
 	row.mouse_entered.connect(func() -> void: _hovered = id)
 	row.mouse_exited.connect(func() -> void:
@@ -651,6 +656,17 @@ func _box(bg: Color, border: Color, border_width: int, radius: int, margin: int,
 
 
 # ---------------------------------------------------------------- Entrada
+
+func _process(_delta: float) -> void:
+	var held := _root != null and _root.visible and Input.is_key_pressed(KEY_CTRL)
+	if held == _assign_mode:
+		return
+	_assign_mode = held
+	_canvas.assign_mode = held
+	_canvas.queue_redraw()
+	if not _tree_mode:
+		_refresh()
+
 
 ## Cambiando la tecla de una ranura: la próxima tecla que pulses (Esc cancela).
 func _input(event: InputEvent) -> void:

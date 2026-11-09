@@ -147,49 +147,92 @@ static func coin_stack(ci: CanvasItem, c: Vector2, s: float, has: bool) -> void:
 static var _theme: Theme = null
 
 
-## Tema común de los menús (pausa, red, arena): paneles oscuros con borde dorado, botones, pestañas,
-## deslizadores y cuadros de texto del mismo estilo que el HUD. Se asigna a la raíz de cada menú.
+## Colores de los menús (Esc, árbol de habilidades K, red, arena): acero brumoso, como las líneas azules de la
+## alomancia y las constelaciones del árbol. ACCENT para bordes, barras y lo activo; PICK (violeta) para lo elegido.
+const ACCENT := Color(0.38, 0.78, 1.0)
+const ACCENT_LIGHT := Color(0.78, 0.93, 1.0)
+const PICK := Color(0.66, 0.5, 1.0)
+const MENU_TEXT := Color(0.9, 0.93, 0.98)
+## Inclinación de botones y pestañas (paralelogramos, más de videojuego que un rectángulo).
+const MENU_SKEW := 0.18
+
+
+## Tema común de los menús (pausa, árbol, red, arena): paneles oscuros con borde de acero, botones y pestañas inclinados
+## con brillo al pasar el ratón, deslizadores y cuadros de texto del mismo estilo. Se asigna a la raíz de cada menú.
 static func menu_theme() -> Theme:
 	if _theme != null:
 		return _theme
 	var t := Theme.new()
 	t.default_font_size = 15
-	var panel := _box(Color(0.05, 0.055, 0.075, 0.97), Color(GOLD, 0.9), 2, 8, 20.0, 18.0)
-	panel.shadow_color = Color(0, 0, 0, 0.5)
-	panel.shadow_size = 12
+	var panel := _box(Color(0.035, 0.045, 0.07, 0.97), Color(ACCENT, 0.55), 2, 10, 20.0, 18.0)
+	panel.shadow_color = Color(ACCENT, 0.12)
+	panel.shadow_size = 18
 	t.set_stylebox("panel", "PanelContainer", panel)
 	t.set_stylebox("panel", "Panel", panel)
-	# Botones
-	t.set_stylebox("normal", "Button", _box(Color(0.1, 0.11, 0.14), Color(GOLD, 0.55), 1, 5, 16.0, 8.0))
-	t.set_stylebox("hover", "Button", _box(Color(0.15, 0.16, 0.2), Color(GOLD_LIGHT, 0.9), 1, 5, 16.0, 8.0))
-	t.set_stylebox("pressed", "Button", _box(Color(0.2, 0.17, 0.11), GOLD_LIGHT, 1, 5, 16.0, 8.0))
-	t.set_stylebox("disabled", "Button", _box(Color(0.07, 0.075, 0.09), Color(GOLD, 0.2), 1, 5, 16.0, 8.0))
-	t.set_stylebox("focus", "Button", _box(Color(0, 0, 0, 0), Color(GOLD_LIGHT, 0.5), 1, 5, 16.0, 8.0))
-	t.set_color("font_color", "Button", Color(0.92, 0.92, 0.96))
+	# Botones: paralelogramo oscuro con la base marcada; al pasar el ratón se enciende y brilla; elegido, violeta.
+	t.set_stylebox("normal", "Button", _slant(Color(0.07, 0.09, 0.13, 0.9), Color(ACCENT, 0.3), 2))
+	t.set_stylebox("hover", "Button", _slant(Color(0.09, 0.15, 0.22), ACCENT, 3, Color(ACCENT, 0.35)))
+	t.set_stylebox("pressed", "Button", _slant(Color(PICK, 0.28), PICK, 3, Color(PICK, 0.4)))
+	t.set_stylebox("hover_pressed", "Button", _slant(Color(PICK, 0.36), PICK.lightened(0.3), 3, Color(PICK, 0.5)))
+	t.set_stylebox("disabled", "Button", _slant(Color(0.05, 0.06, 0.08, 0.8), Color(ACCENT, 0.1), 1))
+	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	t.set_color("font_color", "Button", MENU_TEXT)
 	t.set_color("font_hover_color", "Button", Color.WHITE)
-	t.set_color("font_pressed_color", "Button", GOLD_LIGHT)
-	t.set_color("font_disabled_color", "Button", Color(0.5, 0.5, 0.55))
+	t.set_color("font_pressed_color", "Button", Color.WHITE)
+	t.set_color("font_hover_pressed_color", "Button", Color.WHITE)
+	t.set_color("font_disabled_color", "Button", Color(0.45, 0.48, 0.55))
+	# CardButton: los mismos botones pero rectos, para tarjetas con foto (elegir personaje, color de capa): inclinados,
+	# el recuadro no coincide con el fondo de la foto.
+	t.set_type_variation(&"CardButton", &"Button")
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		var card := (t.get_stylebox(state, "Button") as StyleBoxFlat).duplicate() as StyleBoxFlat
+		card.skew = Vector2.ZERO
+		t.set_stylebox(state, "CardButton", card)
+	# Interruptores (los efectos de Mundo, pantalla completa): fila oscura; encendido, con la base violeta.
+	t.set_stylebox("normal", "CheckButton", _box(Color(0.06, 0.08, 0.11, 0.85), Color(ACCENT, 0.2), 1, 6, 16.0, 8.0))
+	t.set_stylebox("hover", "CheckButton", _box(Color(0.08, 0.12, 0.17, 0.9), Color(ACCENT, 0.7), 1, 6, 16.0, 8.0))
+	var on := _box(Color(PICK, 0.14), Color(PICK, 0.7), 1, 6, 16.0, 8.0)
+	on.border_width_left = 4
+	t.set_stylebox("pressed", "CheckButton", on)
+	t.set_stylebox("hover_pressed", "CheckButton", on)
+	t.set_stylebox("focus", "CheckButton", StyleBoxEmpty.new())
+	t.set_color("font_color", "CheckButton", MENU_TEXT)
+	t.set_color("font_pressed_color", "CheckButton", Color.WHITE)
+	t.set_color("font_hover_pressed_color", "CheckButton", Color.WHITE)
 	# Texto
-	t.set_color("font_color", "Label", Color(0.92, 0.92, 0.96))
-	t.set_color("default_color", "RichTextLabel", Color(0.9, 0.9, 0.95))
-	t.set_color("font_color", "CheckButton", Color(0.92, 0.92, 0.96))
-	# Pestañas
-	t.set_stylebox("tab_selected", "TabContainer", _box(Color(0.12, 0.11, 0.1), GOLD, 1, 5, 16.0, 8.0))
-	t.set_stylebox("tab_unselected", "TabContainer", _box(Color(0.07, 0.075, 0.095), Color(GOLD, 0.25), 1, 5, 16.0, 8.0))
-	t.set_stylebox("tab_hovered", "TabContainer", _box(Color(0.11, 0.115, 0.14), Color(GOLD, 0.6), 1, 5, 16.0, 8.0))
-	t.set_stylebox("panel", "TabContainer", _box(Color(0.035, 0.04, 0.055, 0.9), Color(GOLD, 0.35), 1, 6, 14.0, 12.0))
-	t.set_color("font_selected_color", "TabContainer", GOLD_LIGHT)
-	t.set_color("font_unselected_color", "TabContainer", Color(0.75, 0.77, 0.83))
-	t.set_color("font_hovered_color", "TabContainer", Color.WHITE)
+	t.set_color("font_color", "Label", MENU_TEXT)
+	t.set_color("default_color", "RichTextLabel", Color(0.88, 0.91, 0.96))
+	# Pestañas: inclinadas como los botones; la elegida con la base gruesa en acero.
+	t.set_stylebox("tab_selected", "TabContainer", _slant(Color(ACCENT, 0.18), ACCENT, 3, Color(ACCENT, 0.3)))
+	t.set_stylebox("tab_unselected", "TabContainer", _slant(Color(0.06, 0.075, 0.1, 0.85), Color(ACCENT, 0.18), 1))
+	t.set_stylebox("tab_hovered", "TabContainer", _slant(Color(0.08, 0.12, 0.17), Color(ACCENT, 0.7), 2))
+	t.set_stylebox("panel", "TabContainer", _box(Color(0.03, 0.04, 0.06, 0.9), Color(ACCENT, 0.25), 1, 8, 14.0, 12.0))
+	t.set_color("font_selected_color", "TabContainer", Color.WHITE)
+	t.set_color("font_unselected_color", "TabContainer", Color(0.68, 0.74, 0.84))
+	t.set_color("font_hovered_color", "TabContainer", ACCENT_LIGHT)
+	t.set_constant("side_margin", "TabContainer", 10)
 	# Cuadros de texto y deslizadores
-	t.set_stylebox("normal", "LineEdit", _box(Color(0.03, 0.035, 0.05), Color(GOLD, 0.45), 1, 4, 10.0, 6.0))
-	t.set_stylebox("focus", "LineEdit", _box(Color(0.03, 0.035, 0.05), GOLD_LIGHT, 1, 4, 10.0, 6.0))
-	t.set_color("font_color", "LineEdit", Color(0.95, 0.95, 1.0))
-	t.set_stylebox("slider", "HSlider", _box(Color(0.03, 0.035, 0.05), Color(GOLD, 0.35), 1, 3, 0.0, 3.0))
-	t.set_stylebox("grabber_area", "HSlider", _box(Color(GOLD, 0.85), Color(GOLD_LIGHT, 0.0), 0, 3, 0.0, 3.0))
-	t.set_stylebox("grabber_area_highlight", "HSlider", _box(Color(GOLD_LIGHT, 0.95), Color(GOLD_LIGHT, 0.0), 0, 3, 0.0, 3.0))
+	t.set_stylebox("normal", "LineEdit", _box(Color(0.03, 0.04, 0.06), Color(ACCENT, 0.4), 1, 4, 10.0, 6.0))
+	t.set_stylebox("focus", "LineEdit", _box(Color(0.03, 0.04, 0.06), ACCENT, 1, 4, 10.0, 6.0))
+	t.set_color("font_color", "LineEdit", Color(0.95, 0.97, 1.0))
+	t.set_stylebox("slider", "HSlider", _box(Color(0.03, 0.04, 0.06), Color(ACCENT, 0.25), 1, 3, 0.0, 3.0))
+	t.set_stylebox("grabber_area", "HSlider", _box(Color(ACCENT, 0.85), Color(ACCENT, 0.0), 0, 3, 0.0, 3.0))
+	t.set_stylebox("grabber_area_highlight", "HSlider", _box(ACCENT_LIGHT, Color(ACCENT, 0.0), 0, 3, 0.0, 3.0))
+	# Barras de progreso (la experiencia del árbol)
+	t.set_stylebox("background", "ProgressBar", _box(Color(0.05, 0.07, 0.1), Color(ACCENT, 0.25), 1, 3, 0.0, 0.0))
+	t.set_stylebox("fill", "ProgressBar", _box(ACCENT, ACCENT, 0, 3, 0.0, 0.0))
 	_theme = t
 	return t
+
+
+## Botón o pestaña inclinado con la base (`base` px) más gruesa; `glow`: resplandor alrededor (al pasar el ratón).
+static func _slant(bg: Color, border: Color, base: int, glow := Color(0, 0, 0, 0)) -> StyleBoxFlat:
+	var s := _box(bg, border, 1, 3, 18.0, 8.0)
+	s.skew = Vector2(MENU_SKEW, 0.0)
+	s.border_width_bottom = base
+	s.shadow_color = glow
+	s.shadow_size = 8 if glow.a > 0.0 else 0
+	return s
 
 
 static func _box(bg: Color, border: Color, border_width: int, radius: int, margin_h: float, margin_v: float) -> StyleBoxFlat:
@@ -206,10 +249,10 @@ static func _box(bg: Color, border: Color, border_width: int, radius: int, margi
 	return s
 
 
-## Título de sección (dorado) para los menús.
+## Título de sección (acero claro) para los menús.
 static func section_label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_color_override("font_color", GOLD_LIGHT)
+	l.add_theme_color_override("font_color", ACCENT_LIGHT)
 	l.add_theme_font_size_override("font_size", 17)
 	return l
