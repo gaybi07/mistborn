@@ -30,6 +30,7 @@ const METAL_TAGLINE := {
 var player: Player
 
 var _root: Control
+var _margin: MarginContainer  # todo el contenido: su tamaño mínimo dice si la ventana entra en la pantalla
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _xp_label: Label
@@ -73,6 +74,7 @@ func _ready() -> void:
 	margin.add_theme_constant_override("margin_top", 16)
 	margin.add_theme_constant_override("margin_bottom", 14)
 	_root.add_child(margin)
+	_margin = margin
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	margin.add_child(col)
@@ -140,6 +142,11 @@ func _fit_to_window() -> void:
 		return
 	var vp := _root.get_viewport_rect().size
 	var s := clampf(minf(vp.x / DESIGN_SIZE.x, vp.y / DESIGN_SIZE.y), 0.5, MAX_SCALE)
+	# Si lo que hay adentro (columnas, detalle, encabezado) pide más lugar del que queda a esa escala, se achica un poco
+	# más: si no, en pantallas chicas se cortaba por la derecha.
+	var need := _margin.get_combined_minimum_size()
+	if need.x > 0.0 and need.y > 0.0:
+		s = clampf(minf(s, minf(vp.x / need.x, vp.y / need.y)), 0.5, MAX_SCALE)
 	scale = Vector2(s, s)
 	_root.position = Vector2.ZERO
 	_root.size = vp / s
@@ -275,9 +282,24 @@ func _clear(node: Node) -> void:
 		c.queue_free()
 
 
+## Ranuras de los poderes básicos (Q y E por defecto): van al final, junto a la moneda de combate, como en el HUD del juego.
+const BASIC_SLOTS: Array[int] = [4, 5]
+
+
 func _refresh_slots() -> void:
 	_clear(_slots_row)
+	var order: Array[int] = []
 	for i in Progression.SLOT_COUNT:
+		if not i in BASIC_SLOTS:
+			order.append(i)
+	order.append(-1)  # separación antes de las básicas y la moneda
+	order.append_array(BASIC_SLOTS)
+	for i in order:
+		if i < 0:
+			var gap := Control.new()
+			gap.custom_minimum_size.x = 18
+			_slots_row.add_child(gap)
+			continue
 		var skill := Progression.slot_skills[i]
 		var cap := SlotKey.new()
 		cap.key_text = Progression.key_name(Progression.slot_keys[i])
@@ -296,10 +318,7 @@ func _refresh_slots() -> void:
 			_rebinding = i
 			_refresh_slots())
 		_slots_row.add_child(cap)
-	# La moneda de combate tiene su propia tecla (por defecto el clic derecho), al final y separada de las demás.
-	var gap := Control.new()
-	gap.custom_minimum_size.x = 18
-	_slots_row.add_child(gap)
+	# La moneda de combate tiene su propia tecla (por defecto el clic derecho), al final, después de las básicas.
 	var coin_id := &"steel_combat_coin"
 	var coin_cap := SlotKey.new()
 	coin_cap.key_text = Progression.key_name(Progression.coin_key)
@@ -499,19 +518,25 @@ func _refresh_detail() -> void:
 	_detail.add_child(head)
 	_detail.add_child(HSeparator.new())
 
+	# La descripción va en su propio scroll y ocupa solo lo que sobra: si no, una larga agranda la ventana y tapa las
+	# ranuras de abajo. El encabezado y los botones quedan siempre a la vista.
+	var text_scroll := ScrollContainer.new()
+	text_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_detail.add_child(text_scroll)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 8)
+	text_scroll.add_child(text)
 	for paragraph in String(parts.get("body", "")).split("\n"):
 		if paragraph != "":
-			_detail.add_child(_wrapped(paragraph, 15, Color(0.86, 0.88, 0.92)))
+			text.add_child(_wrapped(paragraph, 15, Color(0.86, 0.88, 0.92)))
 	var now := String(parts.get("now", ""))
 	if now != "":
-		_detail.add_child(_wrapped(now, 15, GOOD))
+		text.add_child(_wrapped(now, 15, GOOD))
 	var unlock := String(parts.get("unlock", ""))
 	if unlock != "":
-		_detail.add_child(_wrapped(unlock, 15, LOCKED))
-
-	var filler := Control.new()
-	filler.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_detail.add_child(filler)
+		text.add_child(_wrapped(unlock, 15, LOCKED))
 	if _selected in SkillTree.FIXED_KEY:
 		_detail.add_child(_wrapped("Tiene su propia tecla (por defecto el clic derecho).", 14, DIM))
 		if unlocked:
@@ -708,6 +733,7 @@ func toggle() -> void:
 	_root.visible = not _root.visible
 	player.ui_open = _root.visible
 	_refresh()
+	_fit_to_window.call_deferred()  # con el contenido ya armado se sabe cuánto lugar pide
 	if _root.visible and _tree_mode:
 		_canvas.fit()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if _root.visible else Input.MOUSE_MODE_CAPTURED

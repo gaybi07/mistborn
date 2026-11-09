@@ -244,8 +244,6 @@ var _combat_ms := -1000000
 var _coin_push_steel := Allomancy.State.OFF
 ## La moneda empujada es un disparo del clic derecho (no se frena a GUIDED_COIN_SPEED).
 var _coin_shot := false
-## El empuje automático lo inició un salto de acero: se suelta al soltar Espacio.
-var _jump_push := false
 ## Salto normal (sin peltre): altura y distancia que recorre, parado y corriendo a walk_speed (en medio,
 ## se interpola). Corriendo, el salto frena tu velocidad horizontal a la que hace falta para esa distancia,
 ## y en el aire WASD no te deja ir más rápido que eso.
@@ -1145,27 +1143,18 @@ func _update_pewter_drag(rd: float) -> void:
 		allomancy.set_state(&"pewter", Allomancy.State.OFF)
 
 
-## Espacio + WASD con el acero encendido: suelta una moneda detrás de ti (según la dirección) y la
-## empuja sola mientras mantengas Espacio: el empuje te lanza hacia arriba y hacia donde pulsas.
-## Cayendo, la moneda sale disparada hacia abajo, llega antes al suelo y el empuje te frena.
-## Ayudas (ver _assist_coin_push): la moneda no sale volando más rápido que GUIDED_COIN_SPEED y
-## se clava al tocar el suelo; con WASD dirigís el salto; se dibuja dónde caerías al soltar.
+## Moneda empujada sola (ver _assist_coin_push): no sale volando más rápido que GUIDED_COIN_SPEED y se clava al tocar
+## el suelo.
 const GUIDED_COIN_SPEED := 20.0
-## Cuánto detrás de ti (en m) cae la moneda del salto de acero: más atrás, salto más largo y menos alto.
-## Con 0.4 el empuje sale unos 65° hacia arriba: una parábola alta que luego avanza hacia donde pulsas.
+## Cuánto detrás de ti (en m) cae la moneda del salto de acero (de donde te empujás).
 const STEEL_JUMP_BACK := 0.4
-
-
-func _start_coin_push(back := Vector3.ZERO) -> void:
-	if dead:
-		return
-	var coin := drop_coin(back)
-	if coin == null:
-		return
-	if not is_on_floor():
-		# Algo más rápida que tú, lo justo para ir por debajo (si va muy rápida, no da apoyo).
-		coin.linear_velocity = Vector3(velocity.x, minf(velocity.y, 0.0) - 8.0, velocity.z)
-	_engage_coin_push(coin)
+## Salto de acero (WASD + Espacio con acero): un arco fijo, como una parábola, sin importar cuánto mantengas Espacio.
+## Antes era un empuje continuo mientras mantenías la tecla: un toque daba 2 m y medio segundo, más de 40 m.
+const STEEL_LEAP_DIST := 10.0  # m de avance en terreno plano
+const STEEL_LEAP_HEIGHT := 3.5  # m de altura máxima
+const STEEL_LEAP_UP_HEIGHT := 5.0  # m del salto recto hacia arriba (doble Espacio sin dirección)
+const STEEL_LEAP_COOLDOWN := 4.0  # s
+var _leap_ready_ms := 0
 
 
 ## Clic derecho: lanza una moneda a plena fuerza hacia donde apuntas y la empuja con acero mientras
@@ -1223,7 +1212,8 @@ func _release_coin_shot(aim_target: Vector3, aim_dir: Vector3) -> void:
 const SKILL_TAP_BURN_MS := 1200
 ## Metales que encendió una habilidad (no el jugador): se apagan solos al terminar.
 var _skill_started := {}
-var _skill_off_ms := {}
+## Cuál fue el último apagado pedido de cada metal: solo ese lo apaga (si después otro poder lo volvió a pedir, espera).
+var _skill_off_turn := {}
 
 
 ## Tecla de una ranura: pulsarla activa su habilidad y soltarla la termina. Devuelve true si era de una ranura.
@@ -1241,6 +1231,8 @@ func _slot_key(key: InputEventKey) -> bool:
 	if key.physical_keycode == KEY_E and interactable != null and interactable.prompt != "":
 		return false
 	_skill_press(skill)
+	if _aim_skill == skill:
+		_aim_key = key.physical_keycode
 	return true
 
 
@@ -1248,12 +1240,18 @@ func _slot_key(key: InputEventKey) -> bool:
 ## sale. [forma, alcance (m), ancho (franja) o medio ángulo (cono)].
 const AIMED := {
 	&"steel_coin_burst": ["cone", 16.0, 0.0], &"steel_spear": ["strip", 30.0, 1.2], &"pewter_charge": ["strip", CHARGE_SPEED * CHARGE_TIME, 1.4],
-	&"pewter_slam": ["disc", SkillTree.SLAM_RADIUS, 0.0], &"iron_mass_yank": ["disc", SkillTree.YANK_RADIUS, 0.0],
-	&"steel_magnetic_field": ["disc", SkillTree.FIELD_RADIUS, 0.0],
+	&"pewter_slam": ["disc", SkillTree.SLAM_RADIUS, 0.0], &"iron_mass_yank": ["sphere", SkillTree.YANK_RADIUS, 0.0],
+	&"steel_magnetic_field": ["sphere", SkillTree.FIELD_RADIUS, 0.0],
 }
 var _aim_skill := &""
 var _aim_preview: Telegraph
 var _aim_firing := false
+## Tecla con la que se está apuntando: si se suelta fuera del juego (Esc, alt+tab) no llega el evento, así que se revisa a mano.
+var _aim_key: Key = KEY_NONE
+## Poderes que salen hacia donde apunta la mira en 3D (también arriba o abajo): su zona se inclina igual. El resto va a ras del piso.
+const AIM_3D: Array[StringName] = [&"steel_coin_burst", &"steel_spear"]
+## Alto (m) sobre los pies del humo de los poderes que van por el piso (la embestida y los aros alrededor tuyo).
+const AIM_GROUND_SMOKE := 0.35
 
 
 func _skill_press(skill: StringName) -> void:
@@ -1321,20 +1319,28 @@ func _start_aim(skill: StringName) -> void:
 	_aim_skill = skill
 	var spec: Array = AIMED[skill]
 	var scene := get_tree().current_scene
-	var dir := _aim_flat()
+	# Todas de humo, como la lanza: no se llenan (eso es de los avisos de daño), solo muestran por dónde va el poder. Del
+	# color del metal del poder, el mismo que en el HUD.
+	var tint: Color = Allomancy.METALS[SkillTree.find(skill)["metal"]]["color"]
 	match spec[0]:
 		"cone":
-			var half := SkillTree.fan_angle(metal_level(&"steel"), SkillTree.BURST_MIN_LEVEL) * 0.5
-			_aim_preview = Telegraph.cone(scene, global_position, dir, spec[1], minf(half + 0.08, PI), 1e6, Telegraph.BLUE)
+			# Un rayo de humo por moneda, en las mismas direcciones que _release_burst (sin contar si te alcanzan las monedas).
+			var level := metal_level(&"steel")
+			_aim_preview = Telegraph.smoke_rays(scene, 1e6, tint, SkillTree.burst_dirs(level, SkillTree.fan_count(level, SkillTree.BURST_MIN_LEVEL)))
 		"strip":
-			_aim_preview = Telegraph.strip(scene, global_position, dir, spec[1], spec[2], 1e6, Telegraph.BLUE)
+			# El ancho de la cinta (~0,9 m) se lleva al de la franja; por el piso no hay cuerpo que tape el comienzo.
+			var on_ground := not skill in AIM_3D
+			_aim_preview = Telegraph.smoke_path(scene, 1e6, tint, spec[2] / 0.9 if on_ground else 1.0, 0.5 if on_ground else 2.5)
+		"sphere":
+			_aim_preview = Telegraph.smoke_sphere(scene, spec[1], 1e6, tint)
 		_:
-			_aim_preview = Telegraph.disc(scene, global_position, spec[1], 1e6, Telegraph.BLUE, self)
-	# Relleno suave y borde: no se llena (eso es de los avisos de daño), solo muestra dónde pega.
+			_aim_preview = Telegraph.smoke_ring(scene, spec[1], 1e6, tint)
+	_aim_to_view()
 
 
 func _end_aim() -> void:
 	_aim_skill = &""
+	_aim_key = KEY_NONE
 	if is_instance_valid(_aim_preview):
 		_aim_preview.queue_free()
 	_aim_preview = null
@@ -1344,11 +1350,30 @@ func _end_aim() -> void:
 func _update_aim() -> void:
 	if _aim_skill == &"" or not is_instance_valid(_aim_preview):
 		return
-	if dead:
-		_end_aim()
+	if dead or (_aim_key != KEY_NONE and not Input.is_physical_key_pressed(_aim_key)):
+		_end_aim()  # la soltaste fuera del juego: se cancela sin lanzar
 		return
-	if AIMED[_aim_skill][0] != "disc":
-		_aim_preview.retarget(global_position, _aim_flat())
+	_aim_to_view()
+
+
+## Pone el humo donde irá el poder. La lanza y la ráfaga van del pecho al punto bajo la mira (también arriba o abajo); la
+## embestida, por el piso hacia donde mira la cámara; el aro del martillazo, alrededor de los pies; las esferas, en el
+## mismo centro desde el que el poder mide la distancia (el campo desde el pecho, la atracción desde los pies).
+func _aim_to_view() -> void:
+	if _aim_skill == &"" or not is_instance_valid(_aim_preview):
+		return
+	var spec: Array = AIMED[_aim_skill]
+	var feet := global_position + Vector3.UP * AIM_GROUND_SMOKE
+	if _aim_skill in AIM_3D:
+		# El alcance se cuenta desde el pecho, no desde la cámara.
+		var boom := (chest_position() - camera.global_position).dot(aim_direction())
+		_aim_preview.aim_path(chest_position(), aim_point(spec[1] + maxf(boom, 0.0)))
+	elif spec[0] == "disc":
+		_aim_preview.global_position = feet
+	elif spec[0] == "sphere":
+		_aim_preview.global_position = chest_position() if _aim_skill == &"steel_magnetic_field" else global_position
+	else:
+		_aim_preview.aim_path(feet, feet + _aim_flat() * spec[1])
 
 
 func _aim_flat() -> Vector3:
@@ -1372,10 +1397,7 @@ func _grip_skill(g: SteelIron.Grip, metal: StringName, pressed: bool) -> void:
 func _tap_skill(metal: StringName, action: Callable, burn_ms: int) -> void:
 	_skill_burn_on(metal)
 	action.call()
-	_skill_off_ms[metal] = Time.get_ticks_msec() + burn_ms
-	get_tree().create_timer(burn_ms / 1000.0).timeout.connect(func() -> void:
-		if Time.get_ticks_msec() >= int(_skill_off_ms.get(metal, 0)):
-			_skill_burn_off(metal))
+	_skill_burn_off_in(metal, burn_ms)
 
 
 ## Habilidad con duración (Foco, Marca, Mente despejada, Sentidos extremos): enciende su metal al empezar y lo apaga cuando
@@ -1385,9 +1407,17 @@ func _timed_skill(metal: StringName, action: Callable, burn_ms: int) -> void:
 	if not action.call():
 		_skill_burn_off(metal)
 		return
-	_skill_off_ms[metal] = Time.get_ticks_msec() + burn_ms
+	_skill_burn_off_in(metal, burn_ms)
+
+
+## Apaga el metal dentro de `burn_ms`, salvo que mientras tanto otro poder lo haya vuelto a pedir. Antes se comparaba la
+## hora real con la del temporizador, que va con el tiempo del juego: si llegaba unos ms antes, el metal no se apagaba
+## nunca.
+func _skill_burn_off_in(metal: StringName, burn_ms: int) -> void:
+	var turn := int(_skill_off_turn.get(metal, 0)) + 1
+	_skill_off_turn[metal] = turn
 	get_tree().create_timer(burn_ms / 1000.0).timeout.connect(func() -> void:
-		if Time.get_ticks_msec() >= int(_skill_off_ms.get(metal, 0)):
+		if int(_skill_off_turn.get(metal, 0)) == turn:
 			_skill_burn_off(metal))
 
 
@@ -1401,9 +1431,14 @@ func _skill_burn_on(metal: StringName) -> void:
 
 ## Apaga el metal solo si lo encendió una habilidad (uno encendido por el jugador no se toca).
 func _skill_burn_off(metal: StringName) -> void:
-	if not _skill_started.has(metal) or (metal == &"steel" and steel_iron.auto_push != null):
+	if not _skill_started.has(metal):
 		return
 	_skill_started.erase(metal)
+	if metal == &"steel" and steel_iron.auto_push != null:
+		# Empujando una moneda: el acero sigue hasta que termine el empuje, y ahí se apaga (no vuelve a quemar como al
+		# empezar el empuje, que fue con el acero de este poder).
+		_coin_push_steel = Allomancy.State.OFF
+		return
 	allomancy.set_state(metal, Allomancy.State.OFF)
 
 
@@ -1418,6 +1453,29 @@ func _engage_coin_push(coin: RigidBody3D) -> void:
 	steel_iron.auto_push = coin
 
 
+## Salto de acero: deja caer una moneda detrás tuyo y te empujás de ella. Sale con la velocidad justa para un arco de
+## STEEL_LEAP_DIST de largo y STEEL_LEAP_HEIGHT de alto, y desde ahí solo actúa la gravedad: una parábola. Sin
+## dirección (doble Espacio), recto hacia arriba. En recarga, Espacio hace el salto común.
+func _steel_leap(move: Vector2) -> void:
+	var now := Time.get_ticks_msec()
+	_leap_ready_ms = now + int(STEEL_LEAP_COOLDOWN * 1000.0)
+	_net_coin_ready_ms = now + COIN_COOLDOWN_MS
+	var dir := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length() > 0.01 else Vector3.ZERO
+	var coin := drop_coin(-dir * STEEL_JUMP_BACK)
+	if coin != null:
+		AirFx.push(get_tree().current_scene, coin.global_position, (global_position - coin.global_position).normalized(), AirFx.STEEL, 1.0)
+	_cancel_action()
+	var height := STEEL_LEAP_HEIGHT if dir != Vector3.ZERO else STEEL_LEAP_UP_HEIGHT
+	var up := sqrt(2.0 * _gravity * height)
+	var ahead := STEEL_LEAP_DIST / (2.0 * up / _gravity)  # el avance repartido en el tiempo que dura el arco
+	velocity = dir * ahead + Vector3.UP * up
+	_jump_hcap = INF  # el control en el aire no frena el arco
+	_coin_flight = true
+	Sfx.play("jump", global_position)
+
+
 ## Salto de acero: con el acero encendido y monedas en el monedero.
 func _can_steel_jump() -> bool:
 	return not dead and coins_held > 0 and allomancy.strength(&"steel") > 0.0 \
@@ -1429,7 +1487,6 @@ func _end_coin_push() -> void:
 		_coin_tap_ms = Time.get_ticks_msec() - _coin_press_ms
 		return
 	var was_shot := _coin_shot
-	_jump_push = false
 	_coin_shot = false
 	if steel_iron.auto_push == null:
 		return
@@ -1603,8 +1660,6 @@ func _physics_process(delta: float) -> void:
 	elif not is_on_floor():
 		# Durante el dash planeas un poco (cae más despacio).
 		velocity.y -= _gravity * rd * (0.35 if _dash_time > 0.0 else 1.0)
-	if _jump_push and not _held(&"jump"):
-		_end_coin_push()
 	var jumped := false
 	if _just(&"jump") and not dead and not ui_open:
 		var now := Time.get_ticks_msec()
@@ -1612,14 +1667,8 @@ func _physics_process(delta: float) -> void:
 		_last_jump_ms = now
 		var move := _move_vector()
 		# Con WASD: salto de acero hacia esa dirección; con doble Espacio sin dirección: recto hacia arriba.
-		if _can_steel_jump() and (move != Vector2.ZERO or double_tap):
-			# Moneda detrás de ti según WASD: el empuje te manda hacia arriba y hacia esa dirección.
-			var back := -(yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y))
-			back.y = 0.0
-			_net_coin_ready_ms = now + COIN_COOLDOWN_MS
-			_start_coin_push(back.normalized() * STEEL_JUMP_BACK)
-			_jump_push = steel_iron.auto_push != null
-			_coin_flight = true
+		if _can_steel_jump() and now >= _leap_ready_ms and (move != Vector2.ZERO or double_tap):
+			_steel_leap(move)
 			_last_jump_ms = -DOUBLE_TAP_MS * 10
 		elif double_tap and not is_on_floor() and not _swimming and _air_action_free() and _spend_stamina(JUMP_COST):
 			# Doble Espacio en el aire sin acero: segundo salto.
@@ -2597,8 +2646,8 @@ func _start_dodge(side: float) -> void:
 
 ## Al arrancar camina WALK_START_TIME s y después pasa al trote; con peltre encendido arranca corriendo. Igual con todas las armas.
 const WALK_START_SPEED := 1.6
-const WALK_START_TIME := 3.0
-const TROT_RAMP_TIME := 0.8
+const WALK_START_TIME := 0.6  # antes 3 s: tardaba casi 4 s en correr y se hacía largo
+const TROT_RAMP_TIME := 0.5
 const WALK_RESET_TIME := 0.3  # frenar un instante no te hace empezar de nuevo
 var _walk_t := 0.0
 var _still_t := 0.0
@@ -2651,12 +2700,13 @@ func _ground_jump(move: Vector2, speed_mult: float, jump_mult: float) -> void:
 	var hs := lerpf(JUMP_DIST_STAND, JUMP_DIST_RUN, run) * _gravity / (2.0 * vy) * jump_mult
 	var dir := yaw_pivot.global_basis * Vector3(move.x, 0.0, move.y)
 	dir.y = 0.0
+	# Conserva la velocidad que traías (corriendo a 7,6 m/s el salto la bajaba a 2,7 y saltar te frenaba); `hs` es
+	# solo el mínimo, para que parado o caminando el salto igual avance. Con WASD, sale hacia esa dirección.
+	var speed := maxf(hs, flat.length())
 	if dir.length() > 0.1:
-		flat = dir.normalized() * hs
-	elif flat.length() > hs:
-		flat = flat.normalized() * hs
+		flat = dir.normalized() * speed
 	velocity = Vector3(flat.x, vy * jump_mult, flat.z)
-	_jump_hcap = hs
+	_jump_hcap = speed
 
 
 ## Segundo salto: sube AIR_JUMP_HEIGHT y conserva la velocidad horizontal, girada hacia donde pulsas.
@@ -2992,11 +3042,9 @@ func _start_protection() -> void:
 
 # ---------------------------------------------------------------- Monedero
 
-## Ráfaga de monedas: lanza nivel de acero + 1 monedas a ras del pecho en un abanico hacia donde mira el cuerpo.
-## El abanico se abre con cada nivel (ver SkillTree.fan_angle) y desde el 15 es un círculo completo, repartido a
-## partes iguales. Gastan una moneda cada una.
-## Ángulo (grados) entre la dirección apuntada y el anillo de monedas de la ráfaga radial.
-const RADIAL_BURST_TILT := 70.0
+## Ráfaga de monedas: lanza un abanico de monedas hacia donde apuntas que se abre con cada nivel hasta cerrar el
+## círculo en el 15; las que se suman después salen hacia arriba y hacia abajo (ver SkillTree.burst_dirs). Gastan una
+## moneda cada una.
 
 
 func fire_coin_burst(aim := Vector3.INF) -> void:
@@ -3015,9 +3063,9 @@ func fire_coin_burst(aim := Vector3.INF) -> void:
 func _release_burst(aim: Vector3) -> void:
 	if not _check_coins():
 		return
-	# Todo sale hacia donde apunta el ratón, también hacia arriba o abajo (no a la altura del cuerpo). El abanico se
-	# abre a izquierda y derecha de esa dirección, vista desde la cámara; el radial (nivel 15) es una moneda hacia
-	# donde apuntas y el resto en un anillo ancho alrededor de esa dirección.
+	# Todo sale hacia donde apunta el ratón, también hacia arriba o abajo (no a la altura del cuerpo). El abanico (y el
+	# círculo) se abre a izquierda y derecha de esa dirección, vista desde la cámara; las monedas de más van hacia el
+	# arriba y el abajo de esa vista. El humo del apuntado (_start_aim) usa las mismas direcciones.
 	var base := _burst_aim(aim)
 	var right := base.cross(Vector3.UP)
 	right = right.normalized() if right.length() > 0.05 else (camera.global_basis.x if camera != null else Vector3.RIGHT)
@@ -3028,17 +3076,9 @@ func _release_burst(aim: Vector3) -> void:
 	var count := mini(SkillTree.fan_count(level, SkillTree.BURST_MIN_LEVEL), coins_held)
 	if count % 2 == 0:
 		count -= 1  # con pocas monedas también sale una cantidad impar: siempre hay una al centro
-	var angle := SkillTree.fan_angle(level, SkillTree.BURST_MIN_LEVEL)
 	AirFx.push(get_tree().current_scene, start, base, AirFx.STEEL, 1.3)
-	for i in count:
-		var dir := base
-		if angle >= TAU:
-			if i > 0:
-				var around := TAU * (i - 1) / maxi(count - 1, 1)
-				var toward := right * cos(around) + view_up * sin(around)
-				dir = base.rotated(base.cross(toward).normalized(), deg_to_rad(RADIAL_BURST_TILT))
-		elif count > 1:
-			dir = base.rotated(view_up, -angle * 0.5 + angle * i / (count - 1))
+	for d in SkillTree.burst_dirs(level, count):
+		var dir := (base * cos(d.x) + right * sin(d.x)) * cos(d.y) + view_up * sin(d.y)
 		var coin := _spawn_coin(start + dir * 0.5)
 		coin.gravity_scale = 0.08  # casi recta: cae muy despacio, para que acierte donde apuntas
 		coin.linear_velocity = dir * speed
@@ -3403,6 +3443,7 @@ func _slam_hit() -> void:
 		return
 	var strength := (1.0 + 0.75 * allomancy.strength(&"pewter")) * _fury_mult()
 	var scene := get_tree().current_scene
+	var hit := false
 	for n in get_tree().get_nodes_in_group(&"npc"):
 		var npc := n as Npc
 		if npc == null or npc.down:
@@ -3413,6 +3454,7 @@ func _slam_hit() -> void:
 		to.y = 0.0
 		if to.length() > SkillTree.SLAM_RADIUS:
 			continue
+		hit = true
 		var away := to.normalized() if to.length() > 0.1 else -visual.global_basis.z
 		npc.take_hit(away * 16.0, SLAM_DAMAGE * strength, self)
 		npc.stun(1.2, global_position)
@@ -3425,7 +3467,10 @@ func _slam_hit() -> void:
 	AirFx.ground(scene, global_position, SkillTree.SLAM_RADIUS * 1.3, AirFx.ASH, 0.8)
 	AirFx.ground(scene, global_position, SkillTree.SLAM_RADIUS, AirFx.PEWTER, 0.5)
 	add_trauma(0.8)
-	mark_combat()
+	# Solo si le pegó a alguien: si no, quedaba 6 s en guardia de puños (COMBAT_TIMEOUT) tras golpear el piso solo,
+	# como la Embestida, que también marca el combate solo al pegar.
+	if hit:
+		mark_combat()
 
 
 ## Furia: durante SkillTree.FURY_TIME el peltre arde avivado sin gastar metal y pegas más fuerte; al terminar quedas sin aliento.

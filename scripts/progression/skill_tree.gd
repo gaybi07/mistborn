@@ -63,6 +63,31 @@ const FAN_MIN_ANGLE := 0.5236  # 30°
 const FAN_MAX_ANGLE := 5.7596  # 330°
 
 
+## Ráfaga de monedas: con cuántas se cierra el círculo (las que tiene en el nivel FAN_RADIAL_LEVEL; una cada 24°).
+const BURST_CIRCLE := 15
+
+
+## Hacia dónde sale cada moneda de la Ráfaga: (giro a la derecha, elevación) en radianes, respecto a la mira. Las
+## primeras BURST_CIRCLE van en el plano de la mira, en un abanico que se abre con el nivel hasta cerrar el círculo
+## (también hacia atrás); las que sobran salen de a pares hacia arriba y hacia abajo: con un par, recto arriba y abajo;
+## con dos, además a 45°.
+static func burst_dirs(metal_level: int, count: int) -> Array[Vector2]:
+	var flat := mini(count, BURST_CIRCLE)
+	var angle := fan_angle(metal_level, BURST_MIN_LEVEL)
+	var out: Array[Vector2] = []
+	for i in flat:
+		if angle >= TAU:
+			out.append(Vector2(wrapf(TAU * float(i) / float(flat), -PI, PI), 0.0))
+		else:
+			out.append(Vector2(0.0 if flat == 1 else -angle * 0.5 + angle * float(i) / float(flat - 1), 0.0))
+	var pairs := (count - flat) / 2
+	for k in pairs:
+		var up := PI * 0.5 * float(k + 1) / float(pairs)
+		out.append(Vector2(0.0, up))
+		out.append(Vector2(0.0, -up))
+	return out
+
+
 ## Siempre impar, para que haya una moneda justo en el centro (donde apunta el ratón): 3 en el nivel 2 y dos más (una a
 ## cada lado) cada 2 niveles; 21 en el 20.
 static func fan_count(metal_level: int, min_level := FAN_MIN_LEVEL) -> int:
@@ -194,8 +219,11 @@ static func tooltip_parts(id: StringName, metal_level: int) -> Dictionary:
 	var now := ""
 	match id:
 		&"steel_coin_burst":
-			body = "Lanza monedas en abanico hacia donde apunta el ratón. Gasta una moneda del monedero por cada una.\nSiempre sale una cantidad impar, con una moneda justo en el centro, donde apuntas.\nNivel 3: 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas (una a cada lado) y el cono se abre; desde el nivel 15 es una ráfaga ancha alrededor de donde apuntas."
+			body = "Lanza monedas en abanico hacia donde apunta el ratón. Gasta una moneda del monedero por cada una.\nSiempre sale una cantidad impar, con una moneda justo en el centro, donde apuntas.\nNivel 3: 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas (una a cada lado) y el cono se abre; en el nivel 15 es un círculo completo de 15 monedas a tu alrededor, y desde ahí las nuevas salen hacia arriba y hacia abajo."
 			now = _fan_now("monedas", metal_level, BURST_MIN_LEVEL)
+			var up := fan_count(metal_level, BURST_MIN_LEVEL) - BURST_CIRCLE
+			if up > 0:
+				now = "Ahora (nivel %d): %d monedas en círculo y %d hacia arriba y abajo." % [metal_level, BURST_CIRCLE, up]
 		&"iron_coin_magnet":
 			body = "Atrae las monedas sueltas cercanas hacia donde apunta el ratón; vuelan hacia ti y se guardan al tocarte, sin hacerte daño.\nNivel 2: hasta 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas y el cono se abre; en el nivel 15 atrae todas las de alrededor."
 			now = _fan_now("monedas atraídas", metal_level, FAN_MIN_LEVEL)
