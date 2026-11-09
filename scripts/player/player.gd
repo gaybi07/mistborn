@@ -3383,9 +3383,6 @@ func start_charge() -> void:
 
 
 ## Martillazo: una onda de choque en el suelo que daña, empuja y aturde a todos los que te rodean.
-const SLAM_CAST_TIME := 1.3
-
-
 func start_slam() -> void:
 	if dead or not _iron_ready(_slam_ready_ms, "Martillazo"):
 		return
@@ -3393,9 +3390,8 @@ func start_slam() -> void:
 		notice.emit("El Martillazo se hace en el suelo")
 		return
 	_slam_ready_ms = Time.get_ticks_msec() + int(SkillTree.SLAM_COOLDOWN * 1000.0)
-	# Golpe al piso con el puño: la onda sale cuando la mano llega al suelo.
-	rig.play_spell("slam", SLAM_CAST_TIME)
-	get_tree().create_timer(rig.impact_delay(), true, false, true).timeout.connect(_slam_hit)
+	rig.play_land(1.0)
+	get_tree().create_timer(0.3, true, false, true).timeout.connect(_slam_hit)
 
 
 func _slam_hit() -> void:
