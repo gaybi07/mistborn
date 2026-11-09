@@ -5,7 +5,7 @@ extends Control
 
 signal dragged(delta_x: float)
 
-const GOLD := Color(0.95, 0.8, 0.35)
+const GOLD := Color(0.78, 0.66, 1.0)  # elegido, teclas y realces: el violeta de los menús (HudKit.PICK, más claro)
 
 var _dragging := false
 var _hover := false

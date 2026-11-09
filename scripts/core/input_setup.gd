@@ -18,6 +18,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		scene = "res://scenes/combat_room.tscn"
 	elif event.keycode == KEY_F7:
 		scene = "res://scenes/nav_course.tscn"
+	elif event.keycode == KEY_F8:
+		scene = "res://scenes/skill_room.tscn"
 	if scene != "" and get_tree().current_scene.scene_file_path != scene:
 		Engine.time_scale = 1.0
 		get_tree().change_scene_to_file(scene)

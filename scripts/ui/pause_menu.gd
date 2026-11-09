@@ -4,11 +4,12 @@ extends CanvasLayer
 ## (pestañas Controles, Metales y Combate), más Reanudar y Reaparecer.
 
 ## Tamaño del panel (px, antes de escalar): ancho para la tabla de controles y alto para las pestañas.
-const PANEL_SIZE := Vector2(980, 640)
+const PANEL_SIZE := Vector2(1060, 700)
 
 var player: Player
 
 var _root: Control
+var _panel: PanelContainer
 var _restart_button: Button
 var _reset_button: Button
 var _tabs: TabContainer
@@ -29,47 +30,71 @@ func _ready() -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(shade)
 
+	# Panel con el aspecto del árbol de habilidades (K): fondo de constelaciones, título dorado, separadores y páginas
+	# con borde gris. El borde dorado es el del tema de los menús.
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	panel.custom_minimum_size = PANEL_SIZE
+	_panel = panel
+	var frame := (HudKit.menu_theme().get_stylebox("panel", "PanelContainer") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	frame.set_content_margin_all(2)  # las constelaciones llegan hasta el borde; el margen del contenido va adentro
+	panel.add_theme_stylebox_override("panel", frame)
 	_root.add_child(panel)
-
+	panel.add_child(ConstellationBg.new())
+	var margin := MarginContainer.new()
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 20)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
-	panel.add_child(box)
+	margin.add_child(box)
 	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 22)
 	box.add_child(head)
 	var title := Label.new()
 	title.text = "Pausa"
 	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", HudKit.GOLD_LIGHT)
+	title.add_theme_color_override("font_color", SkillTreeWindow.GOLD_SOFT)
 	head.add_child(title)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
 	var hint := Label.new()
 	hint.text = "Esc: volver al juego"
-	hint.modulate.a = 0.6
+	hint.modulate = SkillTreeWindow.DIM
+	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(hint)
+	box.add_child(HSeparator.new())
 
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# El contenido de cada pestaña en un panel como los del árbol (borde gris), algo transparente: se ven las estrellas.
+	var page_box := StyleBoxFlat.new()
+	page_box.bg_color = Color(0.06, 0.07, 0.09, 0.15)
+	page_box.border_color = Color(0.3, 0.3, 0.34)
+	page_box.set_border_width_all(1)
+	page_box.set_corner_radius_all(8)
+	page_box.set_content_margin_all(16)
+	tabs.add_theme_stylebox_override("panel", page_box)
 	box.add_child(tabs)
 	tabs.add_child(_page("Guía", GUIDE))
 	tabs.add_child(_page("Controles", CONTROLS))
 	tabs.add_child(_metals_page())
 	tabs.add_child(_page("Combate", COMBAT))
 	_tabs = tabs
-	tabs.add_child(_world_page())
+	tabs.add_child(_scrolled(_world_page()))
 	var chooser := HeroChooser.new()
 	chooser.name = "Elegir personaje"
 	chooser.player = player
-	tabs.add_child(chooser)
-	tabs.add_child(_character_page())
-	tabs.add_child(_options_page())
+	tabs.add_child(_scrolled(chooser))
+	tabs.add_child(_scrolled(_character_page()))
+	tabs.add_child(_scrolled(_options_page()))
 
+	box.add_child(HSeparator.new())
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	box.add_child(buttons)
@@ -87,6 +112,17 @@ func _ready() -> void:
 	_reset_button.tooltip_text = "Reinicia el escenario y además vacía tu inventario y equipo."
 	buttons.add_child(_reset_button)
 	buttons.add_child(_confirm_button("Salir del juego", "¿Seguro? Pulsá de nuevo", func() -> void: get_tree().quit()))
+
+
+## Pestaña dentro de un scroll: no agranda el panel (así mide siempre PANEL_SIZE, sin saltos al cambiar de pestaña).
+## Las de texto (RichTextLabel) ya tienen su propio scroll.
+func _scrolled(page: Control) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = page.name
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(page)
+	return scroll
 
 
 ## Botón de un solo paso.
@@ -222,7 +258,7 @@ func _character_page() -> Control:
 	page.name = "Personaje"
 	page.add_theme_constant_override("separation", 10)
 	_char_status = Label.new()
-	_char_status.add_theme_color_override("font_color", HudKit.GOLD_LIGHT)
+	_char_status.add_theme_color_override("font_color", HudKit.ACCENT_LIGHT)
 	page.add_child(_char_status)
 
 	page.add_child(HudKit.section_label("Nivel del personaje"))
@@ -420,7 +456,9 @@ func _process(_delta: float) -> void:
 ## la capa se escala y la raíz ocupa toda la ventana en esas unidades.
 func _fit_to_window() -> void:
 	var vp := _root.get_viewport_rect().size
-	var s := minf(HudKit.ui_scale(_root), minf(vp.x / (PANEL_SIZE.x + 20.0), vp.y / (PANEL_SIZE.y + 20.0)))
+	# Si alguna pestaña pide más que PANEL_SIZE, el panel mide eso: que igual entre en la ventana.
+	var need := PANEL_SIZE.max(_panel.get_combined_minimum_size())
+	var s := minf(HudKit.ui_scale(_root), minf(vp.x / (need.x + 20.0), vp.y / (need.y + 20.0)))
 	scale = Vector2(s, s)
 	_root.position = Vector2.ZERO
 	_root.size = vp / s
@@ -475,20 +513,20 @@ func _metals_page() -> Control:
 
 ## Guía rápida: qué hace cada control según el metal que estés quemando. Sin metales ni monedas
 ## solo valen los movimientos básicos; el resto se desbloquea al encender el metal.
-const GUIDE := """[color=#f2dca8][b]EMPEZAR EN 4 PASOS[/b][/color]
+const GUIDE := """[color=#c7edff][b]EMPEZAR EN 4 PASOS[/b][/color]
 [b]1.[/b] Encendé un metal con su tecla (F1 acero, F2 hierro, F3 peltre...), o clic en su icono con Tab sostenido. Tocar: encender o apagar. Doble toque y mantener: avivar.
 [b]2.[/b] Mirá la mira: los puntos azules son metales que podés usar. Acero (F1) los empuja, hierro (F2) tira de ellos.
 [b]3.[/b] Aprendé habilidades en el árbol ([b]K[/b]) y ponelas en una ranura (teclas 1 2 3 4 5 Q E F Z X C V, que podés cambiar). Mantené la tecla de «Tirón básico» o «Empuje básico» mirando un metal. El clic derecho tira una moneda; anclá con [b]Y[/b].
 [b]4.[/b] Combiná: con acero y monedas, [b]Espacio + WASD[/b] te lanza por el aire.
 
-[color=#f2dca8][b]SIN METALES[/b][/color]
+[color=#c7edff][b]SIN METALES[/b][/color]
 [b]Espacio, Espacio[/b] (en el aire): segundo salto, más alto y con empuje hacia donde pulsás. Uno por salto.
 [b]Shift[/b]: rodar · en el aire: dash. [b]Clic izquierdo[/b]: atacar. [b]Rueda[/b]: cambiar de arma.
 
 [color=#6b9bff][b]ACERO (F1)[/b][/color]  empuja metales
 [b]Clic derecho[/b]: moneda fuerte hacia la mira (mantené para seguir empujándola). Apuntá abajo para frenar una caída.
 Ranura «Empuje básico» (acero 1, viene puesto en la tecla Q): empujar el metal que mirás (hasta 1 kg, más con el nivel). [b]Y[/b]: anclar el agarre. «Ráfaga de monedas» (acero 3): lanza nivel + 1 monedas en un abanico hacia adelante que se abre con cada nivel; en el nivel 15 sale en círculo.
-[b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (mantené Espacio para seguir empujando).
+[b]Espacio + WASD[/b]: salto de acero en arco hacia esa dirección (recarga 4 s; mientras tanto, salto común).
 [b]Espacio, Espacio[/b]: salto de acero recto hacia arriba.
 
 [color=#a0a8c0][b]HIERRO (F2)[/b][/color]  tira de metales
@@ -505,21 +543,21 @@ Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
 [color=#c77a4d][b]COBRE (X)[/b][/color]  te vuelve invisible al bronce e inmune a cinc y latón.
 [color=#d9a65a][b]BRONCE (C)[/b][/color]  sentís a los alománticos que queman metales. [color=#d1dbb3][b]ESTAÑO (V)[/b][/color]  ves más lejos en la bruma y te recuperás antes de los golpes.
 
-[color=#f2dca8][b]TRUCOS[/b][/color]
+[color=#c7edff][b]TRUCOS[/b][/color]
 [b]Tab[/b] (mantener) libera el ratón para clicar los iconos de los metales. [b]K[/b] árbol de habilidades. [b]N[/b] apaga todo. [b]T[/b] bebe un frasco. [b]I[/b] inventario."""
 
 const CONTROLS := """[table=2]
-[cell][color=#f2dca8][b]MOVIMIENTO[/b][/color][/cell][cell][/cell]
+[cell][color=#c7edff][b]MOVIMIENTO[/b][/color][/cell][cell][/cell]
 [cell][b]W A S D[/b][/cell][cell]Moverse[/cell]
 [cell][b]Espacio[/b][/cell][cell]Saltar[/cell]
-[cell][b]Espacio + WASD[/b][/cell][cell]Con el acero encendido y monedas: salto de acero en esa dirección, en arco hacia arriba. Mantené Espacio para seguir empujando[/cell]
+[cell][b]Espacio + WASD[/b][/cell][cell]Con el acero encendido y monedas: salto de acero en esa dirección, en arco (unos 9 m). Recarga 4 s; mientras tanto, salto común[/cell]
 [cell][b]Espacio, Espacio[/b][/cell][cell]Sin metales: segundo salto en el aire. Con acero y monedas: salto de acero recto hacia arriba[/cell]
 [cell][b]Shift[/b][/cell][cell]Rodar · en el aire: dash · justo antes de aterrizar: amortigua la caída[/cell]
 [cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño. W o Espacio: subir · S o Shift: soltarte[/cell]
-[cell][color=#f2dca8][b]COMBATE[/b][/color][/cell][cell][/cell]
+[cell][color=#c7edff][b]COMBATE[/b][/color][/cell][cell][/cell]
 [cell][b]Clic izquierdo[/b][/cell][cell]Atacar con el arma elegida (con puños, desenvaina las dagas sola si las tenés) · seguido: combo · en el aire: golpe giratorio con salto extra[/cell]
 [cell][b]Rueda del ratón[/b][/cell][cell]Cambiar de arma (puños, dagas, espada). Con acero o hierro encendidos y varios metales junto a la mira: elige a cuál agarrar[/cell]
-[cell][color=#f2dca8][b]METALES[/b][/color][/cell][cell][/cell]
+[cell][color=#c7edff][b]METALES[/b][/color][/cell][cell][/cell]
 [cell][b]F1 F2 F3 F4[/b][/cell][cell]Acero, hierro, peltre, atium (tocar: encender o apagar · doble toque y mantener: avivar)[/cell]
 [cell][b]F5 F6 F7 F8 F9[/b][/cell][cell]Cinc, cobre, bronce, estaño, latón (igual que los anteriores)[/cell]
 [cell][b]N[/b][/cell][cell]Apagar todos los metales[/cell]
@@ -528,13 +566,13 @@ const CONTROLS := """[table=2]
 [cell][b]1 2 3 4 5 Q E F Z X C V[/b][/cell][cell]Ranuras de habilidades (teclas reasignables en el árbol, K). Mantené la de un tirón o empuje; tocá la de una ráfaga o un imán. Donde hay algo que usar (puerta, armario), E abre en vez de activar la ranura[/cell]
 [cell][b]K[/b][/cell][cell]Árbol de habilidades: subí metales, poné habilidades en las ranuras y cambiá sus teclas[/cell]
 [cell][b]Y[/b][/cell][cell]Anclar los agarres activos (siguen sin mantener la tecla; volver a tirar o empujar los suelta). En el aire, WASD dirige mucho más mientras tenés un agarre[/cell]
-[cell][color=#f2dca8][b]OBJETOS[/b][/color][/cell][cell][/cell]
+[cell][color=#c7edff][b]OBJETOS[/b][/color][/cell][cell][/cell]
 [cell][b]M[/b][/cell][cell]Mapa de Luthadel con dónde estás (arriba a la derecha está siempre el minimapa)[/cell]
 [cell][b]T[/b][/cell][cell]Beber un frasco[/cell]
 [cell][b]Alt[/b][/cell][cell]Agacharse o pararse[/cell]
 [cell][b]H[/b][/cell][cell]Capucha[/cell]
 [cell][b]I[/b][/cell][cell]Inventario: capa, ropa, botas, dagas, espada y frascos. Doble clic para equipar o quitar[/cell]
-[cell][color=#f2dca8][b]JUEGO[/b][/color][/cell][cell][/cell]
+[cell][color=#c7edff][b]JUEGO[/b][/color][/cell][cell][/cell]
 [cell][b]Esc[/b][/cell][cell]Este menú[/cell]
 [cell][b]P[/b][/cell][cell]Elegir personaje: color del traje y la capucha (negro, blanco, rojo o azul)[/cell]
 [cell][b]Contra un borde[/b][/cell][cell]Volando o cayendo contra un edificio te agarrás al borde si el choque no te haría más de 10 de daño. W o Espacio: subir · S o Shift: soltarte[/cell]

@@ -10,12 +10,14 @@ signal skill_clicked(id: StringName)
 signal metal_clicked(metal: StringName)
 
 const BG := Color(0.035, 0.04, 0.055)
-const GOLD := Color(0.95, 0.8, 0.35)
-const GOLD_SOFT := Color(0.95, 0.86, 0.66)
+const GOLD := Color(0.78, 0.66, 1.0)  # elegido, teclas y realces: el violeta de los menús (HudKit.PICK, más claro)
+const GOLD_SOFT := Color(0.78, 0.93, 1.0)  # títulos: acero claro (HudKit.ACCENT_LIGHT)
 const GRAY := Color(0.36, 0.38, 0.43)
 const GOOD := Color(0.5, 0.9, 0.55)
 const LOCKED := Color(1.0, 0.65, 0.35)
 const DIM := Color(0.6, 0.62, 0.68)
+## Con Ctrl apretado (asignar a una ranura): borde de las que se pueden poner; el resto se apaga.
+const ASSIGN := Color(0.55, 0.85, 1.0)
 ## Tamaño (px, sin zoom) del lienzo donde se reparten los metales.
 const MIN_DESIGN := Vector2(1900.0, 900.0)
 const ROOT_Y := 330.0
@@ -82,6 +84,8 @@ var _dragging := false
 var _press_pos := Vector2.ZERO
 var _press_hit := {}
 var _hover := {}
+## Ctrl apretado: resalta las habilidades que se pueden asignar a una ranura (lo pone SkillTreeWindow).
+var assign_mode := false
 
 
 func _ready() -> void:
@@ -313,8 +317,12 @@ func _draw() -> void:
 		_draw_root(font, r)
 	for n in _nodes:
 		_draw_skill(font, n)
-	draw_string(font, Vector2(14.0, size.y - 12.0), "Arrastrar: mover el árbol  ·  Rueda: zoom  ·  Pasa el ratón por una habilidad para ver sus detalles  ·  Ctrl + tecla de una ranura: ponerla ahí",
-			HORIZONTAL_ALIGNMENT_LEFT, size.x - 28.0, 13, Color(0.6, 0.62, 0.68, 0.8))
+	if assign_mode:
+		draw_string(font, Vector2(14.0, size.y - 12.0), "Ctrl: las resaltadas se pueden poner en una ranura (las pasivas no)  ·  ratón sobre una + tecla de la ranura",
+				HORIZONTAL_ALIGNMENT_LEFT, size.x - 28.0, 13, ASSIGN)
+	else:
+		draw_string(font, Vector2(14.0, size.y - 12.0), "Arrastrar: mover el árbol  ·  Rueda: zoom  ·  Pasa el ratón por una habilidad para ver sus detalles  ·  Ctrl + tecla de una ranura: ponerla ahí",
+				HORIZONTAL_ALIGNMENT_LEFT, size.x - 28.0, 13, Color(0.6, 0.62, 0.68, 0.8))
 
 
 func _unlocked(n: Dictionary) -> bool:
@@ -397,6 +405,9 @@ func _draw_skill(font: Font, n: Dictionary) -> void:
 	var rad := SKILL_RADIUS * _zoom
 	var c := _to_screen(n["pos"])
 	var hovered: bool = _hover.get("kind") == "skill" and _hover.get("id") == id
+	var assignable := unlocked and SkillTree.is_assignable(id)
+	if assign_mode and assignable:
+		_draw_hex(c, rad * 1.3, Color(ASSIGN, 0.07), Color(ASSIGN, 0.35), 1.0 * _zoom)  # sutil: halo apenas marcado
 	if hovered:
 		_draw_hex(c, rad * 1.3, Color(tint, 0.1), Color(GOLD, 0.35), 1.5)
 	_draw_hex(c, rad, Color(0.07, 0.085, 0.11).lerp(tint, 0.12), GOLD if hovered else tint, (3.0 if hovered else 2.0) * _zoom)
@@ -410,8 +421,15 @@ func _draw_skill(font: Font, n: Dictionary) -> void:
 	else:
 		draw_colored_polygon(_hex_points(c, rad), Color(0.03, 0.035, 0.05, 0.6))
 		_padlock(c + Vector2(rad * 0.7, rad * 0.7), 0.7 * _zoom)
+	var dimmed := assign_mode and not assignable
+	if dimmed:
+		draw_colored_polygon(_hex_points(c, rad * 1.05), Color(BG, 0.72))  # pasiva o bloqueada: no va en una ranura
 	var size_px := clampi(roundi(15.0 * _zoom), 11, 26)
 	var text_color := Color(0.88, 0.9, 0.95) if unlocked else Color(0.5, 0.52, 0.58)
+	if dimmed:
+		text_color = Color(text_color, 0.3)
+	elif assign_mode:
+		text_color = ASSIGN.lightened(0.4)
 	font.draw_multiline_string(get_canvas_item(), c + Vector2(rad + 12.0 * _zoom, -2.0 * _zoom), String(s["name"]), HORIZONTAL_ALIGNMENT_LEFT,
 			125.0 * _zoom, size_px, 2, text_color)
 	var slot := Progression.slot_of(id)

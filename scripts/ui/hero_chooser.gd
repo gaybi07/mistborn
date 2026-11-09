@@ -21,6 +21,7 @@ func _ready() -> void:
 		k += 1
 		var b := Button.new()
 		b.toggle_mode = true
+		b.theme_type_variation = &"CardButton"  # recta: la foto tiene fondo
 		b.custom_minimum_size = Vector2(210, 260)
 		b.text = _label(k, Art.HEROES[who]["name"])
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
@@ -40,6 +41,7 @@ func _ready() -> void:
 	for s: String in Art.SUITS:
 		k += 1
 		var b := Button.new()
+		b.theme_type_variation = &"CardButton"
 		b.custom_minimum_size = Vector2(120, 110)
 		b.text = _label(k, NAMES[s])
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP

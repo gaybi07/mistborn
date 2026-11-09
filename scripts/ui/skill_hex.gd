@@ -3,7 +3,7 @@ extends Control
 ## Hexágono de una habilidad (o de un metal, si no tiene `skill`) del árbol de habilidades: borde y símbolo con el color de
 ## su metal, apagado y con candado si todavía está bloqueado, y un tramo de línea arriba y abajo para unirlo con los vecinos.
 
-const GOLD := Color(0.95, 0.8, 0.35)
+const GOLD := Color(0.78, 0.66, 1.0)  # elegida: el violeta de los menús (HudKit.PICK, más claro)
 
 var metal: StringName = &""
 var skill: StringName = &""
