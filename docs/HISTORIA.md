@@ -61,6 +61,14 @@ Hay mapa de ciudad y mapa de región. Marcas: principal, secundaria, rumor, maes
 
 Las conversaciones son una caja de texto básica con opciones.
 
+**Hecho en G1** (con una misión de prueba, `prueba_plaza`: Dockson te manda a leer un cartel en la plaza):
+
+- Conversaciones: `scripts/story/dialogues.gd` (texto, opciones y lo que hace cada una) y `scripts/ui/dialogue_box.gd`. Los NPC con conversación muestran "[E] Hablar con …" (`QuestTracker`).
+- Estado de la historia: `scripts/story/quest_log.gd` (misiones en curso con su paso, hechas, lo que sabés, lo que pasó). Los pasos de una misión van en `"steps"`: llegar a un lugar o hablar con alguien.
+- Cuaderno (J): `scripts/ui/journal_window.gd`. Brújula arriba: `scripts/ui/compass_bar.gd`. Marcas en el mapa y el minimapa, con flechas al borde para lo que queda afuera y casillas para ocultar cada tipo: `scripts/ui/city_map.gd`.
+- Tres partidas: `scripts/story/save_slots.gd` y la pantalla de inicio `scripts/ui/start_screen.gd` (también en Esc → Partidas). Se guarda al terminar cada misión y al salir.
+- Prueba: `tools/story/quest_check.gd`. Falta: rumores ("?" en el mapa), mapa de región y red.
+
 ## Decisiones y consecuencias
 
 - Las decisiones pueden cerrar misiones y cambiar aliados y el final, pero siempre se puede terminar.

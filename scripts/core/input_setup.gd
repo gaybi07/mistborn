@@ -45,6 +45,7 @@ func _enter_tree() -> void:
 	_key(&"drink", KEY_T)
 	_key(&"metal_wheel", KEY_TAB)
 	_key(&"map", KEY_M)
+	_key(&"journal", KEY_J)  # cuaderno de misiones (JournalWindow)
 	_key(&"interact", KEY_E)  # puertas y armarios; donde hay algo que usar, la ranura en E no se activa
 	Progression.load_progress()
 	Progression.apply_coin_binding()

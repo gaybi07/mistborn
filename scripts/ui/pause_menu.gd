@@ -111,7 +111,14 @@ func _ready() -> void:
 	_reset_button = _confirm_button("Empezar de cero", "¿Seguro? Pulsá de nuevo", _restart_all)
 	_reset_button.tooltip_text = "Reinicia el escenario y además vacía tu inventario y equipo."
 	buttons.add_child(_reset_button)
-	buttons.add_child(_confirm_button("Salir del juego", "¿Seguro? Pulsá de nuevo", func() -> void: get_tree().quit()))
+	buttons.add_child(_button("Partidas", func() -> void:
+		close()
+		var start := get_tree().get_first_node_in_group(&"start_screen") as StartScreen
+		if start:
+			start.open()))
+	buttons.add_child(_confirm_button("Salir del juego", "¿Seguro? Pulsá de nuevo", func() -> void:
+		SaveSlots.save()
+		get_tree().quit()))
 
 
 ## Pestaña dentro de un scroll: no agranda el panel (así mide siempre PANEL_SIZE, sin saltos al cambiar de pestaña).

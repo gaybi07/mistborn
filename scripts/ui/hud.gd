@@ -60,8 +60,18 @@ func _ready() -> void:
 	var picker := SuitPicker.new()
 	picker.player = player
 	add_child(picker)
-	if not Art.suit_chosen:
+	if not Art.suit_chosen and SaveSlots.current != 0:  # sin partida elegida, primero la pantalla de inicio
 		picker.open.call_deferred(true)
+	for ui: Control in [CompassBar.new(), JournalWindow.new(), DialogueBox.new()]:
+		ui.set(&"player", player)
+		add_child(ui)
+	var top := CanvasLayer.new()
+	top.layer = 40  # sobre el mapa grande
+	add_child(top)
+	var start := StartScreen.new()
+	start.player = player
+	start.add_to_group(&"start_screen")
+	top.add_child(start)
 	_status_label = _label("")
 	_status_label.add_theme_font_size_override("font_size", 20)
 	_status_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
