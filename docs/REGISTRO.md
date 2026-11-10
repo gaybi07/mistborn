@@ -2,6 +2,21 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G5 · Primer tramo jugable · Gabi
+- **Rama:** `gabi/g5-primer-tramo` (borrada) · **Merge:** `35d8ae7` · **Estado:** 🧪 falta revisar (ronda 1)
+- **Qué se hizo:** lo jugable de adentro de las misiones (`Mission`, `scripts/story/missions/`). Tejados: ruta de techo
+  en techo (sale de los techos reales) con tres de la patrulla detrás. Foso: despertás en el fondo y subís hasta la
+  entrada; el preso herido te sigue si lo ayudás (salvar o dejar). Taller: Clubs explica y se gasta el primer punto
+  con la progresión de hoy. Las tres secundarias: corrales (pagar, pelear con el capataz y cuatro guardias, o no
+  meterse), contrabando (tres cajas sin que te vean) y mensajero (seis espectros). Caer reinicia la misión. Pegarle
+  a un guardia ya no pone en guerra a todos los de la ciudad: solo a los de 60 m.
+- **Archivos:** `scripts/story/mission.gd` y `scripts/story/missions/` (nuevos), `quest_log.gd`, `dialogues.gd`,
+  `quest_tracker.gd`, `scripts/ui/dialogue_box.gd`, `scripts/npc/champion.gd` (cambio puntual).
+- **Cómo se probó:** `tools/story/tramo_check.gd` recorre el tramo y pasa; las pruebas ya no tocan la progresión
+  guardada (antes, matar enemigos en una prueba sumaba experiencia de verdad). Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** ronda de revisión 1. El primer punto del taller cambia cuando Lucho termine L1-L6.
+
 ### 2026-11-10 · G4 · Misiones con los NPC del mapa · Gabi
 - **Rama:** `gabi/g4-npc-misiones` (borrada) · **Merge:** `0496a62` · **Estado:** 🧪 falta revisar (ronda 1)
 - **Qué se hizo:** las misiones del Acto 1 salen de la historia (`Story.QUESTS`) con sus pasos: ir al lugar y volver

@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G5. Primer tramo jugable | `gabi/g5-primer-tramo` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -98,8 +98,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *en develop 2026-11-10, rama `gabi/g3-espectro-bruma` (borrada), merge `50d9b37`; falta revisar (ronda 1)*
 - [x] 🧪 **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
   — *en develop 2026-11-10, rama `gabi/g4-npc-misiones` (borrada), merge `0496a62`; falta revisar (ronda 1)*
-- [ ] 🔄 **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
-  — *en curso: Gabi, rama `gabi/g5-primer-tramo`, desde 2026-11-10*
+- [x] 🧪 **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
+  — *en develop 2026-11-10, rama `gabi/g5-primer-tramo` (borrada), merge `35d8ae7`; falta revisar (ronda 1)*
 
 ### 2. Escenarios
 
@@ -153,6 +153,17 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] bajar a la sala de combate y a la pista desde Esc → Ir a cumple el paso de Ham y de Clubs;
   - [ ] el cuaderno (J), la brújula y el mapa muestran bien lo que está en curso y quién ofrece qué;
   - [ ] cargar una partida vieja (la 1) no rompe nada.
+- [ ] **G5. Primer tramo jugable** (partida nueva; las tres secundarias se ofrecen después del taller):
+  - [ ] tejados: la ruta de columnas de luz va de techo en techo y se puede seguir saltando; la patrulla corre detrás;
+  - [ ] foso: despertás en el fondo; el herido te sigue si le hablás; la patrulla de las terrazas te ve de cerca;
+    subir con él o sin él da la narración que corresponde;
+  - [ ] caer en una misión la reinicia (volvés a llegar al lugar y arranca de nuevo);
+  - [ ] taller: Clubs explica, K abre el árbol y gastar un punto la termina (con la progresión de hoy);
+  - [ ] corrales: el capataz con sus cuatro guardias; pagar 50, pelear hasta tumbarlos o no meterse, y Tesa reacciona
+    a lo que pasó de verdad;
+  - [ ] contrabando: tres cajas en la Dársena, en tierra; si un soldado te ve de cerca te ataca;
+  - [ ] mensajero: seis espectros alrededor; recién sin espectros se puede hablar con él;
+  - [ ] que la dificultad se sienta bien (vida de la patrulla, cuántos te atacan juntos).
 - [ ] **Misiones en general (G1/G2):** el cartel de la plaza con E, el objetivo bajo la brújula y el marcador en pantalla.
 
 ## Pedidos de animación
