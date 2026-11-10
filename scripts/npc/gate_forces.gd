@@ -9,7 +9,9 @@ const FREE_RADIUS := 170.0
 const GATE_POST := 35.0  # m afuera: lejos de los guardias de adentro
 const SPACING := 4.0
 const SPAWN_EVERY := 0.1  # de a uno, para que aparecer no trabe el juego
-const FOES := {"Puerta Este": 7, "Puerta Oeste": 1, "Puerta Sur": 3, HAZEKILLERS: 4}
+## La Puerta Oeste ya no tiene a nadie: el Lord Legislador esperaba ahí para probar la pelea, y ahora aparece en la
+## historia (G8). Su caso queda en _foes_of para que la puerta no caiga en el de "persona N".
+const FOES := {"Puerta Este": 7, "Puerta Sur": 3, HAZEKILLERS: 4}
 const HAZEKILLERS := "Bosque Muerto"
 const HAZEKILLER_POST := Vector2(-620, 620)
 ## [modelo, XZ, radio por el que pasea]. Los lugares salen de Story.PLACES. "Soldado" y "Obligador" son de la guardia imperial.
@@ -132,9 +134,7 @@ static func _foes_of(gate_name: String) -> Array[Npc]:
 				koloss.kit = "KolossAdulto" if i % 2 == 1 else "KolossJoven"
 				foes.append(koloss)
 		"Puerta Oeste":
-			var ruler := Champion.new()
-			ruler.kit = "LordRuler"
-			foes.append(ruler)
+			pass  # sin nadie (ver FOES)
 		"Puerta Sur":
 			for i in FOES[gate_name]:
 				foes.append(Champion.new())
