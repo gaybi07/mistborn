@@ -191,6 +191,12 @@ func _house(p: Vector2, street: Vector2) -> void:
 	_houses.append(p)
 	var to := street - p
 	var roll := _r.randf()
+	# La mitad, casas propias de Luthadel (G27, a escala real); el resto, de Quaternius.
+	var own := _r.randf()
+	if own < 0.5:
+		var mine: String = ["CasaConventillo", "CasaTienda", "CasaPiedra"][int(own * 6.0)]
+		_batch.add("res://assets/luthadel/%s.gltf" % mine, Vector3(p.x, 0, p.y), atan2(to.x, to.y) + _r.randf_range(-0.08, 0.08), _r.randf_range(0.82, 0.95))
+		return
 	var model := "buildings/House_1"
 	if roll < 0.3:
 		model = "buildings/House_2"
@@ -273,7 +279,7 @@ func _plaza() -> void:
 	for i in 9:
 		var a := TAU * i / 9.0
 		var q := p + Vector2.from_angle(a) * 13.0
-		_batch.add(ModelKit.path("props/MarketStand_1" if i % 2 == 0 else "props/MarketStand_2"), Vector3(q.x, 0, q.y), -a - PI / 2.0, KIT)
+		_batch.add("res://assets/luthadel/%s.gltf" % ("PuestoLona" if i % 2 == 0 else "PuestoCarpa"), Vector3(q.x, 0, q.y), atan2(-cos(a), -sin(a)), 1.0)
 	_fire(p + Vector2(6, 4))
 	_batch.add(ModelKit.path("props/Cauldron"), Vector3(p.x + 7.5, 0, p.y + 6.5), 0.0, KIT)
 	for i in 4:

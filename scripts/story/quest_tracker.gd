@@ -41,29 +41,14 @@ func _ready() -> void:
 		_sign.call_deferred(id)
 
 
-## Cartel de madera con avisos clavados, que se lee con E (Dialogues.LINES[id]).
+## Tablón de avisos del Ministerio (pieza propia, G27), que se lee con E (Dialogues.LINES[id]).
 func _sign(id: String) -> void:
 	var at: Vector2 = QuestLog.SIGNS[id][0]
 	var root := Node3D.new()
 	root.position = Vector3(at.x, CityPlan.ground(at), at.y)
 	root.rotation.y = QuestLog.SIGNS[id][1]
 	get_parent().add_child(root)
-	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color(0.3, 0.2, 0.13)
-	wood.roughness = 0.9
-	var paper := StandardMaterial3D.new()
-	paper.albedo_color = Color(0.78, 0.72, 0.6)
-	paper.roughness = 1.0
-	for part: Array in [[Vector3(0.12, 2.3, 0.12), Vector3(-0.85, 1.15, 0), wood], [Vector3(0.12, 2.3, 0.12), Vector3(0.85, 1.15, 0), wood],
-			[Vector3(1.9, 1.15, 0.07), Vector3(0, 1.65, 0), wood], [Vector3(2.1, 0.1, 0.25), Vector3(0, 2.3, 0.05), wood],
-			[Vector3(0.62, 0.85, 0.01), Vector3(-0.3, 1.65, 0.04), paper], [Vector3(0.5, 0.6, 0.01), Vector3(0.45, 1.75, 0.04), paper]]:
-		var mi := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = part[0]
-		mi.mesh = box
-		mi.position = part[1]
-		mi.material_override = part[2]
-		root.add_child(mi)
+	root.add_child((load("res://assets/luthadel/PlazaTablon.gltf") as PackedScene).instantiate())  # el frente mira a +Z
 	root.add_child(Interactable.make(Vector3(2.6, 2.2, 2.6), Vector3(0, 1.1, 0.9), "Leer el cartel",
 			func() -> void: DialogueBox.open(get_tree(), id)))
 
