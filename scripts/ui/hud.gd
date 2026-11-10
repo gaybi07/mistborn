@@ -62,7 +62,7 @@ func _ready() -> void:
 	add_child(picker)
 	if not Art.suit_chosen and SaveSlots.current != 0:  # sin partida elegida, primero la pantalla de inicio
 		picker.open.call_deferred(true)
-	for ui: Control in [CompassBar.new(), JournalWindow.new(), DialogueBox.new()]:
+	for ui: Control in [WaypointMarker.new(), CompassBar.new(), JournalWindow.new(), DialogueBox.new()]:
 		ui.set(&"player", player)
 		add_child(ui)
 	var top := CanvasLayer.new()

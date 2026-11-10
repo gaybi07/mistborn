@@ -67,6 +67,7 @@ func _ready() -> void:
 			xfs[i] = (xfs[i] as Transform3D).translated(Vector3(0, _ground(xfs[i].origin), 0))
 	PolyProps.spawn(self, _poly)
 	add_child(Exterior.new())
+	add_child(AshPit.new())
 	_spawn_people()
 	add_child(WorldFx.new())
 	var player := Player.new()

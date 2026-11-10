@@ -19,7 +19,8 @@ func _initialize() -> void:
 	Dialogues.run([["start", "prueba_plaza"]])
 	_ok(QuestLog.active.has("prueba_plaza") and QuestLog.tracked == "prueba_plaza", "la misión empieza y se sigue")
 	_ok(Dialogues.entry("dockson") == "esperando", "Dockson espera mientras no fuiste a la plaza")
-	_ok(QuestLog.step_target("prueba_plaza") == Story.PLACES["plaza"]["at"], "el paso 1 apunta a la plaza")
+	_ok(QuestLog.step_target("prueba_plaza") == QuestLog.SIGNS["cartel_plaza"][0], "el paso 1 apunta al cartel de la plaza")
+	_ok(QuestLog.guide(Vector2(0, 200)).get("text", "") == "Leer el cartel de la Plaza Central", "la guía dice qué hacer")
 	var saved := QuestLog.to_dict()
 	QuestLog.from_dict(saved)
 	_ok(QuestLog.to_dict() == saved, "guardar y cargar el estado da lo mismo")
@@ -37,9 +38,21 @@ func _initialize() -> void:
 	await create_timer(0.5).timeout
 	_shot("0_mapa")
 	map._big.visible = false
-	p.global_position = Vector3(5, CityPlan.ground(Vector2(5, 0)) + 1.0, 0)
+	p.global_position = Vector3(-20, CityPlan.ground(Vector2(-20, 30)) + 1.0, 30)  # el cartel queda adelante a la derecha
+	await create_timer(1.5).timeout
+	_shot("1b_marcador")
+	var sign: Vector2 = QuestLog.SIGNS["cartel_plaza"][0]
+	p.global_position = Vector3(sign.x + 1.0, CityPlan.ground(sign) + 1.0, sign.y + 2.0)
 	await create_timer(1.0).timeout
-	_ok(int(QuestLog.active.get("prueba_plaza", -1)) == 1, "llegar a la plaza cumple el paso 1")
+	_ok(int(QuestLog.active.get("prueba_plaza", -1)) == 0, "llegar a la plaza no alcanza: hay que leer el cartel")
+	var reads := root.find_children("*", "Interactable", true, false).filter(func(n: Node) -> bool: return (n as Interactable).prompt == "Leer el cartel")
+	_ok(reads.size() == 1, "el cartel está en la plaza y se usa con E")
+	DialogueBox.open(self, "cartel_plaza")
+	await create_timer(0.3).timeout
+	_shot("1c_cartel")
+	var reader := get_first_node_in_group(&"dialogue_box") as DialogueBox
+	reader._choose(Dialogues.LINES["cartel_plaza"]["nodes"]["leer"]["options"][0])
+	_ok(int(QuestLog.active.get("prueba_plaza", -1)) == 1, "leer el cartel cumple el paso 1")
 	var talk: Variant = QuestLog.step_target("prueba_plaza")
 	_ok(talk is Vector2, "el paso 2 apunta a Dockson")
 	if talk is Vector2:
@@ -67,6 +80,15 @@ func _initialize() -> void:
 	await create_timer(0.3).timeout
 	_shot("5_cuaderno_paso")
 	journal.toggle()
+	# --- Segunda misión: Dockson te manda al foso
+	_ok(Dialogues.entry("dockson") == "foso_inicio" and QuestLog.offers().size() == 1, "después del cartel, Dockson ofrece ir al foso")
+	Dialogues.run([["start", "prueba_foso"]])
+	p.global_position = Vector3(AshPit.CENTER.x + 40, CityPlan.ground(AshPit.CENTER + Vector2(40, 0)) + 1.0, AshPit.CENTER.y)
+	await create_timer(1.0).timeout
+	_ok(int(QuestLog.active.get("prueba_foso", -1)) == 1, "llegar al foso cumple el paso 1")
+	_ok(Dialogues.entry("dockson") == "foso_vuelta", "Dockson pregunta por el foso")
+	Dialogues.run(Dialogues.LINES["dockson"]["nodes"]["foso_vuelta"]["options"][0]["do"])
+	_ok(QuestLog.done.has("prueba_foso") and Dialogues.entry("dockson") == "despues", "terminar la del foso")
 	SaveSlots.erase(SLOT)
 	print("FALLAS ", _fails)
 	quit(1 if _fails > 0 else 0)

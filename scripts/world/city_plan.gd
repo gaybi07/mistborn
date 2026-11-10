@@ -311,7 +311,7 @@ static func ground(p: Vector2) -> float:
 		var l: Vector2 = (p - f[0]).rotated(-f[2])
 		var out := Vector2(maxf(absf(l.x) - f[1].x, 0.0), maxf(absf(l.y) - f[1].y, 0.0)).length()
 		h = lerpf(h, f[4], 1.0 - smoothstep(0.0, f[3], out))
-	return h
+	return h - AshPit.depth(p)
 
 
 ## Nivel del agua del río en p (baja con el río hacia el sur).
@@ -328,6 +328,7 @@ static func _make_flats() -> Array:
 	var add := func(c: Vector2, half: Vector2, angle := 0.0, margin := 20.0) -> void:
 		out.append([c, half, angle, margin, _raw_ground(c)])
 	add.call(HILL, HILL_HALF + Vector2(12, 12), 0.0, 40.0)
+	add.call(AshPit.CENTER, Vector2.ONE * (AshPit.CAMP - 20.0), 0.0, 40.0)  # el campamento del foso, llano
 	add.call(Vector2.ZERO, Vector2(PLAZA_HALF + 6.0, PLAZA_HALF + 6.0))
 	add.call(MARKET, Vector2(MARKET_RADIUS + 6.0, MARKET_RADIUS + 6.0))
 	add.call(ASSEMBLY + Vector2(0, -8), Vector2(30, 30))

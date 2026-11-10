@@ -51,7 +51,7 @@ func _start(npc: String) -> void:
 	if node == "":
 		return
 	_npc = npc
-	_name.text = String(Story.NPCS.get(npc, {}).get("name", npc))
+	_name.text = String(Story.NPCS.get(npc, Dialogues.LINES[npc]).get("name", npc))
 	visible = true
 	player.ui_open = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

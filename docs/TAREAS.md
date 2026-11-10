@@ -12,7 +12,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G2. Foso de ceniza | `gabi/g2-foso-ceniza` | 2026-11-09 |
 
 ## Cómo trabajamos
 
@@ -91,7 +91,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 - [x] ✅ **G1. Y10.** Conversaciones, cuaderno, marcas del mapa y guardado en tres partidas.
   — *verificada 2026-11-09, rama `gabi/g1-dialogos-guardado` (borrada), merge `995558a`*
-- [ ] **G2. Y5.** Foso de ceniza.
+- [ ] 🔄 **G2. Y5.** Foso de ceniza.
+  — *en curso: Gabi, rama `gabi/g2-foso-ceniza`, desde 2026-11-09*
 - [ ] **G3. P5.** Espectro de la bruma (modelo y clips propios).
 - [ ] **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
 - [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
@@ -118,6 +119,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G17. Y13.** Golpes y poderes de Kelsier y Vin como aliados o rivales.
 - [ ] **G18. Y14 / P24.** Clips de los 3 poderes del Lord Legislador.
 - [ ] **G19.** Atender los [Pedidos de animación](#pedidos-de-animación) de Lucho.
+- [ ] **G20. Modelos propios del foso de ceniza** (los generás en Meshy; hoy son piezas de Quaternius): andamios de
+  madera para las paredes, grúa o polea con balde, carretilla de ceniza, jaula de presos, cadenas y grilletes, torre
+  del capataz, empalizada de troncos y montañas de ceniza. Listo cuando reemplazan a los de `scripts/world/ash_pit.gd`.
 
 ## Pedidos de animación
 

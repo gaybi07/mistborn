@@ -4,16 +4,29 @@ class_name QuestLog
 ## Se guarda dentro de la partida (ver SaveSlots). `revision` sube con cada cambio para que la UI se refresque.
 
 ## Misiones fuera de la historia, para probar el sistema. "steps": pasos en orden; "at" (XZ) o "place" (Story.PLACES)
-## dice dónde se cumple el paso al llegar (radio "r", 10 m si falta); "talk" = se cumple hablando con ese NPC.
+## dice dónde se cumple el paso al llegar (radio "r", 10 m si falta); "talk" = se cumple hablando con ese NPC;
+## "read" = se cumple leyendo ese cartel (SIGNS, con E).
 const TEST := {
 	"prueba_plaza": {"kind": "side", "title": "Un cartel en la plaza", "giver": "dockson",
 		"goal": "Dockson quiere saber qué dice el cartel nuevo de la Plaza Central.",
 		"steps": [
-			{"text": "Leer el cartel de la Plaza Central", "place": "plaza", "r": 12.0},
+			{"text": "Leer el cartel de la Plaza Central", "read": "cartel_plaza"},
 			{"text": "Contarle a Dockson lo que dice", "talk": "dockson"},
 		],
 		"ends": {"verdad": {"text": "Le contaste lo que decía"}, "mentira": {"text": "Le dijiste que no decía nada"}}},
+	# "after": solo te la ofrecen con esa otra terminada.
+	"prueba_foso": {"kind": "side", "title": "Gente en el foso", "giver": "dockson", "after": "prueba_plaza",
+		"goal": "Dockson quiere saber cuántos guardias hay en el foso de ceniza, al oeste de la ciudad.",
+		"steps": [
+			{"text": "Ir al foso de ceniza, al oeste de la muralla", "place": "foso", "r": 60.0},
+			{"text": "Contarle a Dockson lo que viste", "talk": "dockson"},
+		],
+		"ends": {"visto": {"text": "Le contaste cómo está vigilado el foso"}}},
 }
+
+## Carteles que se leen con E (QuestTracker los pone; el texto está en Dialogues.LINES con la misma clave):
+## id -> [posición XZ, hacia dónde mira el frente (rad, 0 = sur)].
+const SIGNS := {"cartel_plaza": [Vector2(9, 12), 0.6]}
 
 static var done: Dictionary = {}
 static var locked: Dictionary = {}
@@ -69,6 +82,8 @@ static func step_target(id: String) -> Variant:
 		return s["at"]
 	if s.has("talk"):
 		return npc_spot(s["talk"])
+	if s.has("read"):
+		return SIGNS[s["read"]][0]
 	var place: String = s.get("place", quest(id).get("place", ""))
 	var p: Dictionary = Story.PLACES.get(place, {})
 	return p.get("at", null)
@@ -90,11 +105,35 @@ static func offers() -> Array:
 	for id: String in TEST:
 		if active.has(id) or done.has(id) or locked.has(id):
 			continue
+		if TEST[id].has("after") and not done.has(TEST[id]["after"]):
+			continue
 		var giver: String = TEST[id].get("giver", "")
 		var at: Variant = npc_spot(giver)
 		if at != null:
 			out.append({"id": id, "giver": giver, "xz": at})
 	return out
+
+
+## Adónde guiar al jugador (brújula y marcador en pantalla): el paso de la misión que sigue o, sin ninguna, quien
+## tenga una para darle, el más cercano. {"xz", "text"} o {} si no hay nada.
+static func guide(here: Vector2) -> Dictionary:
+	if tracked != "":
+		var at: Variant = step_target(tracked)
+		if at != null:
+			return {"xz": at, "text": step_text(tracked)}
+	var best := {}
+	for o: Dictionary in offers():
+		if best.is_empty() or here.distance_to(o["xz"]) < here.distance_to(best["xz"]):
+			best = {"xz": o["xz"], "text": "Hablar con " + String(Story.NPCS[o["giver"]]["name"])}
+	return best
+
+
+## Leíste ese cartel: cumple el paso de las misiones que lo pedían.
+static func read(sign: String) -> void:
+	for id: String in active.keys():
+		if current_step(id).get("read", "") == sign:
+			note("%s: %s." % [title(id), current_step(id)["text"]])
+			advance(id)
 
 
 static func start(id: String) -> void:

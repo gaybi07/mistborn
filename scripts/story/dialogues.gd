@@ -3,13 +3,27 @@ class_name Dialogues
 ##   "entries": [[condición, nodo], ...]: se arranca en el primer nodo cuya condición se cumple.
 ##   "nodes": nodo -> {"text", "options": [{"text", "to" (otro nodo; sin "to" se cierra), "do": [acciones]}]}.
 ## Condiciones: {} siempre; {"active": id, "step": n} misión en curso en ese paso; {"done": id}; {"available": id}.
-## Acciones: ["start", id], ["advance", id], ["finish", id, final], ["learn", texto].
+## Acciones: ["start", id], ["advance", id], ["finish", id, final], ["learn", texto], ["read", cartel].
+## Los carteles (QuestLog.SIGNS) también van acá, con su "name".
 ## Jugando solo se habla en singular (ver docs/HISTORIA.md).
 
 const LINES := {
+	# Carteles (QuestLog.SIGNS): "name" es lo que sale arriba de la caja.
+	"cartel_plaza": {
+		"name": "Cartel del Ministerio de Acero",
+		"entries": [[{}, "leer"]],
+		"nodes": {
+			"leer": {"text": "Por orden del Ministerio de Acero: se pagará en oro a quien entregue el nombre de un brumoso, " +
+					"skaa mestizo o alomántico oculto. Presentarse ante cualquier obligador. Esconder a uno se paga con el foso.",
+				"options": [{"text": "Dejar de leer.", "do": [["read", "cartel_plaza"]]}]},
+		},
+	},
 	"dockson": {
 		"entries": [
-			[{"done": "prueba_plaza"}, "despues"],
+			[{"done": "prueba_foso"}, "despues"],
+			[{"active": "prueba_foso", "step": 1}, "foso_vuelta"],
+			[{"active": "prueba_foso", "step": 0}, "foso_esperando"],
+			[{"done": "prueba_plaza"}, "foso_inicio"],
 			[{"active": "prueba_plaza", "step": 1}, "vuelta"],
 			[{"active": "prueba_plaza", "step": 0}, "esperando"],
 			[{}, "inicio"],
@@ -35,7 +49,19 @@ const LINES := {
 				]},
 			"fin_verdad": {"text": "Pagan por nombres... Entonces hay que cuidar a quién le hablamos. Gracias.", "options": [{"text": "De nada."}]},
 			"fin_mentira": {"text": "Mm. Si no era nada, no lo habrían puesto ahí. En fin.", "options": [{"text": "Adiós."}]},
-			"despues": {"text": "Ya me ayudaste con el cartel. Por ahora no tengo nada más.", "options": [{"text": "Adiós."}]},
+			"foso_inicio": {"text": "Lo del cartel me dejó pensando. Al oeste de la muralla está el foso de ceniza: ahí mandan a los que agarran. Andá a ver cuántos guardias hay.",
+				"options": [
+					{"text": "Voy.", "do": [["start", "prueba_foso"]], "to": "foso_gracias"},
+					{"text": "Ahora no.", "to": ""},
+				]},
+			"foso_gracias": {"text": "Salí por la Puerta Oeste y seguí hacia el sudoeste. Es un pozo enorme, no lo vas a confundir.", "options": [{"text": "Hasta luego."}]},
+			"foso_esperando": {"text": "¿Fuiste al foso? Está al oeste, pasando la muralla.", "options": [{"text": "Todavía no."}]},
+			"foso_vuelta": {"text": "¿Y? ¿Cómo está el foso?",
+				"options": [
+					{"text": "Hay torres en la empalizada y soldados abajo. Los presos cavan en las terrazas.",
+						"do": [["learn", "El foso de ceniza tiene torres de guardia en la empalizada y soldados en el fondo."], ["finish", "prueba_foso", "visto"]], "to": "despues"},
+				]},
+			"despues": {"text": "Gracias. Por ahora no tengo nada más: las misiones de la historia llegan pronto.", "options": [{"text": "Adiós."}]},
 		},
 	},
 }
@@ -73,3 +99,5 @@ static func run(actions: Array) -> void:
 				QuestLog.finish(a[1], a[2])
 			"learn":
 				QuestLog.learn(a[1])
+			"read":
+				QuestLog.read(a[1])
