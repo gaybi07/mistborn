@@ -4,7 +4,7 @@ Quién hace qué de acá en adelante. Para empezar o terminar una tarea, pedirle
 la L3": la skill `tarea` (`.claude/skills/tarea/SKILL.md`) crea la rama, la mergea a develop, la borra y anota todo acá
 y en `docs/REGISTRO.md`.
 
-**Estados:** `- [ ]` pendiente · `- [ ] 🔄` en curso (con quién, rama y fecha) · `- [x] 🧪` en develop, falta revisar
+**Estados:** `- [ ]` pendiente · `- [ ] ⏸️` espera a otra tarea (dice cuál) · `- [ ] 🔄` en curso (con quién, rama y fecha) · `- [x] 🧪` en develop, falta revisar
 (anotada en la [ronda de revisión](#ronda-de-revisión) abierta) · `- [x] ✅` verificada: revisada y aprobada (con fecha,
 rama y merge).
 
@@ -45,6 +45,8 @@ rama y merge).
   `aim_check` y `aim_pitch_check`.
 - [ ] **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
   compartidos.
+- ⚠️ **Al cerrar L1-L6, avisar a Gabi:** la misión del taller (G5) usa la progresión vieja para "gastar el primer
+  punto"; se adapta en G22.
 
 ### 2. Metales que faltan (después de L1-L6)
 
@@ -129,6 +131,13 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G21. Revisar cómo se mueve el espectro de la bruma**, al terminar la historia: jugarlo contra uno y contra
   tres, ver si el shader alcanza (ondular, arrastrarse, lanzarse, derretirse) o si hace falta otra cosa, y medir los
   FPS con los seis cerca. Hoy no se jugó con teclado (decisión del 10/11). Ver `scripts/character/wraith_rig.gd`.
+- [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
+  - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
+    `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
+  - si no hay puntos libres, hoy el paso se da por hecho solo: con los 3 puntos del inicio eso ya no pasa;
+  - lo que dice Clubs en `Dialogues.LINES["clubs"]["taller_explica"]` sobre los metales;
+  - correr `tools/story/tramo_check.gd` (la parte del taller simula el gasto con `outcome["el_taller_spent"]`).
+  Listo cuando la misión del taller termina gastando un punto de verdad en la K nueva.
 
 ## Ronda de revisión
 
