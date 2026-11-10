@@ -337,6 +337,10 @@ static func champion_rig(kit: String) -> ModelRig:
 
 
 static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
+	if role == "wraith":
+		var wraith := WraithRig.new()
+		wraith.height = look.get("height", 2.2)
+		return wraith
 	if role.begins_with("meshy:"):
 		return meshy_rig(role.trim_prefix("meshy:"))
 	if role == "noble":
