@@ -72,7 +72,11 @@ func _ready() -> void:
 	var player := Player.new()
 	player.name = "Player"
 	player.position = Portal.take_arrival(Vector3(0, 1 + _ground(Vector3(0, 0, 10)), 10))
+	_apply_slot(player)
 	add_child(player)
+	var tracker := QuestTracker.new()
+	tracker.player = player
+	add_child(tracker)
 	var hud := Hud.new()
 	hud.player = player
 	add_child(hud)
@@ -81,6 +85,25 @@ func _ready() -> void:
 	add_child(map)
 	_place_loot()
 	_lights_near_player()
+
+
+## Partida recién cargada (SaveSlots.play): dónde estaba, monedas, frascos e inventario. Se usa una sola vez.
+func _apply_slot(player: Player) -> void:
+	var p := SaveSlots.pending
+	SaveSlots.pending = {}
+	if p.has("new"):
+		Player.clear_saved()
+	if (p.get("player", {}) as Dictionary).has("owned"):
+		Player._saved = p["player"]
+	if p.get("pos") is Vector3:
+		player.position = p["pos"] + Vector3.UP * 0.5
+	if int(p.get("coins", -1)) >= 0:
+		player.set_deferred(&"coins_held", int(p["coins"]))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		SaveSlots.save()
 
 
 ## Objetos tirados por las calles para mejorar el equipo (el resto los sueltan los alománticos

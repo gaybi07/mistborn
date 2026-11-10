@@ -22,6 +22,14 @@ const DOT_NPC := Color(0.43, 0.56, 0.42)
 const DOT_FOE := Color(0.82, 0.1, 0.07)
 const DOT_RADIUS := 3.0
 const DOT_RULER_RADIUS := 7.5
+## Marcas de misiones y lugares (QuestLog.map_marks): color y letra de cada tipo. Cada tipo se puede ocultar en el mapa grande.
+const MARKS := {
+	"principal": [Color(0.95, 0.72, 0.18), "!"], "secundaria": [Color(0.85, 0.85, 0.8), "!"],
+	"maestro": [Color(0.45, 0.7, 0.95), "M"], "guardian": [Color(0.8, 0.2, 0.15), "G"],
+	"tienda": [Color(0.55, 0.8, 0.45), "$"], "refugio": [Color(0.9, 0.6, 0.35), "R"],
+}
+## Tipos de marca ocultos (se recuerdan mientras dura el juego).
+static var hidden_marks := {}
 
 ## Pergamino: tono sepia, contraste suave y bordes oscurecidos (como el plano de referencia).
 const PARCHMENT_SHADER := """
@@ -64,6 +72,8 @@ func _ready() -> void:
 	layer = 9
 	if _cached_tex == null:
 		_cached_tex = await _capture()
+	if _cached_tex == null:
+		return  # se cargó otra partida antes de terminar la foto: la escena nueva la saca
 	_tex = _cached_tex
 	_build_minimap()
 	_build_big_map()
@@ -74,6 +84,8 @@ func _ready() -> void:
 func _capture() -> Texture2D:
 	for i in 3:
 		await get_tree().process_frame
+	if not is_inside_tree():
+		return null
 	var sub := SubViewport.new()
 	sub.size = Vector2i(MAP_PX, MAP_PX)
 	sub.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -97,6 +109,8 @@ func _capture() -> Texture2D:
 	for i in 3:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+	if not is_inside_tree():
+		return null
 	var img := sub.get_texture().get_image()
 	sub.queue_free()
 	img.generate_mipmaps()
@@ -186,8 +200,32 @@ func _dots(map: TextureRect) -> Control:
 		for n: Node3D in get_tree().get_nodes_in_group(&"map_npc"):  # los que no son Npc: skaa trabajando, la nena
 			_dot(layer, map, Vector2(n.global_position.x, n.global_position.z), DOT_NPC, DOT_RADIUS)
 		for far: Array in GateForces.far_foes():
-			_dot(layer, map, far[0], DOT_FOE, DOT_RULER_RADIUS if far[1] else DOT_RADIUS))
+			_dot(layer, map, far[0], DOT_FOE, DOT_RULER_RADIUS if far[1] else DOT_RADIUS)
+		var frame := Rect2(Vector2.ZERO, (layer.get_parent() as Control).size)
+		for m: Dictionary in QuestLog.map_marks():
+			if not hidden_marks.has(m["kind"]):
+				_mark(layer, map, frame, m))
 	return layer
+
+
+## Una marca: rombo con su letra; si queda fuera del marco, una flecha en el borde que apunta hacia ella.
+func _mark(layer: Control, map: TextureRect, frame: Rect2, m: Dictionary) -> void:
+	var style: Array = MARKS.get(m["kind"], MARKS["secundaria"])
+	var at := map.position + _uv(m["xz"]) * map.size
+	var inner := frame.grow(-12.0)
+	var r := 9.0 if m["tracked"] else 7.0
+	if inner.has_point(at):
+		HudKit.diamond(layer, at, r + 2.0, Color(0, 0, 0, 0.6))
+		HudKit.diamond(layer, at, r, style[0])
+		layer.draw_string(ThemeDB.fallback_font, at + Vector2(-4, 5), style[1], HORIZONTAL_ALIGNMENT_CENTER, -1, 12, INK)
+		return
+	var center := frame.get_center()
+	var edge := at.clamp(inner.position, inner.end)
+	var dir := (at - center).normalized()
+	var side := dir.orthogonal()
+	var tip := PackedVector2Array([edge + dir * r, edge - dir * r * 0.6 + side * r * 0.8, edge - dir * r * 0.6 - side * r * 0.8])
+	layer.draw_colored_polygon(tip, style[0])
+	layer.draw_polyline(tip + PackedVector2Array([tip[0]]), Color(0, 0, 0, 0.7), 1.5, true)
 
 
 func _dot(layer: Control, map: TextureRect, xz: Vector2, color: Color, radius: float) -> void:
@@ -290,6 +328,22 @@ func _build_big_map() -> void:
 		t.add_theme_color_override("font_outline_color", INK)
 		t.add_theme_constant_override("outline_size", 6)
 		_view.add_child(t)
+	var legend := HBoxContainer.new()
+	legend.position = Vector2(14, 46)
+	for kind: String in MARKS:
+		var check := CheckBox.new()
+		check.text = "%s %s" % [MARKS[kind][1], kind.capitalize()]
+		check.button_pressed = not hidden_marks.has(kind)
+		check.add_theme_color_override("font_color", MARKS[kind][0])
+		check.add_theme_color_override("font_outline_color", INK)
+		check.add_theme_constant_override("outline_size", 5)
+		check.toggled.connect(func(on: bool) -> void:
+			if on:
+				hidden_marks.erase(kind)
+			else:
+				hidden_marks[kind] = true)
+		legend.add_child(check)
+	_view.add_child(legend)
 	_set_view(1.0, Vector2.ZERO)
 
 
