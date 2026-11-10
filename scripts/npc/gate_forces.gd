@@ -29,6 +29,9 @@ const PEOPLE := [
 	# Foso de ceniza (AshPit): en la entrada, en el borde y abajo, en el fondo.
 	["Soldado", Vector2(-462, 322), 0.0], ["Soldado", Vector2(-462, 338), 0.0], ["Soldado", Vector2(-520, 245), 0.0],
 	["Soldado", Vector2(-640, 412), 0.0], ["Soldado", Vector2(-585, 322), 0.0], ["Soldado", Vector2(-572, 338), 0.0],
+	# Espectros de la bruma (MistWraith), de a tres: en el camino del oeste (yendo al foso) y en el borde del bosque.
+	["Espectro", Vector2(-430, 150), 10.0], ["Espectro", Vector2(-444, 162), 10.0], ["Espectro", Vector2(-421, 168), 10.0],
+	["Espectro", Vector2(-540, 470), 14.0], ["Espectro", Vector2(-556, 482), 14.0], ["Espectro", Vector2(-528, 490), 14.0],
 ]
 
 static var _instance: GateForces
@@ -68,7 +71,7 @@ func _ready() -> void:
 	_posts.append({"gate": [HAZEKILLERS, HAZEKILLER_POST, Vector2.UP, Vector2.RIGHT], "node": null, "at": HAZEKILLER_POST})
 	for i in PEOPLE.size():
 		_posts.append({"gate": ["persona %d" % i, PEOPLE[i][1], Vector2.DOWN, Vector2.RIGHT], "node": null, "at": PEOPLE[i][1]})
-	for model in ["KolossJoven", "KolossAdulto", "LordRuler", "MistbornHood", "Mataneblino", "Soldado", "GordoNoble", "Obligador"]:
+	for model in ["KolossJoven", "KolossAdulto", "LordRuler", "MistbornHood", "Mataneblino", "Soldado", "GordoNoble", "Obligador", "Espectro"]:
 		_keep.append(load(Art.MESHY % model))
 
 
@@ -139,6 +142,10 @@ static func _foes_of(gate_name: String) -> Array[Npc]:
 
 
 static func _person(spec: Array) -> Npc:
+	if spec[0] == "Espectro":
+		var wraith := MistWraith.new()
+		wraith.roam_radius = spec[2]
+		return wraith
 	if spec[0] in ["Soldado", "Obligador"]:
 		var guard := Champion.new()
 		guard.kit = spec[0]

@@ -12,7 +12,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G3. Espectro de la bruma | `gabi/g3-espectro-bruma` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -93,7 +93,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *verificada 2026-11-09, rama `gabi/g1-dialogos-guardado` (borrada), merge `995558a`*
 - [x] ✅ **G2. Y5.** Foso de ceniza.
   — *verificada 2026-11-10, rama `gabi/g2-foso-ceniza` (borrada), merge `6e9db37`*
-- [ ] **G3. P5.** Espectro de la bruma (modelo y clips propios).
+- [ ] 🔄 **G3. P5.** Espectro de la bruma (modelo y clips propios).
+  — *en curso: Gabi, rama `gabi/g3-espectro-bruma`, desde 2026-11-10*
 - [ ] **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
 - [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
 
