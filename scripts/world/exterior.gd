@@ -116,7 +116,7 @@ func _dist_to_roads(p: Vector2) -> float:
 
 
 func _in_city(p: Vector2, margin := 10.0) -> bool:
-	return CityPlan.inside(p) or CityPlan.dist_to_wall(p) < margin or CityPlan.dist_to_river(p) < CityPlan.RIVER_WIDTH or AshPit.covers(p)
+	return CityPlan.inside(p) or CityPlan.dist_to_wall(p) < margin or CityPlan.dist_to_river(p) < CityPlan.RIVER_WIDTH or AshPit.covers(p) or SouthVillage.covers(p)
 
 
 # ---------------------------------------------------------------- Árboles
@@ -391,7 +391,7 @@ func _build_hills(mat: Material) -> void:
 		var radius := _rng.randf_range(40.0, 110.0)
 		if p.y < MOUNTAIN_LINE + 40.0 or _dist_to_roads(p) < radius * 0.8 + 6.0:
 			continue
-		if CityPlan.dist_to_wall(p) < radius + 30.0 or CityPlan.dist_to_river(p) < radius + 10.0 or CityPlan.inside(p) or AshPit.covers(p, radius):
+		if CityPlan.dist_to_wall(p) < radius + 30.0 or CityPlan.dist_to_river(p) < radius + 10.0 or CityPlan.inside(p) or AshPit.covers(p, radius) or SouthVillage.covers(p, radius):
 			continue
 		if p.distance_to(FOREST_CENTER) < FOREST_RADIUS * 0.7:
 			continue  # dentro del bosque el suelo es llano

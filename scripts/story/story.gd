@@ -24,7 +24,7 @@ const PLACES := {
 	"barrio_skaa": {"name": "Distrito Skaa", "at": Vector2(-100, 330), "city": true, "ready": true},
 	"foso": {"name": "Foso de ceniza", "at": Vector2(-580, 330), "city": false, "ready": true},
 	"camino_oeste": {"name": "Afueras del oeste", "at": Vector2(-470, 120), "city": false, "ready": true},
-	"camino_sur": {"name": "Aldeas del Camino Sur", "at": Vector2(-50, 700), "city": false, "ready": false},
+	"camino_sur": {"name": "Aldeas del Camino Sur", "at": Vector2(-20, 715), "city": false, "ready": true},
 	"bosque": {"name": "Bosque Muerto", "at": Vector2(-620, 620), "city": false, "ready": true},
 	"montes": {"name": "Faldas de los Montes de Ceniza", "at": Vector2(-300, -640), "city": false, "ready": true},
 	"campamento": {"name": "Campamento koloss", "at": Vector2(620, -240), "city": false, "ready": false},
