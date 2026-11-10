@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G5. Primer tramo jugable | `gabi/g5-primer-tramo` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -98,7 +98,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *en develop 2026-11-10, rama `gabi/g3-espectro-bruma` (borrada), merge `50d9b37`; falta revisar (ronda 1)*
 - [x] 🧪 **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
   — *en develop 2026-11-10, rama `gabi/g4-npc-misiones` (borrada), merge `0496a62`; falta revisar (ronda 1)*
-- [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
+- [ ] 🔄 **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
+  — *en curso: Gabi, rama `gabi/g5-primer-tramo`, desde 2026-11-10*
 
 ### 2. Escenarios
 
