@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G6. Aldeas del Camino Sur | `gabi/g6-aldeas-sur` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -105,7 +105,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 ### 2. Escenarios
 
-- [ ] **G6. Y6.** Aldeas del Camino Sur.
+- [ ] 🔄 **G6. Y6.** Aldeas del Camino Sur.
+  — *en curso: Gabi, rama `gabi/g6-aldeas-sur`, desde 2026-11-10*
 - [ ] **G7. Y7.** Campamento koloss.
 - [ ] **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
 
