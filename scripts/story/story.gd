@@ -22,7 +22,7 @@ const ACTS := {
 ## "marks": lo que el lugar marca siempre en el mapa una vez conocido.
 const PLACES := {
 	"barrio_skaa": {"name": "Distrito Skaa", "at": Vector2(-100, 330), "city": true, "ready": true},
-	"foso": {"name": "Foso de ceniza", "at": Vector2(-470, 330), "city": false, "ready": false},
+	"foso": {"name": "Foso de ceniza", "at": Vector2(-580, 330), "city": false, "ready": true},
 	"camino_oeste": {"name": "Afueras del oeste", "at": Vector2(-470, 120), "city": false, "ready": true},
 	"camino_sur": {"name": "Aldeas del Camino Sur", "at": Vector2(-50, 700), "city": false, "ready": false},
 	"bosque": {"name": "Bosque Muerto", "at": Vector2(-620, 620), "city": false, "ready": true},

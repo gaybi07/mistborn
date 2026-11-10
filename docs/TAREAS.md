@@ -119,6 +119,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G17. Y13.** Golpes y poderes de Kelsier y Vin como aliados o rivales.
 - [ ] **G18. Y14 / P24.** Clips de los 3 poderes del Lord Legislador.
 - [ ] **G19.** Atender los [Pedidos de animación](#pedidos-de-animación) de Lucho.
+- [ ] **G20. Modelos propios del foso de ceniza** (los generás en Meshy; hoy son piezas de Quaternius): andamios de
+  madera para las paredes, grúa o polea con balde, carretilla de ceniza, jaula de presos, cadenas y grilletes, torre
+  del capataz, empalizada de troncos y montañas de ceniza. Listo cuando reemplazan a los de `scripts/world/ash_pit.gd`.
 
 ## Pedidos de animación
 

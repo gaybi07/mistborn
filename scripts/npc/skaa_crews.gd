@@ -118,6 +118,7 @@ static func find_sites() -> Array[Dictionary]:
 				continue
 			out.append({"pos": p, "dir": (b - a).normalized(), "side": 1.0 if rng.randf() < 0.5 else -1.0,
 					"kind": kinds[rng.randi() % kinds.size()], "node": null})
+	out.append_array(AshPit.crew_sites())  # presos trabajando en el foso de ceniza
 	return out
 
 

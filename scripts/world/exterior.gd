@@ -116,7 +116,7 @@ func _dist_to_roads(p: Vector2) -> float:
 
 
 func _in_city(p: Vector2, margin := 10.0) -> bool:
-	return CityPlan.inside(p) or CityPlan.dist_to_wall(p) < margin or CityPlan.dist_to_river(p) < CityPlan.RIVER_WIDTH
+	return CityPlan.inside(p) or CityPlan.dist_to_wall(p) < margin or CityPlan.dist_to_river(p) < CityPlan.RIVER_WIDTH or AshPit.covers(p)
 
 
 # ---------------------------------------------------------------- Árboles

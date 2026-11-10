@@ -26,6 +26,9 @@ const PEOPLE := [
 	["NinaSkaa", Vector2(-280, 250), 6.0],  # Tesa, en los corrales
 	["Soldado", Vector2(95, 325), 0.0], ["Soldado", Vector2(90, 331), 0.0], ["Soldado", Vector2(86, 330), 0.0],
 	["Soldado", Vector2(166, -190), 0.0], ["Soldado", Vector2(174, -190), 0.0],
+	# Foso de ceniza (AshPit): en la entrada, en el borde y abajo, en el fondo.
+	["Soldado", Vector2(-462, 322), 0.0], ["Soldado", Vector2(-462, 338), 0.0], ["Soldado", Vector2(-520, 245), 0.0],
+	["Soldado", Vector2(-640, 412), 0.0], ["Soldado", Vector2(-585, 322), 0.0], ["Soldado", Vector2(-572, 338), 0.0],
 ]
 
 static var _instance: GateForces
