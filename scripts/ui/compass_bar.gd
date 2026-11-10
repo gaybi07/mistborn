@@ -41,16 +41,16 @@ func _draw() -> void:
 		var x := _x(c[1], yaw)
 		if x >= 0.0:
 			draw_string(font, Vector2(x - 6, 22), c[0], HORIZONTAL_ALIGNMENT_CENTER, -1, 18, HudKit.GOLD_LIGHT)
-	var id := QuestLog.tracked
-	var target: Variant = QuestLog.step_target(id) if id != "" else null
 	var here := Vector2(player.global_position.x, player.global_position.z)
-	if target == null:  # sin misión que seguir: quien tenga una para darte, el más cercano
-		for o: Dictionary in QuestLog.offers():
-			if target == null or here.distance_to(o["xz"]) < here.distance_to(target):
-				target = o["xz"]
-	if target == null:
+	var guide := QuestLog.guide(here)
+	if guide.is_empty():
 		return
-	var to: Vector2 = (target as Vector2) - here
+	var to: Vector2 = (guide["xz"] as Vector2) - here
+	# Qué hay que hacer, abajo de la tira.
+	var line := "◆ " + String(guide["text"])
+	var w := font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+	draw_rect(Rect2(size.x / 2.0 - w / 2.0 - 10, size.y + 24, w + 20, 26), Color(0.05, 0.04, 0.03, 0.6))
+	draw_string(font, Vector2(size.x / 2.0 - w / 2.0, size.y + 43), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.95, 0.8, 0.4))
 	var rel := wrapf(bearing(to) - yaw, -PI, PI)
 	var x := clampf(size.x / 2.0 - rel / (SPAN / 2.0) * size.x / 2.0, 8.0, size.x - 8.0)
 	HudKit.diamond(self, Vector2(x, size.y / 2.0), 7.0, Color(0.95, 0.75, 0.25))

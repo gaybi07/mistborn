@@ -3,10 +3,21 @@ class_name Dialogues
 ##   "entries": [[condición, nodo], ...]: se arranca en el primer nodo cuya condición se cumple.
 ##   "nodes": nodo -> {"text", "options": [{"text", "to" (otro nodo; sin "to" se cierra), "do": [acciones]}]}.
 ## Condiciones: {} siempre; {"active": id, "step": n} misión en curso en ese paso; {"done": id}; {"available": id}.
-## Acciones: ["start", id], ["advance", id], ["finish", id, final], ["learn", texto].
+## Acciones: ["start", id], ["advance", id], ["finish", id, final], ["learn", texto], ["read", cartel].
+## Los carteles (QuestLog.SIGNS) también van acá, con su "name".
 ## Jugando solo se habla en singular (ver docs/HISTORIA.md).
 
 const LINES := {
+	# Carteles (QuestLog.SIGNS): "name" es lo que sale arriba de la caja.
+	"cartel_plaza": {
+		"name": "Cartel del Ministerio de Acero",
+		"entries": [[{}, "leer"]],
+		"nodes": {
+			"leer": {"text": "Por orden del Ministerio de Acero: se pagará en oro a quien entregue el nombre de un brumoso, " +
+					"skaa mestizo o alomántico oculto. Presentarse ante cualquier obligador. Esconder a uno se paga con el foso.",
+				"options": [{"text": "Dejar de leer.", "do": [["read", "cartel_plaza"]]}]},
+		},
+	},
 	"dockson": {
 		"entries": [
 			[{"done": "prueba_foso"}, "despues"],
@@ -88,3 +99,5 @@ static func run(actions: Array) -> void:
 				QuestLog.finish(a[1], a[2])
 			"learn":
 				QuestLog.learn(a[1])
+			"read":
+				QuestLog.read(a[1])
