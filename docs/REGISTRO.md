@@ -2,6 +2,18 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G6 (arreglo) · Aldeas del Camino Sur, pueblo grande · Gabi
+- **Rama:** `gabi/g6-aldea-grande` (borrada) · **Merge:** `3e41809` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** pedido de Gabi: pueblos chico 50, mediano 100, grande 300 casas; densos, no pobres; con fortificación,
+  mansión noble y zona de granjas. Las Aldeas del Camino Sur pasan a pueblo grande: 304 casas (178 adentro de la
+  muralla, el resto en arrabales y caseríos), muralla de piedra con torres y entradas, calles en cuadrícula algo
+  torcidas, plaza de mercado con campanario, mansión amurallada, campos, corrales con establo, molinos y aserradero.
+  Cuatro guardias en las puertas.
+- **Archivos:** `scripts/world/south_village.gd` (rehecho), `scripts/npc/gate_forces.gd`.
+- **Cómo se probó:** fotos sin bruma; el juego corre sin errores; `quest_check.gd` pasa. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** modelos y animales en G23 (los pasa Gabi); ronda 2.
+
 ### 2026-11-10 · G6 · Aldeas del Camino Sur · Gabi
 - **Rama:** `gabi/g6-aldeas-sur` (borrada) · **Merge:** `6b645d0` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** una aldea skaa a los dos lados del camino de la Puerta Sur, centrada en (-20, 715): 22 chozas

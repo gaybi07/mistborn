@@ -106,7 +106,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 ### 2. Escenarios
 
 - [x] 🧪 **G6. Y6.** Aldeas del Camino Sur.
-  — *en develop 2026-11-10, rama `gabi/g6-aldeas-sur` (borrada), merge `6b645d0`; falta revisar (ronda 2)*
+  — *en develop 2026-11-10, rama `gabi/g6-aldeas-sur` (borrada), merges `6b645d0` y `3e41809` (pueblo grande); falta revisar (ronda 2)*
 - [ ] **G7. Y7.** Campamento koloss.
 - [ ] **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
 
@@ -132,9 +132,10 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G21. Revisar cómo se mueve el espectro de la bruma**, al terminar la historia: jugarlo contra uno y contra
   tres, ver si el shader alcanza (ondular, arrastrarse, lanzarse, derretirse) o si hace falta otra cosa, y medir los
   FPS con los seis cerca. Hoy no se jugó con teclado (decisión del 10/11). Ver `scripts/character/wraith_rig.gd`.
-- [ ] **G23. Modelos propios de la aldea del Camino Sur** (en Meshy; hoy son piezas de Quaternius): chozas skaa de
-  barro y paja (las de piedra con techo plano de Quaternius parecen ruinas), cultivos de ceniza para los campos,
-  espantapájaros, secaderos y un pozo más rústico. Listo cuando reemplazan a los de `scripts/world/south_village.gd`.
+- [ ] **G23. Modelos propios de los pueblos** (los pasa Gabi; hoy son piezas de Quaternius): casas que no sean todas de
+  Quaternius, mansión noble propia, muralla de pueblo, cultivos de ceniza para los campos, espantapájaros, secaderos,
+  bebederos y **animales para los corrales** (vacas, ovejas, cerdos, gallinas, caballos: hoy los corrales están
+  vacíos). Listo cuando reemplazan a los de `scripts/world/south_village.gd`.
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
@@ -181,12 +182,16 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
 
 ### Ronda 2 (abierta desde 2026-11-10)
 
-- [ ] **G6. Aldeas del Camino Sur** (saliendo por la Puerta Sur, unos 300 m por el camino):
-  - [ ] que la aldea se lea como aldea skaa pobre y no como pueblo (chozas desparramadas, plaza, campos, molino);
-  - [ ] las chozas bajas de Quaternius (piedra, techo plano): ¿alcanzan o van a G23?
-  - [ ] nada flotando ni enterrado (el pozo, las cercas de los campos, la torre de la entrada);
-  - [ ] cuadrillas skaa trabajando en los campos y la plaza; los FPS adentro de la aldea;
-  - [ ] el camino sur pasa limpio por el medio (sin casas encima) y el desvío al bosque sigue libre.
+- [ ] **G6. Aldeas del Camino Sur** (saliendo por la Puerta Sur, unos 300 m por el camino). Pueblo grande: 300 casas
+  (pedido del 10/11: chico 50, mediano 100, grande 300), amurallado, con mansión noble y granjas:
+  - [ ] que se lea denso y vivo, no pobre: calles con dos filas de casas y el centro de las manzanas lleno;
+  - [ ] la muralla: torres, entradas donde pasan el camino sur y el desvío al bosque, guardias en las puertas;
+  - [ ] la mansión del noble (noreste): muralla blanca con torreones, casa señorial, torre, glorieta, estandartes;
+  - [ ] la plaza de mercado (oeste del camino): pozo, campanario, puestos, fogata;
+  - [ ] afuera: arrabales sobre los caminos, campos con caseríos, corrales con establo, molinos y aserradero;
+  - [ ] la cuadrícula: ¿se nota demasiado? (las calles están algo corridas y torcidas);
+  - [ ] nada flotando ni enterrado (casas en pendiente, cercas, pozo); los caminos sin casas encima;
+  - [ ] los FPS adentro del pueblo y mirándolo de lejos (300 casas, con colisión).
 
 ### Cuando Lucho suba la progresión nueva (L1-L6)
 
