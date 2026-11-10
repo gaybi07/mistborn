@@ -1,32 +1,21 @@
 class_name QuestLog
 ## Estado de la historia en la partida: misiones hechas, en curso (con su paso), bloqueadas, la que sigue la brújula,
-## lo que sabés y lo que pasó (el cuaderno, tecla J). Las misiones salen de Story.QUESTS; las de prueba, de TEST.
+## lo que sabés y lo que pasó (el cuaderno, tecla J). Las misiones salen de Story.QUESTS, con pasos armados acá (quest).
 ## Se guarda dentro de la partida (ver SaveSlots). `revision` sube con cada cambio para que la UI se refresque.
-
-## Misiones fuera de la historia, para probar el sistema. "steps": pasos en orden; "at" (XZ) o "place" (Story.PLACES)
-## dice dónde se cumple el paso al llegar (radio "r", 10 m si falta); "talk" = se cumple hablando con ese NPC;
-## "read" = se cumple leyendo ese cartel (SIGNS, con E).
-const TEST := {
-	"prueba_plaza": {"kind": "side", "title": "Un cartel en la plaza", "giver": "dockson",
-		"goal": "Dockson quiere saber qué dice el cartel nuevo de la Plaza Central.",
-		"steps": [
-			{"text": "Leer el cartel de la Plaza Central", "read": "cartel_plaza"},
-			{"text": "Contarle a Dockson lo que dice", "talk": "dockson"},
-		],
-		"ends": {"verdad": {"text": "Le contaste lo que decía"}, "mentira": {"text": "Le dijiste que no decía nada"}}},
-	# "after": solo te la ofrecen con esa otra terminada.
-	"prueba_foso": {"kind": "side", "title": "Gente en el foso", "giver": "dockson", "after": "prueba_plaza",
-		"goal": "Dockson quiere saber cuántos guardias hay en el foso de ceniza, al oeste de la ciudad.",
-		"steps": [
-			{"text": "Ir al foso de ceniza, al oeste de la muralla", "place": "foso", "r": 60.0},
-			{"text": "Contarle a Dockson lo que viste", "talk": "dockson"},
-		],
-		"ends": {"visto": {"text": "Le contaste cómo está vigilado el foso"}}},
-}
+##
+## Pasos ("steps", en orden): "place" (Story.PLACES) o "at" (XZ) se cumple al llegar (radio "r"); "scene" al entrar a
+## esa escena (las salas del sótano); "talk" hablando con ese NPC; "read" leyendo ese cartel (SIGNS, con E).
+## Con quien la da: ir al lugar y volver a contarle (ahí se elige el final, en Dialogues). Sin nadie que la dé: ir al
+## lugar, y ahí una narración (Dialogues "narra_<id>") deja elegir el final.
+## shortcut: lo que pasa adentro de cada misión (peleas, persecuciones) es de G5; hoy alcanza con llegar. Solo el
+## Acto 1 tiene conversaciones (ACT); los demás actos se suman con las suyas.
+const ACT := 1
 
 ## Carteles que se leen con E (QuestTracker los pone; el texto está en Dialogues.LINES con la misma clave):
 ## id -> [posición XZ, hacia dónde mira el frente (rad, 0 = sur)].
 const SIGNS := {"cartel_plaza": [Vector2(9, 12), 0.6]}
+
+static var _built := {}
 
 static var done: Dictionary = {}
 static var locked: Dictionary = {}
@@ -54,8 +43,51 @@ static func reset() -> void:
 	revision += 1
 
 
+## La misión de Story.QUESTS con quién la da de verdad ("giver") y sus pasos ("steps").
 static func quest(id: String) -> Dictionary:
-	return TEST.get(id, Story.QUESTS.get(id, {}))
+	if not _built.has(id):
+		var q: Dictionary = Story.QUESTS.get(id, {}).duplicate()
+		if not q.is_empty():
+			q["giver"] = giver_of(id)
+			q["steps"] = _steps(q)
+		_built[id] = q
+	return _built[id]
+
+
+## Quién da la misión. Si su NPC todavía no tiene modelo (Spook), la da Clubs.
+static func giver_of(id: String) -> String:
+	var g: String = Story.QUESTS.get(id, {}).get("giver", "")
+	if g != "" and String(Story.NPCS.get(g, {}).get("model", "")) == "":
+		return "clubs"
+	return g
+
+
+static func _steps(q: Dictionary) -> Array:
+	var place: Dictionary = Story.PLACES.get(q["place"], {})
+	var name := String(place.get("name", q["place"]))
+	var first := {"text": "Ir a: " + name, "place": q["place"], "r": 25.0 if place.get("city", false) else 50.0}
+	if place.has("scene"):
+		first = {"text": "Bajar al %s (Esc → Ir a)" % name, "scene": place["scene"]}
+	if q["giver"] == "":
+		return [first]
+	return [first, {"text": "Volver con " + String(Story.NPCS[q["giver"]]["name"]), "talk": q["giver"]}]
+
+
+## Se pueden empezar ahora, son del acto que ya tiene conversaciones y no están en curso.
+static func startable() -> Array[String]:
+	var out: Array[String] = []
+	for id: String in Story.available(done, locked):
+		if int(Story.QUESTS[id].get("act", 0)) == ACT and not active.has(id):
+			out.append(id)
+	return out
+
+
+## Entraste a una escena (las salas del sótano): cumple el paso de las misiones que la pedían.
+static func entered_scene(path: String) -> void:
+	for id: String in active.keys():
+		if current_step(id).get("scene", "") == path:
+			note("%s: %s." % [title(id), current_step(id)["text"]])
+			advance(id)
 
 
 static func title(id: String) -> String:
@@ -84,13 +116,17 @@ static func step_target(id: String) -> Variant:
 		return npc_spot(s["talk"])
 	if s.has("read"):
 		return SIGNS[s["read"]][0]
+	if s.has("scene"):
+		return Story.PLACES["taller"]["at"]  # las salas del sótano están abajo del taller
 	var place: String = s.get("place", quest(id).get("place", ""))
 	var p: Dictionary = Story.PLACES.get(place, {})
 	return p.get("at", null)
 
 
-## Dónde anda ese NPC de Story.NPCS (GateForces.PEOPLE), o null.
+## Dónde anda ese NPC de Story.NPCS (su "at", o el primero de GateForces.PEOPLE con su modelo), o null.
 static func npc_spot(npc: String) -> Variant:
+	if Story.NPCS.get(npc, {}).has("at"):
+		return Story.NPCS[npc]["at"]
 	var model: String = Story.NPCS.get(npc, {}).get("model", "")
 	for spec: Array in GateForces.PEOPLE:
 		if spec[0] == model:
@@ -99,15 +135,12 @@ static func npc_spot(npc: String) -> Variant:
 
 
 ## Misiones que alguien tiene para darte y todavía no empezaste: [{"id", "giver", "xz"}].
-## shortcut: solo las de prueba (TEST); las de la historia se suman en G5, cuando tengan conversación.
 static func offers() -> Array:
 	var out := []
-	for id: String in TEST:
-		if active.has(id) or done.has(id) or locked.has(id):
+	for id: String in startable():
+		var giver := giver_of(id)
+		if giver == "":
 			continue
-		if TEST[id].has("after") and not done.has(TEST[id]["after"]):
-			continue
-		var giver: String = TEST[id].get("giver", "")
 		var at: Variant = npc_spot(giver)
 		if at != null:
 			out.append({"id": id, "giver": giver, "xz": at})
@@ -159,10 +192,7 @@ static func finish(id: String, ending: String) -> void:
 	if not active.has(id) or not (q["ends"] as Dictionary).has(ending):
 		return
 	active.erase(id)
-	if TEST.has(id):
-		done[id] = true
-	else:
-		Story.finish(id, ending, done, locked)
+	Story.finish(id, ending, done, locked)
 	if tracked == id:
 		tracked = "" if active.is_empty() else String(active.keys()[0])
 	note("%s: %s." % [title(id), q["ends"][ending]["text"]])

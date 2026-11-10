@@ -11,6 +11,7 @@ var _banner: Label
 
 
 func _build_base(env_size: Vector3, spawn: Vector3, yaw := 0.0) -> void:
+	QuestLog.entered_scene(scene_file_path)  # las misiones de los maestros que mandan a esta sala
 	WorldKit.add_environment(self, 0.45, env_size)
 	add_child(WorldFx.new())
 	player = Player.new()

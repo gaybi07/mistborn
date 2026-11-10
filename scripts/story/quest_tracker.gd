@@ -7,6 +7,8 @@ const CHECK_EVERY := 0.3
 const TALK_ZONE := Vector3(3.0, 2.2, 3.0)
 ## A cuántos metros de un lugar cuenta como visto (y aparecen sus marcas fijas en el mapa).
 const SEEN_RADIUS := 40.0
+## A cuántos metros del lugar de una misión de guardián se te cruza (y empieza).
+const GUARDIAN_NOTICE := 80.0
 
 var player: Player
 var _wait := 0.0
@@ -61,9 +63,21 @@ func _process(delta: float) -> void:
 		if at != null and not QuestLog.seen_places.has(place) and here.distance_to(at) < SEEN_RADIUS:
 			QuestLog.seen_places[place] = true
 			QuestLog.revision += 1
+	# Las que no da nadie: las principales arrancan solas; las de guardián, al acercarse a su lugar.
+	for id: String in QuestLog.startable():
+		var q: Dictionary = Story.QUESTS[id]
+		if QuestLog.giver_of(id) != "":
+			continue
+		var at: Variant = Story.PLACES.get(q["place"], {}).get("at", null)
+		if q["kind"] == "main" or (at != null and here.distance_to(at) < GUARDIAN_NOTICE):
+			QuestLog.start(id)
 	for id: String in QuestLog.active.keys():
 		var step := QuestLog.current_step(id)
-		if step.has("talk") or step.has("read") or step.is_empty():
+		if step.is_empty():  # llegó y nadie se la dio: la narración deja elegir cómo termina
+			if Dialogues.LINES.has("narra_" + id):
+				DialogueBox.open(get_tree(), "narra_" + id)
+			continue
+		if step.has("talk") or step.has("read") or step.has("scene"):
 			continue
 		var target: Variant = QuestLog.step_target(id)
 		if target != null and here.distance_to(target) < float(step.get("r", 10.0)):
@@ -74,6 +88,9 @@ func _process(delta: float) -> void:
 		if c == null or c.has_meta(&"talk") or not _talkers.has(c.meshy_model):
 			continue
 		var npc_id: String = _talkers[c.meshy_model]
+		var spot: Variant = QuestLog.npc_spot(npc_id)
+		if spot != null and Vector2(c.home.x, c.home.z).distance_to(spot) > 15.0:
+			continue  # otro con el mismo modelo (la otra nena skaa no es Tesa)
 		c.set_meta(&"talk", true)
 		c.add_child(Interactable.make(TALK_ZONE, Vector3(0, 1.0, 0), "Hablar con " + String(Story.NPCS[npc_id]["name"]),
 				func() -> void: DialogueBox.open(get_tree(), npc_id)))
