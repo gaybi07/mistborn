@@ -3,7 +3,10 @@ class_name Dialogues
 ##   "entries": [[condición, nodo], ...]: se arranca en el primer nodo cuya condición se cumple.
 ##   "nodes": nodo -> {"text", "options": [{"text", "to" (otro nodo; sin "to" se cierra), "do": [acciones]}]}.
 ## Condiciones: {} siempre; {"active": id, "step": n} misión en curso en ese paso; {"done": id}; {"available": id}.
-## Acciones: ["start", id], ["advance", id], ["finish", id, final], ["learn", texto], ["read", cartel].
+## Condiciones también: {"outcome": [id, final]} cómo salió lo jugado (QuestLog.outcome); {"coins": n} te alcanzan
+## las monedas; {"clear": true} no queda nadie de la misión en pie. Una opción con "if": {condición} solo sale si se cumple.
+## Acciones: ["start", id], ["advance", id], ["finish", id, final], ["learn", texto], ["read", cartel],
+## ["pay", n] (monedas), ["mission", evento] (a la misión que corre), ["win", final] (la gana).
 ## Los carteles (QuestLog.SIGNS) también van acá, con su "name".
 ## Jugando solo se habla en singular (ver docs/HISTORIA.md).
 
@@ -29,13 +32,15 @@ const LINES := {
 	},
 	"narra_foso": {
 		"name": "El foso de ceniza",
-		"entries": [[{"active": "foso", "step": 1}, "n"]],
+		"entries": [
+			[{"active": "foso", "step": 1, "outcome": ["foso", "salvar"]}, "salvar"],
+			[{"active": "foso", "step": 1}, "dejar"],
+		],
 		"nodes": {
-			"n": {"text": "Despertás encadenado en el fondo del foso. El capataz grita los números de la cuadrilla y las palas no paran. Esa noche la cadena cede. Cuando corrés hacia la rampa, un preso herido te agarra del tobillo: «No me dejes acá».",
-				"options": [
-					{"text": "Cargarlo y sacarlo con vos.", "do": [["finish", "foso", "salvar"]]},
-					{"text": "Soltarte: no llegan los dos.", "do": [["finish", "foso", "dejar"]]},
-				]},
+			"salvar": {"text": "Pasan la empalizada con el herido colgado de tu hombro. Atrás quedan los gritos del capataz. Afuera, la bruma lo tapa todo.",
+				"options": [{"text": "(Seguir, rumbo a las luces de Luthadel.)", "do": [["learn", "Sacaste del foso a un preso herido."], ["finish", "foso", "salvar"]]}]},
+			"dejar": {"text": "Pasás la empalizada solo. Atrás, alguien grita tu nombre hasta que la bruma se traga la voz.",
+				"options": [{"text": "(Seguir, rumbo a las luces de Luthadel.)", "do": [["finish", "foso", "dejar"]]}]},
 		},
 	},
 	"narra_afueras": {
@@ -54,12 +59,49 @@ const LINES := {
 				"options": [{"text": "Pelear hasta tumbarlo.", "do": [["finish", "guardian_bosque", "ok"]]}]},
 		},
 	},
+	# ---------------------------------------------------------------- Acto 1: los de adentro de las misiones (G5)
+	"capataz": {
+		"name": "Capataz de los corrales",
+		"entries": [[{"active": "corrales", "step": 0}, "hola"]],
+		"nodes": {
+			"hola": {"text": "¿Qué mirás? Acá se trabaja. Si venís por la deuda de alguien, son cincuenta monedas. Si no, andate antes de que te ponga a palear.",
+				"options": [
+					{"text": "Pagar la deuda (50 monedas).", "if": {"coins": 50}, "do": [["pay", 50], ["win", "pagar"]], "to": "pagado"},
+					{"text": "Soltá a los chicos o te saco a golpes.", "do": [["mission", "pelea"]], "to": "pelea"},
+					{"text": "Nada. Me quedo mirando cómo trabajan.", "do": [["learn", "El capataz de los corrales le pasa nombres al cuartel del sur."], ["win", "dato"]], "to": "nada"},
+				]},
+			"pagado": {"text": "Cincuenta. Justo. Llevate a los mocosos, pero que no vuelvan a deber.", "options": [{"text": "(Irse.)"}]},
+			"pelea": {"text": "¡Guardias! ¡Este se cree valiente!", "options": [{"text": "(Pelear.)"}]},
+			"nada": {"text": "Mirá todo lo que quieras. Los del cuartel del sur me pagan por saber quién mira.", "options": [{"text": "(Irse.)"}]},
+		},
+	},
+	"preso_herido": {
+		"name": "Preso herido",
+		"entries": [[{"active": "foso", "step": 0}, "n"]],
+		"nodes": {
+			"n": {"text": "No me dejes acá... puedo caminar, despacio, si me ayudás a subir.",
+				"options": [
+					{"text": "Agarrate de mí. Vamos.", "do": [["mission", "seguir"]]},
+					{"text": "No puedo cargarte.", "do": [["mission", "dejar"]]},
+				]},
+		},
+	},
+	"mensajero_terris": {
+		"name": "Mensajero terrisano",
+		"entries": [[{"active": "mensajero", "step": 0, "clear": true}, "salvado"], [{"active": "mensajero", "step": 0}, "rodeado"]],
+		"nodes": {
+			"salvado": {"text": "Pensé que me iban a comer los huesos. Tindwyl lo mandó, ¿no? Lléveme con ella.",
+				"options": [{"text": "Vamos. Te llevo.", "do": [["win", "ok"]]}]},
+			"rodeado": {"text": "¡Cuidado! ¡Siguen ahí, entre los árboles!", "options": [{"text": "(Pelear.)"}]},
+		},
+	},
 	# ---------------------------------------------------------------- Acto 1: la banda (en el taller) y los de afuera
 	"terrisano": {
 		"entries": [
-			[{"active": "el_taller", "step": 1}, "vuelta"],
 			[{"active": "el_taller", "step": 0}, "espera"],
+			[{"active": "el_taller"}, "a_clubs"],
 			[{"available": "el_taller"}, "ofrece"],
+			[{"done": "el_taller"}, "fin"],
 			[{}, "suelto"],
 		],
 		"nodes": {
@@ -76,14 +118,15 @@ const LINES := {
 				]},
 			"va": {"text": "El taller está acá nomás, con la puerta grande. Entre: Clubs lo espera adentro.", "options": [{"text": "Voy."}]},
 			"espera": {"text": "El taller es el de la puerta grande. Clubs no espera dos veces.", "options": [{"text": "Ya voy."}]},
-			"vuelta": {"text": "¿Y? ¿Qué le dijo Clubs?",
-				"options": [{"text": "Me explicó lo que soy. Ya elegí un camino.", "do": [["learn", "Sos alomántico: quemás metales. Clubs y su banda te enseñan."], ["finish", "el_taller", "ok"]], "to": "fin"}]},
+			"a_clubs": {"text": "Clubs es el del mostrador. Escúchelo: no repite las cosas.", "options": [{"text": "Voy."}]},
 			"fin": {"text": "Entonces empieza lo difícil. Los demás de la banda tienen cosas para enseñarle. Hable con ellos.", "options": [{"text": "Gracias, Sazed."}]},
 			"suelto": {"text": "Hay tanto que el Lord Legislador quiere que olvidemos. Yo prefiero recordar.", "options": [{"text": "Adiós."}]},
 		},
 	},
 	"clubs": {
 		"entries": [
+			[{"active": "el_taller", "step": 1}, "taller_explica"],
+			[{"active": "el_taller", "step": 2}, "taller_punto"],
 			[{"active": "t_sigiloso", "step": 1}, "sig_vuelta"],
 			[{"active": "t_volador", "step": 1}, "vol_vuelta"],
 			[{"active": "t_sigiloso", "step": 0}, "sig_espera"],
@@ -93,6 +136,9 @@ const LINES := {
 			[{}, "suelto"],
 		],
 		"nodes": {
+			"taller_explica": {"text": "Así que vos sos lo que Sazed encontró en la bruma. Te lo digo una vez: quemás metales. El acero empuja, el hierro tira, el peltre te hace fuerte, el estaño te afila los sentidos. Elegí por dónde empezar: apretá K y gastá tu primer punto.",
+				"options": [{"text": "Entendido.", "do": [["learn", "Sos alomántico: quemás metales. Clubs y su banda te enseñan."], ["advance", "el_taller"]]}]},
+			"taller_punto": {"text": "¿Todavía no elegiste? Apretá K. No te voy a esperar toda la noche.", "options": [{"text": "Ya va."}]},
 			"sig_ofrece": {"text": "Si no querés que te encuentren, vení conmigo. El barrio skaa de noche es la mejor escuela: cruzalo sin que un buscador te huela.",
 				"options": [
 					{"text": "Vamos.", "do": [["start", "t_sigiloso"]], "to": "sig_va"},
@@ -200,9 +246,9 @@ const LINES := {
 			"espera": {"text": "El capataz sigue ahí, junto al carbón. Los chicos también.", "options": [{"text": "Ya voy."}]},
 			"vuelta": {"text": "¿Qué pasó con el capataz?",
 				"options": [
-					{"text": "Lo eché a golpes.", "do": [["finish", "corrales", "pelear"]], "to": "fin_pelear"},
-					{"text": "Pagué la deuda.", "do": [["finish", "corrales", "pagar"]], "to": "fin_pagar"},
-					{"text": "No me metí: lo que sabe vale más.", "do": [["finish", "corrales", "dato"]], "to": "fin_dato"},
+					{"text": "Lo eché a golpes.", "if": {"outcome": ["corrales", "pelear"]}, "do": [["finish", "corrales", "pelear"]], "to": "fin_pelear"},
+					{"text": "Pagué la deuda.", "if": {"outcome": ["corrales", "pagar"]}, "do": [["finish", "corrales", "pagar"]], "to": "fin_pagar"},
+					{"text": "No me metí: lo que sabe vale más.", "if": {"outcome": ["corrales", "dato"]}, "do": [["finish", "corrales", "dato"]], "to": "fin_dato"},
 				]},
 			"fin_pelear": {"text": "Van a mandar a otro... pero hoy los chicos vuelven a casa.", "options": [{"text": "Cuidalos."}]},
 			"fin_pagar": {"text": "Con tu plata. No me lo voy a olvidar.", "options": [{"text": "Cuidalos."}]},
@@ -282,6 +328,14 @@ static func check(cond: Dictionary) -> bool:
 		return false
 	if cond.has("available") and not cond["available"] in QuestLog.startable():
 		return false
+	if cond.has("outcome") and QuestLog.outcome.get(cond["outcome"][0], "") != cond["outcome"][1]:
+		return false
+	if cond.has("coins"):
+		var player := Engine.get_main_loop().get_first_node_in_group(&"player") as Player
+		if player == null or player.coins_held < int(cond["coins"]):
+			return false
+	if cond.has("clear") and is_instance_valid(Mission.current) and Mission.current.foes_left() > 0:
+		return false
 	if cond.has("active"):
 		if not QuestLog.active.has(cond["active"]):
 			return false
@@ -303,3 +357,12 @@ static func run(actions: Array) -> void:
 				QuestLog.learn(a[1])
 			"read":
 				QuestLog.read(a[1])
+			"pay":
+				var player := Engine.get_main_loop().get_first_node_in_group(&"player") as Player
+				player.coins_held -= int(a[1])
+			"mission":
+				if is_instance_valid(Mission.current):
+					Mission.current.event(a[1])
+			"win":
+				if is_instance_valid(Mission.current):
+					Mission.current.win(a[1])

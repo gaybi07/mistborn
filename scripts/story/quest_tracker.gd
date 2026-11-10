@@ -9,6 +9,22 @@ const TALK_ZONE := Vector3(3.0, 2.2, 3.0)
 const SEEN_RADIUS := 40.0
 ## A cuántos metros del lugar de una misión de guardián se te cruza (y empieza).
 const GUARDIAN_NOTICE := 80.0
+## Lo jugable de cada misión (G5): arranca al llegar a su lugar; las de START_NOW, apenas empieza la misión.
+static var MISSIONS := {
+	"tejados": TejadosMission,
+	"foso": FosoMission,
+	"corrales": CorralesMission,
+	"contrabando": ContrabandoMission,
+	"mensajero": MensajeroMission,
+}
+const START_NOW := ["foso"]  # te agarraron: despertás adentro del foso
+
+
+func _start_mission(id: String) -> void:
+	var m: Mission = (MISSIONS[id] as GDScript).new()
+	m.quest_id = id
+	m.player = player
+	get_parent().add_child(m)
 
 var player: Player
 var _wait := 0.0
@@ -71,16 +87,27 @@ func _process(delta: float) -> void:
 		var at: Variant = Story.PLACES.get(q["place"], {}).get("at", null)
 		if q["kind"] == "main" or (at != null and here.distance_to(at) < GUARDIAN_NOTICE):
 			QuestLog.start(id)
+	var busy := is_instance_valid(Mission.current)
 	for id: String in QuestLog.active.keys():
 		var step := QuestLog.current_step(id)
 		if step.is_empty():  # llegó y nadie se la dio: la narración deja elegir cómo termina
-			if Dialogues.LINES.has("narra_" + id):
+			if Dialogues.LINES.has("narra_" + id) and not busy:
 				DialogueBox.open(get_tree(), "narra_" + id)
+			continue
+		if step.has("spend"):  # el primer punto del árbol (K); sin puntos libres no hay nada que gastar
+			if Progression.points_spent() > int(QuestLog.outcome.get(id + "_spent", 0)) or Progression.points_free() == 0:
+				QuestLog.finish(id, (QuestLog.quest(id)["ends"] as Dictionary).keys()[0])
 			continue
 		if step.has("talk") or step.has("read") or step.has("scene"):
 			continue
 		var target: Variant = QuestLog.step_target(id)
-		if target != null and here.distance_to(target) < float(step.get("r", 10.0)):
+		var arrived := target != null and here.distance_to(target) < float(step.get("r", 10.0))
+		if MISSIONS.has(id) and int(QuestLog.active[id]) == 0:  # lo jugable: arranca al llegar (o enseguida)
+			if not busy and (arrived or id in START_NOW):
+				_start_mission(id)
+				busy = true
+			continue
+		if arrived:
 			QuestLog.note("%s: %s." % [QuestLog.title(id), step["text"]])
 			QuestLog.advance(id)
 	for n: Node in get_tree().get_nodes_in_group(&"npc"):

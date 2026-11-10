@@ -66,7 +66,7 @@ func _show(node: String) -> void:
 	_text.text = data["text"]
 	for c in _options.get_children():
 		c.queue_free()
-	var opts: Array = data.get("options", [])
+	var opts: Array = (data.get("options", []) as Array).filter(func(o: Dictionary) -> bool: return Dialogues.check(o.get("if", {})))
 	if opts.is_empty():
 		opts = [{"text": "(Seguir)"}]
 	for i in opts.size():

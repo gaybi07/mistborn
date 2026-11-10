@@ -123,6 +123,7 @@ const FIST_BLOWS := [
 ]
 const CONE_DOT := 0.6  # adelante, unos 50° para cada lado
 const PROVOKED_LONG := 30.0
+const PROVOKE_RADIUS := 60.0
 
 ## Clave de KITS. shortcut: los inquisidores usan el modelo encapuchado, cambiarlo cuando haya uno propio.
 var kit := "MistbornHood"
@@ -183,7 +184,8 @@ func _pick_foe() -> void:
 func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	if attacker is Player and KITS[kit].get("passive", false):
 		for other: Champion in get_tree().get_nodes_in_group(&"passive_champion"):
-			other._provoked_until = other._world_time + PROVOKED_LONG
+			if other.global_position.distance_to(global_position) < PROVOKE_RADIUS:  # los de cerca, no los de toda la ciudad
+				other._provoked_until = other._world_time + PROVOKED_LONG
 	if lord_powers:
 		damage = lord_powers.filter_damage(damage, attacker)
 		if damage <= 0.0:

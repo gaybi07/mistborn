@@ -15,7 +15,19 @@ const ACT := 1
 ## id -> [posición XZ, hacia dónde mira el frente (rad, 0 = sur)].
 const SIGNS := {"cartel_plaza": [Vector2(9, 12), 0.6]}
 
+## Pasos propios, en vez de "ir y volver con quien la dio". "spend": gastar un punto en el árbol (K).
+const STEPS := {
+	"el_taller": [
+		{"text": "Ir al Taller de Clubs", "place": "taller", "r": 25.0},
+		{"text": "Hablar con Clubs", "talk": "clubs"},
+		{"text": "Gastar un punto en el árbol (K)", "spend": true},
+	],
+}
+
 static var _built := {}
+## Cómo salió lo que se jugó (Mission.win): id -> final. Lo usan la narración y la vuelta con quien la dio.
+## También guarda "<id>_spent": cuántos puntos había gastados al llegar a un paso "spend".
+static var outcome: Dictionary = {}
 
 static var done: Dictionary = {}
 static var locked: Dictionary = {}
@@ -36,6 +48,7 @@ static func reset() -> void:
 	done.clear()
 	locked.clear()
 	active.clear()
+	outcome.clear()
 	tracked = ""
 	known.clear()
 	history.clear()
@@ -49,7 +62,7 @@ static func quest(id: String) -> Dictionary:
 		var q: Dictionary = Story.QUESTS.get(id, {}).duplicate()
 		if not q.is_empty():
 			q["giver"] = giver_of(id)
-			q["steps"] = _steps(q)
+			q["steps"] = STEPS.get(id, _steps(q))
 		_built[id] = q
 	return _built[id]
 
@@ -80,6 +93,24 @@ static func startable() -> Array[String]:
 		if int(Story.QUESTS[id].get("act", 0)) == ACT and not active.has(id):
 			out.append(id)
 	return out
+
+
+## Terminó lo jugable (Mission.win): queda el final y pasa al paso siguiente (la narración o volver con quien la dio).
+static func mission_done(id: String, ending: String) -> void:
+	if not active.has(id):
+		return
+	outcome[id] = ending
+	note("%s: %s." % [title(id), String(quest(id)["ends"][ending]["text"])])
+	advance(id)
+
+
+## Caíste en plena misión: vuelve al primer paso, para intentarlo de nuevo.
+static func mission_failed(id: String) -> void:
+	if not active.has(id):
+		return
+	active[id] = 0
+	outcome.erase(id)
+	note("%s: no salió. Volvé a intentarlo." % title(id))
 
 
 ## Entraste a una escena (las salas del sótano): cumple el paso de las misiones que la pedían.
@@ -150,6 +181,10 @@ static func offers() -> Array:
 ## Adónde guiar al jugador (brújula y marcador en pantalla): el paso de la misión que sigue o, sin ninguna, quien
 ## tenga una para darle, el más cercano. {"xz", "text"} o {} si no hay nada.
 static func guide(here: Vector2) -> Dictionary:
+	if is_instance_valid(Mission.current):
+		var aim: Variant = Mission.current.target()
+		if aim != null:
+			return {"xz": aim, "text": Mission.current.goal}
 	if tracked != "":
 		var at: Variant = step_target(tracked)
 		if at != null:
@@ -183,6 +218,8 @@ static func advance(id: String) -> void:
 	if not active.has(id):
 		return
 	active[id] = int(active[id]) + 1
+	if current_step(id).get("spend", false):
+		outcome[id + "_spent"] = Progression.points_spent()
 	revision += 1
 
 
@@ -213,13 +250,14 @@ static func note(text: String) -> void:
 
 static func to_dict() -> Dictionary:
 	return {"done": done.keys(), "locked": locked.keys(), "active": active.duplicate(), "tracked": tracked, "known": known.duplicate(),
-			"history": history.duplicate(true), "seen": seen_places.keys()}
+			"history": history.duplicate(true), "seen": seen_places.keys(), "outcome": outcome.duplicate()}
 
 
 static func from_dict(d: Dictionary) -> void:
 	reset()
 	for id: String in d.get("done", []):
 		done[id] = true
+	outcome = (d.get("outcome", {}) as Dictionary).duplicate()
 	for id: String in d.get("locked", []):
 		locked[id] = true
 	for id: String in (d.get("active", {}) as Dictionary):
