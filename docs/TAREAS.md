@@ -140,6 +140,31 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G24. Modelos propios del campamento koloss** (los pasa Gabi; hoy: conos, cercas y rocas): tiendas de cuero y
   hueso, estacas afiladas para la empalizada, huesos y calaveras de verdad, estantes de carne, jaulas, y carros para
   traer koloss (el "Cart" de Quaternius es un carrito de mercado, por eso hoy hay pilas de cajones).
+- [ ] **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
+  skaa caminando y trabajando, nobles paseando con su séquito (mayordomo, doncella, guardia), mercaderes en los
+  puestos, y lo mismo en las Aldeas del Camino Sur (300 casas: tiene que verse lleno). Medir los FPS con la gente
+  nueva (hoy los NPC tienen esqueleto y animación cada uno). Hoy hay pocos modelos: skaa adultos 2 (`Skaa`,
+  `SkaaObrero`), chicos 2 (`NinoSkaa`, `NinaSkaa`) y nobles 1 (`GordoNoble`). **Modelos que faltan** (Meshy, riggeados
+  con esqueleto de Mixamo como los demás; toman los clips de la biblioteca de Vin):
+  - Skaa mujer adulta: `Gaunt skaa woman in her thirties, ragged brown dress and shawl, ash-stained, tired face, full body, T-pose, no weapons`
+  - Skaa viejo: `Old skaa man, bent back, ragged gray clothes, bald with white stubble, ash-stained, full body, T-pose, no weapons`
+  - Skaa vieja: `Old skaa woman, hunched, patched dark dress and headscarf, ash-stained, full body, T-pose, no weapons`
+  - Skaa joven trabajador: `Skinny young skaa laborer, torn shirt and rolled trousers, soot on face, full body, T-pose, no weapons`
+  - Noble dama: `Elegant noblewoman, layered ball gown with corset, styled hair, gloves, haughty expression, full body, T-pose`
+  - Noble joven: `Young nobleman, tailored dark suit with cravat and vest, slicked hair, full body, T-pose, no weapons`
+  - Mayordomo: `Stern middle-aged butler, black tailcoat, white gloves, gray side-parted hair, upright posture, full body, T-pose`
+  - Doncella: `Young house maid, dark dress with white apron and cap, modest, full body, T-pose`
+  - Mercader: `Portly merchant, long coat over vest, coin purse at belt, cap, shrewd smile, full body, T-pose, no weapons`
+  - Cochero: `Coachman in long dark coat and wide hat, scarf, gloves, full body, T-pose, no weapons`
+  Listo cuando la ciudad y la aldea se ven llenas de gente variada y los FPS aguantan.
+- [ ] **G26. Carretas y caballos** (después de que Gabi pase los modelos): carretas de carga y carruajes de nobles que
+  andan por las calles y los caminos (Puerta Sur ↔ aldea, Puerta Este ↔ campamento koloss), tirados por caballos, con
+  cochero (G25). También caballos en los establos y corrales de la aldea. **Modelos que faltan:**
+  - Caballo de tiro, con sus clips (quieto, caminar, trotar, tirar). Meshy no riggea cuadrúpedos con el esqueleto de
+    Mixamo: hay que ver de dónde salen los clips (un modelo ya animado, o riggearlo aparte).
+  - Carreta de carga: `Wooden cargo wagon with four spoked wheels, plank sides, canvas cover, medieval, no horse`
+  - Carruaje noble: `Ornate black noble carriage with four wheels, gilded trim, small windows, lanterns, no horse`
+  Listo cuando hay carretas y carruajes moviéndose por las calles y los caminos, con caballos que caminan al paso.
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
