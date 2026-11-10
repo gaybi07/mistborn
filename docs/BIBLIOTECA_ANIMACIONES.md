@@ -100,17 +100,25 @@ El clip se busca en este orden: el modelo del héroe (para Vin, `VinCorregida.gl
 | Poder | Clip | Archivo | Origen | Retoque en el juego |
 |---|---|---|---|---|
 | `burn_focus` | `mage_soell_cast_6` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–45%, suelta en 35% |
+| `clear_mind` | `focus_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Focus, sobre CH36): Mente despejada | retocada: tramo 20%–80%, suelta en 55% |
 | `coin_flick` | `overhandthrow_adjusted` | AFClips.glb | ActionForge, retocada por Claude (Adjust: pecho -20°, cabeza +20°) | retocada: tramo 12%–36%, suelta en 29%, velocidad 0.47 |
 | `coin_magnet` | `mage_soell_cast_7` | Vin.glb | Meshy, nativa | retocada: tramo 30%–90%, suelta en 55% |
 | `coin_shield` | `mage_soell_cast_6` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–70%, suelta en 40% |
 | `coin_wave` | `frisbee_throw_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Frisbee Throw): la Ráfaga de monedas | retocada: tramo 27%–47%, suelta en 44%, velocidad 1.0 |
+| `disarm` | `rope_pull_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Pulling A Rope, sobre CH36): Arrastre y Desarme | retocada: tramo 17%–32%, suelta en 28% |
 | `drink` | `Stand_and_Drink` | Vin.glb | Meshy, nativa | retocada: tramo 20%–60%, suelta en 55% |
+| `extreme_senses` | `looking_around_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Looking Around, sobre CH36): Sentidos extremos | retocada: tramo 5%–85%, suelta en 35% |
 | `field` | `mage_soell_cast_1` | Vin.glb | Meshy, nativa | retocada: tramo 20%–65%, suelta en 50% |
+| `fury` | `roar_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Roar, sobre CH36): Furia | retocada: tramo 15%–85%, suelta en 35% |
+| `hunter_mark` | `pointing_forward_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Pointing Forward, sobre CH36): Marca del cazador | retocada: tramo 25%–62%, suelta en 45% |
+| `iron_drag` | `rope_pull_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Pulling A Rope, sobre CH36): Arrastre y Desarme | retocada: tramo 15%–52%, suelta en 30% |
 | `iron_pull` | `mage_soell_cast_3` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–60%, suelta en 27% |
+| `mass_yank` | `magic_pull_blast_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Standing 2H Magic Area Attack 02, sobre CH36): Atracción masiva | retocada: tramo 15%–52%, suelta en 48% |
 | `pewter_flex` | `Charged_Spell_Cast` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–45%, suelta en 23% |
 | `pull_heavy` | `mage_soell_cast_3` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–60%, suelta en 27% |
 | `spear` | `mage_soell_cast_3` | MistbornHood.glb | Meshy, nativa | retocada: tramo 10%–60%, suelta en 27% |
 | `steel_push` | `Punch_Forward_with_Both_Fists` | MistbornHood.glb | Meshy, nativa | retocada: tramo 30%–60%, suelta en 45% |
+| `tin_focus` | `thinking_mx` | HeroMixamoXBot.glb | Mixamo, nativa (Thinking, sobre CH36): Foco | retocada: tramo 10%–66%, suelta en 25% |
 
 ## Todos los archivos y sus clips
 
@@ -323,11 +331,11 @@ Origen: Mixamo: nativas (Crouch Idle y Wide Arm Spell Casting, para los héroes)
 
 `burst_open_mx`, `crouch_idle_mx`
 
-### `assets/mixamo/HeroMixamoXBot.glb` (4)
+### `assets/mixamo/HeroMixamoXBot.glb` (21)
 
 Origen: Mixamo: nativas, bajadas sobre el X Bot (Frisbee Throw: la Ráfaga de monedas).
 
-`frisbee_throw_mx`, `fight_idle_mx`, `bounce_fight_idle_mx`, `knife_idle_mx`
+`frisbee_throw_mx`, `fight_idle_mx`, `bounce_fight_idle_mx`, `knife_idle_mx`, `angry_point_mx`, `pointing_forward_mx`, `thinking_mx`, `focus_mx`, `shaking_it_off_mx`, `look_around_body_mx`, `looking_around_mx`, `nervous_look_mx`, `rope_pull_mx`, `pull_heavy_start_mx`, `reaching_out_mx`, `magic_pull_clap_mx`, `magic_pull_blast_mx`, `roar_mx`, `standing_yell_mx`, `taunt_flex_mx`, `yelling_out_mx`
 
 ### `assets/mixamo/Mistborn.glb` (49)
 

@@ -113,4 +113,22 @@ const SKILLS := {
 	"burn_focus": ["mage_soell_cast_6", 0.1, 0.45, 0.35],
 	"pewter_flex": ["Charged_Spell_Cast", 0.1, 0.45, 0.23],
 	"drink": ["Stand_and_Drink", 0.2, 0.6, 0.55],  # hasta que la mano llega a la boca (57 %)
+	# Poderes que no tenían gesto: clips de Mixamo bajados sobre CH36 (HeroMixamoXBot), medidos con arm_measure.
+	# Marca del cazador: "Pointing Forward"; la mano izquierda señala adelante a la altura del pecho (45 %).
+	"hunter_mark": ["pointing_forward_mx", 0.25, 0.62, 0.45],
+	# Foco: "Thinking"; la mano derecha va al mentón (25 %) y se queda pensando hasta el 66 %.
+	"tin_focus": ["thinking_mx", 0.10, 0.66, 0.25],
+	# Mente despejada: "Focus" (se saca el dolor de cabeza): manos en la cabeza y las suelta abriendo los brazos (55 %).
+	"clear_mind": ["focus_mx", 0.20, 0.80, 0.55],
+	# Sentidos extremos: "Looking Around": gira el torso y la cabeza a un lado y al otro.
+	"extreme_senses": ["looking_around_mx", 0.05, 0.85, 0.35],
+	# Arrastre: "Pulling A Rope": dos tirones mano sobre mano (la derecha estirada al 20 % y al 40 %).
+	"iron_drag": ["rope_pull_mx", 0.15, 0.52, 0.30],
+	# Desarme: un solo tirón del mismo clip: el brazo estirado (codo 149°) vuelve al pecho (82°) al 30 %.
+	"disarm": ["rope_pull_mx", 0.17, 0.32, 0.28],
+	# Atracción masiva: "Standing 2H Magic Area Attack 02": abre los brazos y los junta adelante hasta el pecho (48 %);
+	# corta antes de la explosión hacia afuera.
+	"mass_yank": ["magic_pull_blast_mx", 0.15, 0.52, 0.48],
+	# Furia: "Roar": se encorva, abre los brazos hacia atrás y ruge (pecho 34° adelante).
+	"fury": ["roar_mx", 0.15, 0.85, 0.35],
 }

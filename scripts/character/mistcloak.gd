@@ -25,175 +25,48 @@ var _hood_up: MeshInstance3D
 static var _grain: NoiseTexture2D
 static var _grain_normal: NoiseTexture2D
 
-## Capa de los personajes con esqueleto: arriba el manto modelado (Meshy: hombros y capucha), cortado
-## a media espalda, y desde su borde cuelgan tiras de tela finas y sueltas. Cada tira es una cadena
-## de huesos que mueve un SpringBoneSimulator3D (inercia, gravedad, viento y aire de la carrera) y
-## choca con cápsulas del cuerpo.
-const MODEL_PATH := "res://assets/meshy/mistcloak/mistcloak.fbx"
-const MODEL_TEX := "res://assets/meshy/mistcloak/mistcloak_%s.png"
-## Punto del cuello en la malla tal como se importa (mira hacia +Z, en metros).
-const MODEL_NECK := Vector3(0, 1.68, -0.12)
-## Escala de la malla para el cuerpo de los personajes (ancho, alto, fondo).
-const MODEL_SCALE := Vector3(0.99, 0.86, 0.99)
-## Altura del borde del manto (desde el cuello, en la malla): de ahí cuelgan las tiras.
-const HEM_Y := -0.4
-## Tiras alrededor del cuerpo (0 = centro de la espalda) hasta ±STRIP_SPREAD rad.
-const STRIPS := 34
-const STRIP_SPREAD := 1.8  # abierta adelante: se ven el cuerpo y el cinturón
-const STRIP_BONES := 4
-const STRIP_ROWS := 16
+## Capa de los personajes con esqueleto: una sola tela del cuello a las pantorrillas, abierta adelante, con
+## cuello alzado y broche, sin capucha (tools/blender/make_mistcloak.py la cuelga con simulación de tela sobre Vin y la
+## riguea). Cadenas de huesos alrededor de la espalda, con pesos mezclados entre vecinas para que se mueva
+## entera; las mueve un SpringBoneSimulator3D (inercia, gravedad, viento y aire de la carrera) y chocan con
+## cápsulas del cuerpo. Los bordes rotos y los agujeros los corta el shader.
+const CLOTH_PATH := "res://assets/models/mistcloak/mistcloak_vin.glb"
+## _cloak_fit() del ModelRig de Vin, sobre la que se colgó la tela: los demás cuerpos la escalan a su medida.
+const VIN_FIT := Vector3(0.7125, 0.902, 0.7125)
 ## Viento del mundo (m/s); lo puede cambiar el clima.
 static var wind := Vector3(0.8, 0.0, 0.3)
-## Cuánto empuja el aire relativo (viento menos velocidad del cuerpo) a las tiras.
-const AIR_PUSH := 0.3
-static var _model_mesh: ArrayMesh
-static var _strip_joints := []  # [tira] -> {"joints": [Vector3 de cada hueso en la malla], "tail": largo del último}
+## Cuánto empuja el aire relativo (viento menos velocidad del cuerpo) a la tela.
+const AIR_PUSH := 0.12  # lana gruesa: con más, al correr queda horizontal como una bandera
+## Malla (huesos renumerados por el orden de `names`), y de cada hueso su posición y su padre ("" = torso).
+static var _cloth_mesh: ArrayMesh
+static var _cloth_bones := {}  # nombre -> {"at": Vector3, "parent": String}
+static var _cloth_names: PackedStringArray
 var _model_mat: ShaderMaterial
-var _strip_mat: ShaderMaterial
 var _model_mi: MeshInstance3D
 var _sim: SpringBoneSimulator3D
+var _chains := 0
 
 
-## Manto (superficie 0, pegado al torso: hueso 0 del Skin) y tiras (superficie 1, cada una con sus
-## huesos 1 + tira * STRIP_BONES + k), con el origen en el cuello y mirando hacia -Z.
-static func _baked_model() -> ArrayMesh:
-	if _model_mesh:
-		return _model_mesh
-	var src: Node = load(MODEL_PATH).instantiate()
+## Lee el .glb una vez: la malla en el espacio del cuello (mirando a +Z) y dónde va cada hueso.
+static func _load_cloth() -> void:
+	if _cloth_mesh:
+		return
+	var src: Node = load(CLOTH_PATH).instantiate()
+	var sk: Skeleton3D = src.find_children("*", "Skeleton3D", true, false)[0]
 	var mi: MeshInstance3D = src.find_children("*", "MeshInstance3D", true, false)[0]
-	var xf := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) * Transform3D(Basis(), -MODEL_NECK) * mi.transform
-	var rot := xf.basis.orthonormalized()
-	var arrays := mi.mesh.surface_get_arrays(0)
+	for b in sk.get_bone_count():
+		var parent := sk.get_bone_parent(b)
+		_cloth_bones[sk.get_bone_name(b)] = {"at": sk.get_bone_global_rest(b).origin,
+				"parent": "" if parent < 0 or sk.get_bone_name(parent) == "cloak_root" else sk.get_bone_name(parent)}
+	var skin: Skin = mi.skin
+	_cloth_names = PackedStringArray()
+	for i in skin.get_bind_count():
+		var bn := skin.get_bind_name(i)
+		_cloth_names.append(bn if bn != "" else sk.get_bone_name(skin.get_bind_bone(i)))
+	_cloth_mesh = ArrayMesh.new()
+	for surf in mi.mesh.get_surface_count():
+		_cloth_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, mi.mesh.surface_get_arrays(surf))
 	src.free()
-	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-	for i in verts.size():
-		verts[i] = xf * verts[i]
-		normals[i] = rot * normals[i]
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	var tangents = arrays[Mesh.ARRAY_TANGENT]
-	if tangents != null:
-		for i in range(0, tangents.size(), 4):
-			var t := rot * Vector3(tangents[i], tangents[i + 1], tangents[i + 2])
-			tangents[i] = t.x
-			tangents[i + 1] = t.y
-			tangents[i + 2] = t.z
-		arrays[Mesh.ARRAY_TANGENT] = tangents
-	# Manto: solo los triángulos por encima del borde (un poco más abajo, para que tape el comienzo
-	# de las tiras).
-	var index: PackedInt32Array
-	if arrays[Mesh.ARRAY_INDEX] != null:
-		index = arrays[Mesh.ARRAY_INDEX]
-	else:
-		index = PackedInt32Array(range(verts.size()))
-	var kept := PackedInt32Array()
-	var cut := HEM_Y - 0.07
-	for i in range(0, index.size(), 3):
-		if verts[index[i]].y > cut and verts[index[i + 1]].y > cut and verts[index[i + 2]].y > cut:
-			kept.append_array([index[i], index[i + 1], index[i + 2]])
-	arrays[Mesh.ARRAY_INDEX] = kept
-	var bones := PackedInt32Array()
-	var weights := PackedFloat32Array()
-	bones.resize(verts.size() * 4)
-	weights.resize(verts.size() * 4)
-	for i in verts.size():
-		weights[i * 4] = 1.0
-	arrays[Mesh.ARRAY_BONES] = bones
-	arrays[Mesh.ARRAY_WEIGHTS] = weights
-	_model_mesh = ArrayMesh.new()
-	_model_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	_model_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, _strip_arrays(_hem_radii(verts)))
-	return _model_mesh
-
-
-## Radio del manto a la altura del borde, por sectores de ángulo (0 = centro de la espalda, +Z).
-static func _hem_radii(verts: PackedVector3Array) -> PackedFloat32Array:
-	var radii := PackedFloat32Array()
-	radii.resize(72)
-	for v in verts:
-		if absf(v.y - HEM_Y) < 0.05:
-			var k := posmod(int(round((atan2(v.x, v.z) + PI) / TAU * 72.0)), 72)
-			radii[k] = maxf(radii[k], Vector2(v.x, v.z).length())
-	return radii
-
-
-## Malla de las tiras: cintas que se angostan hacia la punta, en dos capas alternadas (las de
-## adentro un poco más largas), con una leve curva a lo ancho. Guarda dónde va cada hueso.
-static func _strip_arrays(radii: PackedFloat32Array) -> Array:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var verts := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var uvs := PackedVector2Array()
-	var uv2s := PackedVector2Array()
-	var bones := PackedInt32Array()
-	var weights := PackedFloat32Array()
-	var index := PackedInt32Array()
-	_strip_joints.clear()
-	for s in STRIPS:
-		var th := lerpf(-STRIP_SPREAD, STRIP_SPREAD, (s + rng.randf_range(-0.3, 0.3)) / (STRIPS - 1))
-		var k := posmod(int(round((th + PI) / TAU * 72.0)), 72)
-		var r: float = radii[k] if radii[k] > 0.05 else 0.22
-		var inner := s % 2 == 1
-		if inner:
-			r -= 0.012
-		var out := Vector3(sin(th), 0.0, cos(th))
-		# Cada tira un poco girada (no todas paralelas, como una cortina) y arrancando debajo del
-		# borde del manto, que la tapa.
-		var side := Vector3(cos(th), 0.0, -sin(th)).rotated(Vector3.UP, rng.randf_range(-0.35, 0.35))
-		var normal := side.cross(Vector3.DOWN).normalized()
-		if normal.dot(out) < 0.0:
-			normal = -normal
-		# El manto termina más arriba a los costados: ahí las tiras arrancan más altas y pegadas, para que las tape.
-		var side_k := pow(absf(th) / STRIP_SPREAD, 2.0)
-		r -= 0.05 * side_k
-		var top := Vector3(out.x * (r - 0.015), HEM_Y + rng.randf_range(0.07, 0.15) + 0.1 * side_k, out.z * (r - 0.015))
-		# Más cortas hacia los costados de adelante; las de adentro, un poco más largas.
-		var length := rng.randf_range(0.95, 1.25) * (1.0 - 0.25 * absf(th) / STRIP_SPREAD) * (1.08 if inner else 1.0)
-		var width := rng.randf_range(0.11, 0.16)
-		var flare := rng.randf_range(0.06, 0.14) * (1.0 - 0.8 * side_k)
-		var seed := rng.randf()
-		# Curva de reposo: un poco abombada hacia afuera y desviada de costado, distinta en cada tira.
-		var bulge := rng.randf_range(0.015, 0.045)
-		var sway := rng.randf_range(-0.04, 0.04)
-		var base := verts.size()
-		for row in STRIP_ROWS + 1:
-			var t := float(row) / STRIP_ROWS
-			var center := top + Vector3(0, -length * t, 0) + out * flare * t * length 					+ normal * bulge * sin(PI * t) + side * sway * t * t
-			var w := width * (1.0 - 0.35 * t) * 0.5
-			# Peso entre los dos huesos de la cadena entre los que está.
-			var f := minf(t * STRIP_BONES, STRIP_BONES - 1.0)
-			var b0 := mini(floori(f), STRIP_BONES - 1)
-			var b1 := mini(b0 + 1, STRIP_BONES - 1)
-			var fb := f - b0 if b1 != b0 else 0.0
-			for col in 3:
-				verts.append(center + side * float(col - 1) * w + normal * (0.006 if col == 1 else 0.0))
-				normals.append(normal)
-				uvs.append(Vector2(col * 0.5, t))
-				uv2s.append(Vector2(seed, 0))
-				bones.append_array([1 + s * STRIP_BONES + b0, 1 + s * STRIP_BONES + b1, 0, 0])
-				weights.append_array([1.0 - fb, fb, 0.0, 0.0])
-		for row in STRIP_ROWS:
-			for col in 2:
-				var a := base + row * 3 + col
-				index.append_array([a, a + 3, a + 1, a + 1, a + 3, a + 4])
-		var joints := []
-		for b in STRIP_BONES:
-			var t := float(b) / STRIP_BONES
-			joints.append(top + Vector3(0, -length * t, 0) + out * flare * t * length
-					+ normal * bulge * sin(PI * t) + side * sway * t * t)
-		_strip_joints.append({"joints": joints, "tail": length / STRIP_BONES})
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_TEX_UV2] = uv2s
-	arrays[Mesh.ARRAY_BONES] = bones
-	arrays[Mesh.ARRAY_WEIGHTS] = weights
-	arrays[Mesh.ARRAY_INDEX] = index
-	return arrays
 
 
 ## Tela oscura con grano y relieve, teñida con `color` (a juego con el cuero del traje).
@@ -282,64 +155,74 @@ func build(color: Color, width := 1.0, neck: Node3D = null, strips_only := false
 	_add_trail()
 
 
-## Capa con manto y tiras sueltas para modelos con esqueleto. suit: color del traje, o null para
-## dejar la tela con su color original. Agrega sus huesos a `skel` colgando de `torso`, con el
-## cuello de la capa en el hueso `neck`. colliders: [[hueso, hueso, radio], ...] del cuerpo. body: escala para este cuerpo.
+## Capa de tela para modelos con esqueleto. suit: color del traje, o null para el gris oscuro de la tela.
+## Agrega sus huesos a `skel` colgando de `torso`, con el cuello de la capa en el hueso `neck`.
+## colliders: [[hueso, hueso, radio], ...] del cuerpo. body: medidas de este cuerpo (ModelRig._cloak_fit).
 func build_model(suit: Variant, skel: Skeleton3D, torso: int, neck: int, colliders: Array, body := Vector3.ONE) -> void:
-	var mesh := _baked_model()
+	_load_cloth()
 	_model_mat = ShaderMaterial.new()
 	_model_mat.shader = preload("res://shaders/mistcloak.gdshader")
-	_model_mat.set_shader_parameter("albedo_tex", load(MODEL_TEX % "diffuse"))
-	_model_mat.set_shader_parameter("normal_tex", load(MODEL_TEX % "normal"))
-	_model_mat.set_shader_parameter("rough_tex", load(MODEL_TEX % "roughness"))
-	_strip_mat = ShaderMaterial.new()
-	_strip_mat.shader = preload("res://shaders/mistcloak_strips.gdshader")
 	set_suit_color(suit)
+	var clasp := StandardMaterial3D.new()
+	clasp.albedo_color = Color(0.22, 0.2, 0.18)
+	clasp.metallic = 0.85
+	clasp.roughness = 0.45
 
-	# De la malla al espacio del esqueleto (los modelos miran hacia +Z dentro de su esqueleto).
-	var fit := Transform3D(Basis(Vector3.UP, PI) * Basis.from_scale(MODEL_SCALE * body), skel.get_bone_global_rest(neck).origin)
+	var fit := Transform3D(Basis.from_scale(body / VIN_FIT), skel.get_bone_global_rest(neck).origin)
 	var skin := Skin.new()
-	skin.add_bind(torso, skel.get_bone_global_rest(torso).affine_inverse() * fit)
-	var chains := []
-	for s in STRIPS:
-		var parent := torso
-		var chain := []
-		for k in STRIP_BONES:
-			var bone_name := "cloak_%d_%d" % [s, k]
-			var b := skel.find_bone(bone_name)
-			if b < 0:  # los huesos quedan en el esqueleto si la capa se vuelve a armar
-				skel.add_bone(bone_name)
-				b = skel.find_bone(bone_name)
-				skel.set_bone_parent(b, parent)
-			var global := Transform3D(Basis(), fit * (_strip_joints[s]["joints"][k] as Vector3))
-			skel.set_bone_rest(b, skel.get_bone_global_rest(parent).affine_inverse() * global)
-			skel.reset_bone_pose(b)
-			skin.add_bind(b, global.affine_inverse() * fit)
-			chain.append(b)
-			parent = b
-		chains.append(chain)
+	var ids := {}
+	for bone_name in _cloth_names:
+		if bone_name == "cloak_root":
+			continue
+		var b := skel.find_bone(bone_name)
+		if b < 0:  # los huesos quedan en el esqueleto si la capa se vuelve a armar
+			skel.add_bone(bone_name)
+			b = skel.find_bone(bone_name)
+		ids[bone_name] = b
+	# Padres antes que hijos: las cadenas van de arriba (k = 0) a abajo.
+	var names: Array = ids.keys()
+	names.sort_custom(func(a: String, c: String) -> bool: return int(a.get_slice("_", 2)) < int(c.get_slice("_", 2)))
+	for bone_name in names:
+		var b: int = ids[bone_name]
+		var parent_name: String = _cloth_bones[bone_name]["parent"]
+		var parent: int = torso if parent_name == "" else ids[parent_name]
+		skel.set_bone_parent(b, parent)
+		var global := Transform3D(Basis(), fit * (_cloth_bones[bone_name]["at"] as Vector3))
+		skel.set_bone_rest(b, skel.get_bone_global_rest(parent).affine_inverse() * global)
+		skel.reset_bone_pose(b)
+	# Los binds en el mismo orden que en el .glb: los índices de hueso de la malla apuntan a ellos.
+	for bone_name in _cloth_names:
+		var b: int = torso if bone_name == "cloak_root" else ids[bone_name]
+		skin.add_bind(b, skel.get_bone_global_rest(b).affine_inverse() * fit)
 
 	_model_mi = MeshInstance3D.new()
-	_model_mi.mesh = mesh
+	_model_mi.mesh = _cloth_mesh
 	_model_mi.skin = skin
 	_model_mi.set_surface_override_material(0, _model_mat)
-	_model_mi.set_surface_override_material(1, _strip_mat)
+	_model_mi.set_surface_override_material(1, clasp)
 	_model_mi.extra_cull_margin = 1.5
 	skel.add_child(_model_mi)
 	_model_mi.skeleton = _model_mi.get_path_to(skel)
 
 	_sim = SpringBoneSimulator3D.new()
 	skel.add_child(_sim)
-	_sim.set_setting_count(STRIPS)
-	for s in STRIPS:
-		_sim.set_root_bone(s, chains[s][0])
-		_sim.set_end_bone(s, chains[s][-1])
-		_sim.set_extend_end_bone(s, true)
-		_sim.set_end_bone_length(s, _strip_joints[s]["tail"] * MODEL_SCALE.y * body.y)
-		_sim.set_radius(s, 0.025)
-		_sim.set_stiffness(s, 0.45)
-		_sim.set_drag(s, 0.3)
-		_sim.set_gravity(s, 1.4)
+	_chains = 0
+	while ids.has("cloak_%d_0" % _chains):
+		_chains += 1
+	_sim.set_setting_count(_chains)
+	for m in _chains:
+		var k := 0
+		while ids.has("cloak_%d_%d" % [m, k + 1]):
+			k += 1
+		_sim.set_root_bone(m, ids["cloak_%d_0" % m])
+		_sim.set_end_bone(m, ids["cloak_%d_%d" % [m, k]])
+		_sim.set_extend_end_bone(m, true)
+		var last: Vector3 = _cloth_bones["cloak_%d_%d" % [m, k]]["at"] - _cloth_bones["cloak_%d_%d" % [m, k - 1]]["at"]
+		_sim.set_end_bone_length(m, last.length() * body.y / VIN_FIT.y)
+		_sim.set_radius(m, 0.03)
+		_sim.set_stiffness(m, 0.5)
+		_sim.set_drag(m, 0.35)
+		_sim.set_gravity(m, 2.0)
 	for col in colliders:
 		var a: int = col[0]
 		var r: float = col[2]
@@ -354,11 +237,9 @@ func build_model(suit: Variant, skel: Skeleton3D, torso: int, neck: int, collide
 	_add_trail()
 
 
-## Color del traje para la capa modelada, o null para su color original.
+## Color del traje para la capa, o null para el gris oscuro de la tela.
 func set_suit_color(suit: Variant) -> void:
-	_model_mat.set_shader_parameter("suit", suit if suit != null else Color.WHITE)
-	_model_mat.set_shader_parameter("recolor", 0.0 if suit == null else 1.0)
-	_strip_mat.set_shader_parameter("base_color", (suit as Color).darkened(0.55) if suit != null else Color(0.1, 0.105, 0.12))
+	_model_mat.set_shader_parameter("base_color", (suit as Color).darkened(0.55) if suit != null else Color(0.075, 0.072, 0.07))
 
 
 func _notification(what: int) -> void:
@@ -426,15 +307,17 @@ func drive(dt: float, vel: Vector3) -> void:
 	_trail.emitting = speed > 4.5
 	_trail.amount_ratio = clampf((speed - 4.5) / 10.0, 0.2, 1.0)
 	if _sim:
-		# Las tiras las mueve el SpringBoneSimulator3D: el aire (viento con ráfagas menos la
-		# velocidad del cuerpo) las empuja, y cada una aletea con su propio ritmo.
+		# La tela la mueve el SpringBoneSimulator3D: el aire (viento con ráfagas menos la velocidad
+		# del cuerpo) la empuja.
 		var gust := 0.7 + 0.3 * sin(_t * 1.3) * sin(_t * 0.37 + 1.0)
 		var air := wind * gust - vel
 		_sim.external_force = air * AIR_PUSH
-		var amp := 0.06 + air.length() * 0.035
-		for s in STRIPS:
-			var f := sin(_t * (5.0 + s * 0.53) + s * 2.1) * amp
-			_sim.set_gravity_direction(s, Vector3(f, -1.0, f * 0.6).normalized())
+		# Una onda que recorre la capa de una cadena a la vecina (arriba la tela es entera: si cada una
+		# aleteara por su lado, se estiraría entre ellas) y un poco de aleteo propio de cada tira.
+		var amp := 0.04 + air.length() * 0.025
+		for m in _chains:
+			var f := sin(_t * 4.0 - m * 0.45) * amp + sin(_t * 1.7 + m * 0.2) * amp * 0.5 + sin(_t * 6.3 + m * 2.7) * amp * 0.4
+			_sim.set_gravity_direction(m, Vector3(f, -1.0, f * 0.6).normalized())
 		return
 	var mid := (strips - 1) / 2.0
 	for i in strips:

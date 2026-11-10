@@ -11,6 +11,7 @@ $G --path . -s tools/anim_check/<prueba>.gd -- <argumentos>
 | Prueba | Qué mide | Argumentos |
 |---|---|---|
 | `combat_film.gd` | Filma a 30 fps cada arma (puños, dagas, espada, escudo) en guardia, caminar, agacharse, combo, aire, bloqueo y cada poder. Imprime la velocidad de cabeza, manos, pies y cadera por cuadro. | `<carpeta> [arma,...\|all] [tramo,...] ["estado=clip;..."]` |
+| `cloak_film.gd` | Filma la capa moviéndose de verdad (el personaje avanza): quieto, caminar, correr, saltar, rodar, agacharse, combos de puños y espada y un poder, desde atrás y de costado. Imprime cuánto se meten los huesos de la capa en las piernas. Con ventana y `--fixed-fps 30`. | `<carpeta> [tramo,...\|all] [personaje]` |
 | `trans_film.gd` | Transiciones: agacharse, guardia, caminar/correr/frenar, bloqueo, golpe, saltos, caídas, rodadas. | `<carpeta> [escenario,...]` |
 | `feet_check.gd` | Con piso real: si los pies flotan o se hunden, cuánto patina el pie apoyado y si el cuerpo apoya al rodar. | `[caso,...]` |
 | `strike_check.gd` | Dónde están el puño, la hoja o el pie en el cuadro del impacto de cada golpe del combo. | — |

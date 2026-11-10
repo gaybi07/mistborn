@@ -3323,6 +3323,7 @@ func start_focus() -> bool:
 	_focus_ready_ms = now + int(SkillTree.FOCUS_COOLDOWN * 1000.0)
 	_focus_until_ms = now + int(SkillTree.FOCUS_TIME * 1000.0)
 	notice.emit("Foco")
+	rig.play_skill("tin_focus", 1.6)
 	AirFx.wave(get_tree().current_scene, chest_position() + Vector3(0, 0.4, 0), 1.8, AirFx.TIN, 0.45, 0.03, null, true)
 	AirFx.shell(self, Color(AirFx.TIN, 0.08), 0.8, is_focused, 1.5, 3)
 	return true
@@ -3340,6 +3341,7 @@ func start_mark() -> bool:
 	_marked = npc
 	_marked_until_ms = now + int(SkillTree.MARK_TIME * 1000.0)
 	notice.emit("Enemigo marcado")
+	rig.play_skill("hunter_mark", 1.2)
 	AirFx.wave(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), 2.0, AirFx.TIN, 0.5, 0.03, null, true)
 	AirFx.shell(npc, Color(AirFx.TIN, 0.12), 1.1, func() -> bool: return marked_npc() == npc, 1.1, 4)
 	return true
@@ -3360,6 +3362,7 @@ func start_clear_mind() -> bool:
 	if senses != null:
 		senses.blinded = 0.0
 	notice.emit("Mente despejada")
+	rig.play_skill("clear_mind", 1.8)
 	AirFx.wave(get_tree().current_scene, chest_position() + Vector3(0, 0.4, 0), 3.5, AirFx.TIN, 0.6, 0.04)
 	AirFx.cloud(get_tree().current_scene, chest_position(), 1.2, AirFx.TIN, 1.0, 4, 2.5)
 	return true
@@ -3372,6 +3375,7 @@ func start_extreme() -> bool:
 	_extreme_ready_ms = now + int(SkillTree.EXTREME_COOLDOWN * 1000.0)
 	_extreme_until_ms = now + int(SkillTree.EXTREME_TIME * 1000.0)
 	notice.emit("Sentidos extremos")
+	rig.play_skill("extreme_senses", 2.4)
 	AirFx.wave(get_tree().current_scene, chest_position() + Vector3(0, 0.4, 0), 6.0, AirFx.TIN, 0.8, 0.045, null, true)
 	AirFx.shell(self, Color(AirFx.TIN, 0.1), 1.3, is_extreme_senses, 1.2, 5)
 	return true
@@ -3481,6 +3485,7 @@ func start_fury() -> void:
 	_fury_until_ms = now + int(SkillTree.FURY_TIME * 1000.0)
 	_fury_was_burning = allomancy.is_burning(&"pewter")
 	notice.emit("¡Furia!")
+	rig.play_skill("fury", 2.0)
 	add_trauma(0.5)
 	AirFx.wave(get_tree().current_scene, chest_position(), 4.5, AirFx.PEWTER, 0.6, 0.05)
 	AirFx.shell(self, AirFx.PEWTER, 1.6, func() -> bool: return _fury_until_ms > 0, 1.0, 6)
@@ -3597,6 +3602,7 @@ func start_iron_drag() -> void:
 		return
 	_drag_ready_ms = Time.get_ticks_msec() + int(SkillTree.DRAG_COOLDOWN * 1000.0)
 	_begin_drag(t as Npc, DRAG_STOP, DRAG_STUN)
+	rig.play_skill("iron_drag", 2.4)
 
 
 ## Atracción masiva: arrastra a todos los enemigos con metal cercanos hasta un anillo a tu alrededor.
@@ -3613,6 +3619,7 @@ func start_mass_yank() -> void:
 		notice.emit("No hay enemigos con metal a tu alcance")
 		return
 	_yank_ready_ms = Time.get_ticks_msec() + int(SkillTree.YANK_COOLDOWN * 1000.0)
+	rig.play_skill("mass_yank", 1.0)
 	AirFx.ground(get_tree().current_scene, global_position, SkillTree.YANK_RADIUS, AirFx.IRON, 0.8, true)
 
 
@@ -3722,6 +3729,7 @@ func start_disarm() -> void:
 		return
 	_disarm_ready_ms = Time.get_ticks_msec() + int(SkillTree.DISARM_COOLDOWN * 1000.0)
 	npc.disarm(SkillTree.DISARM_SECONDS)
+	rig.play_skill("disarm", 1.0)
 	var from := npc.global_position + Vector3(0, 1.2, 0)
 	AirFx.pull(get_tree().current_scene, from, chest_position(), AirFx.IRON, 0.8)
 	var mid := (npc.global_position + global_position) * 0.5

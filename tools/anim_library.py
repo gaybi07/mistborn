@@ -46,6 +46,17 @@ CLIP_ORIGIN = {
     "sword_dash": "ActionForge, nativa (sin uso: trae el avance en la cadera)",
     "burst_open_mx": "Mixamo, nativa (Wide Arm Spell Casting), sin uso por ahora",
     "frisbee_throw_mx": "Mixamo, nativa (Frisbee Throw): la Ráfaga de monedas",
+    "angry_point_mx": "Mixamo, nativa (Angry Point, sobre CH36), sin uso", "thinking_mx": "Mixamo, nativa (Thinking, sobre CH36): Foco",
+    "pointing_forward_mx": "Mixamo, nativa (Pointing Forward, sobre CH36): Marca del cazador",
+    "focus_mx": "Mixamo, nativa (Focus, sobre CH36): Mente despejada", "shaking_it_off_mx": "Mixamo, nativa (Shaking It Off, sobre CH36), sin uso",
+    "look_around_body_mx": "Mixamo, nativa (Look Around, sobre CH36), sin uso", "nervous_look_mx": "Mixamo, nativa (Nervously Look Around, sobre CH36), sin uso",
+    "looking_around_mx": "Mixamo, nativa (Looking Around, sobre CH36): Sentidos extremos",
+    "rope_pull_mx": "Mixamo, nativa (Pulling A Rope, sobre CH36): Arrastre y Desarme",
+    "pull_heavy_start_mx": "Mixamo, nativa (Pull Heavy Object Start, sobre CH36), sin uso", "reaching_out_mx": "Mixamo, nativa (Reaching Out, sobre CH36), sin uso",
+    "magic_pull_clap_mx": "Mixamo, nativa (Standing 2H Magic Attack 05, sobre CH36), sin uso",
+    "magic_pull_blast_mx": "Mixamo, nativa (Standing 2H Magic Area Attack 02, sobre CH36): Atracción masiva",
+    "roar_mx": "Mixamo, nativa (Roar, sobre CH36): Furia", "standing_yell_mx": "Mixamo, nativa (Standing Yell, sobre CH36), sin uso",
+    "taunt_flex_mx": "Mixamo, nativa (Taunt flexing, sobre CH36), sin uso", "yelling_out_mx": "Mixamo, nativa (Yelling Out, sobre CH36), sin uso",
     "coin_throw_af": "ActionForge, retocada por Claude (Sword Regular B: postura y brazos con claves), sin uso por ahora",
 }
 # Orden en que el héroe busca cada clip (Art.hero_rig): su propio modelo, el encapuchado y los donantes.
