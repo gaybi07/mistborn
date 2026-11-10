@@ -31,7 +31,8 @@ func _initialize() -> void:
 	if m is TejadosMission:
 		var t := m as TejadosMission
 		var roofs := t._route.filter(func(r: Vector3) -> bool: return r.y > CityPlan.ground(Vector2(r.x, r.z)) + 3.0).size()
-		_ok(t._route.size() == TejadosMission.CHECKPOINTS and roofs >= 4, "ruta de %d puntos, %d sobre techos" % [t._route.size(), roofs])
+		var spread := Vector2(t._route[0].x - t._route[-1].x, t._route[0].z - t._route[-1].z).length()
+		_ok(t._route.size() == TejadosMission.CHECKPOINTS and spread > 25.0, "ruta de %d puntos (%d sobre techos) que cruza %d m" % [t._route.size(), roofs, spread])
 		_ok(t.foes_left() == 3, "tres de la patrulla detrás")
 		_shot("1_tejados")
 		# Caer la reinicia.

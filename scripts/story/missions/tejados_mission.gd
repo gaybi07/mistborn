@@ -8,6 +8,7 @@ const CHECKPOINTS := 6
 const REACH := 3.5
 const HOP := Vector2(8.0, 18.0)  ## distancia entre un techo y el siguiente
 const MAX_RISE := 4.0  ## cuánto más alto puede estar el techo siguiente
+const FIRST_RISE := 9.0  ## el primero, desde la calle
 
 var _route: Array[Vector3] = []
 var _i := 0
@@ -52,7 +53,9 @@ static func route_from(from: Vector2, center: Vector2, space: PhysicsDirectSpace
 			var hit := space.intersect_ray(q)
 			if not hit.is_empty() and hit["position"].y > g + 3.5 and (hit["normal"] as Vector3).y > 0.7:
 				roofs.append(hit["position"])
-	var goal_xz := center + (center - from).normalized() * 55.0
+	# Hacia el otro lado del barrio; si se llega justo por el centro, hacia el este.
+	var away := center - from
+	var goal_xz := center + (away.normalized() if away.length() > 1.0 else Vector2.RIGHT) * 70.0
 	var out: Array[Vector3] = []
 	var cur := Vector3(from.x, CityPlan.ground(from), from.y)
 	for k in CHECKPOINTS:
@@ -60,7 +63,8 @@ static func route_from(from: Vector2, center: Vector2, space: PhysicsDirectSpace
 		var best_d := INF
 		for r in roofs:
 			var d := Vector2(r.x - cur.x, r.z - cur.z).length()
-			if d < HOP.x or d > HOP.y or r.y - cur.y > MAX_RISE or r in out:
+			# El primer techo puede estar más alto (se sube con un empuje); después, de techo en techo.
+			if d < HOP.x or d > HOP.y or r.y - cur.y > (FIRST_RISE if k == 0 else MAX_RISE) or r in out:
 				continue
 			var left := Vector2(r.x, r.z).distance_to(goal_xz)
 			if left < best_d:

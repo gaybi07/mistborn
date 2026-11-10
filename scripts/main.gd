@@ -18,6 +18,8 @@ const WALL_SCALE := 6.8
 const SKAA_TINT := Color(0.68, 0.64, 0.6)
 const STONE_TINT := Color(0.46, 0.44, 0.43)
 const NOBLE_TINT := Color(0.9, 0.84, 0.8)
+## Hollín sobre todas las casas comunes (G27): más oscuras y frías, para que no desentonen con las piezas propias.
+const SOOT := Color(0.5, 0.52, 0.57)
 
 var _rng := RandomNumberGenerator.new()
 var _batch: ModelBatcher
@@ -342,16 +344,53 @@ func _build_landmarks() -> void:
 	var spire := Props.spire(Vector3(mi.x, ModelKit.aabb(tower).size.y * 7.5 - 0.5, mi.y), 0.4, 9.0, _m["metal"], true)
 	add_child(spire)
 
-	# Plaza del Mercado Central: puestos en corro, pozo, hoguera y mercancías.
+	# Frentes de la Plaza Central: caserones y torres góticos (piezas propias) mirando a la plaza, en terrenos que las
+	# casas comunes después esquivan (_occupied).
+	var edge := CityPlan.PLAZA_HALF + 8.0
+	var fronts := [[Vector2(-25, -edge), 0.0, "CasaGotica"], [Vector2(25, -edge), 0.0, "TorreGotica"],
+		[Vector2(edge, -25), -PI / 2.0, "CasaGotica"], [Vector2(edge, 25), -PI / 2.0, "TorreGotica"],
+		[Vector2(25, edge), PI, "CasaGotica"], [Vector2(-25, edge), PI, "TorreGotica"],
+		[Vector2(-edge, 25), PI / 2.0, "CasaGotica"], [Vector2(-edge, -25), PI / 2.0, "TorreGotica"]]
+	for f: Array in fronts:
+		var at: Vector2 = f[0]
+		_batch.add(LUTHADEL % (String(f[2]) + ".gltf"), Vector3(at.x, 0, at.y), f[1], 1.0)
+		_occupied.append([at, 9.5 if f[2] == "CasaGotica" else 6.0])
+
+	# Plaza del Mercado: fuente de tres platos, puestos de lona en corro, carretas, fuego y mercadería; alrededor,
+	# casas con tienda y conventillos mirando al mercado.
 	var mk := CityPlan.MARKET
-	for i in 9:
-		var a := TAU * i / 9.0
-		var p := mk + Vector2(cos(a), sin(a)) * 11.0
-		var model := "props/MarketStand_1" if i % 2 == 0 else "props/MarketStand_2"
-		_batch.add(_q(model), Vector3(p.x, 0, p.y), atan2(-cos(a), -sin(a)), 3.2, SKAA_TINT)
-	_add_prop("props/Well", Vector3(mk.x, 0, mk.y), 0.0, 3.5)
+	var mk3 := Vector3(mk.x, 0, mk.y)
+	_batch.add(LUTHADEL % "FuenteMercado.gltf", mk3, 0.0, 1.0, Color.WHITE, false)
+	var mk_rim := []
+	for k in 8:
+		var a := PI / 4.0 * k
+		mk_rim.append([Vector3(2.8, 0.95, 0.7), Vector3(sin(a), 0, cos(a)) * 3.15 + Vector3.UP * 0.88, 0.0, a])
+	_solid(mk3, 0.0, mk_rim, [[5.2, 0.2, Vector3(0, 0.1, 0)], [4.5, 0.2, Vector3(0, 0.3, 0)], [0.8, 4.6, Vector3(0, 2.7, 0)]])
+	for i in 8:
+		var a := TAU * i / 8.0 + 0.2
+		var p := mk + Vector2(cos(a), sin(a)) * 12.5
+		_batch.add(LUTHADEL % ("PuestoLona.gltf" if i % 2 == 0 else "PuestoCarpa.gltf"), Vector3(p.x, 0, p.y), atan2(-cos(a), -sin(a)), 1.1)
+	for i in 3:
+		var a := TAU * i / 3.0 + 0.9
+		var p := mk + Vector2(cos(a), sin(a)) * 7.5
+		_batch.add(LUTHADEL % "Carreta.gltf", Vector3(p.x, 0, p.y), a, 1.0)
+	for i in 6:
+		var a := TAU * i / 6.0
+		var lot := mk + Vector2(cos(a), sin(a)) * (CityPlan.MARKET_RADIUS + 9.0)
+		_batch.add(LUTHADEL % ("CasaTienda.gltf" if i % 2 == 0 else "CasaConventillo.gltf"), Vector3(lot.x, 0, lot.y), atan2(-cos(a), -sin(a)), 1.0)
+		_occupied.append([lot, 6.5])
+	for i in 4:  # faroles: luz cálida entre los puestos
+		var a := TAU * i / 4.0 + 0.6
+		var lamp := OmniLight3D.new()
+		lamp.light_color = Color(1.0, 0.66, 0.36)
+		lamp.omni_range = 11.0
+		lamp.light_energy = 1.6
+		lamp.position = Vector3(mk.x + cos(a) * 10.0, 2.6, mk.y + sin(a) * 10.0)
+		lamp.distance_fade_enabled = true
+		lamp.distance_fade_begin = 90.0
+		add_child(lamp)
 	var fire := Brazier.new()
-	fire.position = Vector3(mk.x + 4.0, 0, mk.y - 3.0)
+	fire.position = Vector3(mk.x + 6.5, 0, mk.y - 5.0)
 	add_child(fire)
 	for i in 14:
 		var a := _rng.randf() * TAU
@@ -457,6 +496,7 @@ func _add_prop(name: String, pos: Vector3, yaw: float, scale: float) -> void:
 
 ## Modelo al lote; mientras se generan las casas, además queda guardado para la próxima vez.
 func _house_model(path: String, pos: Vector3, yaw: float, scale: float, tint: Color, collide := true) -> void:
+	tint = Color(tint.r * SOOT.r, tint.g * SOOT.g, tint.b * SOOT.b)
 	_batch.add(path, pos, yaw, scale, tint, collide)
 	if not _rec.is_empty():
 		_rec["models"].append([path, pos, yaw, scale, tint, collide])
@@ -848,11 +888,49 @@ func _build_street_lamps() -> void:
 
 # ---------------------------------------------------------------- Plaza del Centro
 
+## Piezas propias de Luthadel (G27), generadas con tools/blender/make_luthadel_kit.py: 1 unidad = 1 m.
+const LUTHADEL := "res://assets/luthadel/%s"
+const FOUNTAIN := Vector3(0, 0, -2)
+
+
+## Cuerpo invisible para chocar, con cajas [tamaño, centro, giro en X] y cilindros [radio, alto, centro].
+## Para las piezas cuya envolvente convexa taparía por donde se camina (la pila de la fuente, la tarima del cadalso).
+func _solid(pos: Vector3, yaw: float, boxes: Array, cylinders: Array = []) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = Props.LAYER_WORLD
+	body.collision_mask = 0
+	body.position = pos + Vector3.DOWN * 0.15  # ModelBatcher apoya los modelos 15 cm hundidos
+	body.rotation.y = yaw
+	for b: Array in boxes:
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = b[0]
+		col.shape = shape
+		col.position = b[1]
+		col.rotation.x = b[2] if b.size() > 2 else 0.0
+		col.rotation.y = b[3] if b.size() > 3 else 0.0
+		body.add_child(col)
+	for c: Array in cylinders:
+		var col := CollisionShape3D.new()
+		var shape := CylinderShape3D.new()
+		shape.radius = c[0]
+		shape.height = c[1]
+		col.shape = shape
+		col.position = c[2]
+		body.add_child(col)
+	add_child(body)
+
+
 func _build_plaza() -> void:
-	# Estatua de bronce del Lord Legislador: ancla de metal en el centro.
-	add_child(Props.static_box(Vector3(5, 1.0, 5), Vector3(0, 0.5, -2), _m["trim"]))
-	add_child(Props.static_box(Vector3(2.4, 1.6, 2.4), Vector3(0, 1.8, -2), _m["stone"]))
-	Props.bronze_statue(self, Vector3(0, 2.6, -2), {"height": 2.1, "build": 1.15, "coat": Color.WHITE, "cloak": true, "hair_style": "short"}, _m["bronze"])
+	# La fuente, con la estatua de bronce del Lord Legislador arriba del pedestal: ancla de metal en el centro.
+	_batch.add(LUTHADEL % "PlazaFuente.gltf", FOUNTAIN, 0.0, 1.0, Color.WHITE, false)
+	var rim := []  # el borde de la pila, en ocho tramos (así se puede caer adentro, al agua)
+	for k in 8:
+		var a := PI / 4.0 * k
+		rim.append([Vector3(4.6, 1.1, 0.8), Vector3(sin(a), 0, cos(a)) * 5.17 + Vector3.UP * 1.15, 0.0, a])
+	_solid(FOUNTAIN, 0.0, rim, [[9.0, 0.2, Vector3(0, 0.1, 0)], [8.2, 0.2, Vector3(0, 0.3, 0)], [7.4, 0.2, Vector3(0, 0.5, 0)],
+			[2.1, 4.0, Vector3(0, 2.6, 0)]])
+	Props.bronze_statue(self, FOUNTAIN + Vector3(0, 4.47, 0), {"height": 2.1, "build": 1.15, "coat": Color.WHITE, "cloak": true, "hair_style": "short"}, _m["bronze"])
 
 	# Farolas de la plaza: hierro de verdad.
 	for i in 12:
@@ -863,27 +941,31 @@ func _build_plaza() -> void:
 
 	for i in 10:
 		var ang := TAU * (i + 0.5) / 10.0
-		var model := "props/MarketStand_1" if i % 2 == 0 else "props/MarketStand_2"
-		_batch.add(_q(model), Vector3(cos(ang) * 27.0, 0, sin(ang) * 27.0), atan2(-cos(ang), -sin(ang)), 3.2, SKAA_TINT)
+		_batch.add(LUTHADEL % ("PuestoLona.gltf" if i % 3 != 2 else "PuestoCarpa.gltf"), Vector3(cos(ang) * 27.0, 0, sin(ang) * 27.0), atan2(-cos(ang), -sin(ang)), 1.1)
 
-	for p in [Vector3(5, 0.05, 2), Vector3(-10, 0.05, -8)]:
+	for p in [Vector3(11, 0.05, 4), Vector3(-12, 0.05, -10)]:
 		add_child(Props.static_box(Vector3(1.2, 0.1, 1.2), p, _m["rusty"], true))
 
 	for i in 5:
 		var s := _rng.randf_range(0.5, 1.2)
 		var pos := Vector3(_rng.randf_range(-12, 12), s / 2.0 + 0.1, _rng.randf_range(-12, 14))
-		if pos.distance_to(Vector3(0, pos.y, -2)) < 4.0:
-			pos.x += 6.0
+		var from_fountain := Vector3(pos.x - FOUNTAIN.x, 0, pos.z - FOUNTAIN.z)
+		if from_fountain.length() < 10.5:  # fuera de la grada de la fuente
+			from_fountain = (from_fountain.normalized() if from_fountain.length() > 0.1 else Vector3.RIGHT) * 11.0
+			pos.x = FOUNTAIN.x + from_fountain.x
+			pos.z = FOUNTAIN.z + from_fountain.z
 		add_child(Props.metal_crate(Vector3.ONE * s, pos, 60.0 * s * s * s, _m["rusty"], _m["iron"]))
 
 	for i in 15:
 		var coin := Props.coin()
 		coin.position = Vector3(_rng.randf_range(-18, 18), 0.2, _rng.randf_range(-18, 18))
+		if Vector2(coin.position.x - FOUNTAIN.x, coin.position.z - FOUNTAIN.z).length() < 9.5:
+			coin.position.y = 2.2  # caen sobre la grada o adentro de la fuente
 		add_child(coin)
 
-	for p in [Vector3(3, 1, 4), Vector3(-8, 1, -8), Vector3(10, 1, 5), Vector3(-4, 1, 13), Vector3(0, 1, -22), Vector3(14, 1, -14)]:
+	for p in [Vector3(4, 1, 9), Vector3(-10, 1, -9), Vector3(10, 1, 5), Vector3(-4, 1, 13), Vector3(0, 1, -22), Vector3(14, 1, -14)]:
 		_vial(p, &"mix")
-	for p in [Vector3(-3, 1, 2), Vector3(6, 1, -6)]:
+	for p in [Vector3(-9, 1, 6), Vector3(10, 1, -8)]:
 		_vial(p, &"atium")
 
 
@@ -905,17 +987,30 @@ func _build_plaza_details() -> void:
 
 	_add_prop("props/Well", Vector3(-24, 0, 24), 0.0, 3.5)
 
-	# Bancos alrededor de la estatua, mirando hacia ella.
-	for i in 4:
-		var a := TAU * (i + 0.5) / 4.0
-		var off := Vector3(sin(a), 0, cos(a)) * 7.5
-		_batch.add(_q("props/Bench_1"), Vector3(0, 0, -2) + off, a + PI, 3.2, SKAA_TINT)
+	# Bancos de piedra alrededor de la fuente, mirando hacia ella.
+	for i in 8:
+		var a := TAU * (i + 0.5) / 8.0
+		var off := Vector3(sin(a), 0, cos(a)) * 11.5
+		_batch.add(LUTHADEL % "PlazaBanco.gltf", FOUNTAIN + off, a + PI, 1.15)
+
+	# El cadalso del Ministerio, en la esquina noroeste, de frente a la fuente.
+	var gallows := Vector3(-21, 0, -20)
+	var to_center := FOUNTAIN - gallows
+	var gy := atan2(to_center.x, to_center.z)
+	_batch.add(LUTHADEL % "PlazaCadalso.gltf", gallows, gy, 1.3, Color.WHITE, false)
+	_solid(gallows, gy, [[Vector3(7.3, 0.25, 5.7), Vector3(0, 2.2, 0)], [Vector3(2.0, 0.2, 3.4), Vector3(-2.1, 1.1, 4.1), 0.74]])
+
+	# Obeliscos con púa de hierro a los lados de cada entrada.
+	for p in [Vector3(-12, 0, -30), Vector3(12, 0, -30), Vector3(-12, 0, 30), Vector3(12, 0, 30),
+			Vector3(30, 0, -12), Vector3(30, 0, 12), Vector3(-30, 0, -12), Vector3(-30, 0, 12)]:
+		_batch.add(LUTHADEL % "PlazaObelisco.gltf", p, 0.0, 1.0)
 
 	for p in [Vector3(31.5, 0, 6), Vector3(32.3, 0, 6.7), Vector3(31.6, 0, 7.5), Vector3(-31.5, 0, -6),
 			Vector3(-32.2, 0, -6.8), Vector3(6, 0, -31.5), Vector3(6.8, 0, -32.2), Vector3(-20, 0, 31.5)]:
 		_add_prop("props/Barrel", p, _rng.randf() * TAU, 4.0)
-	_batch.add(_q("props/Cart"), Vector3(28, 0, -14), 0.3, 3.2, SKAA_TINT)
-	_batch.add(_q("props/Cart"), Vector3(-28, 0, 14), PI - 0.25, 3.2, SKAA_TINT)
+	_batch.add(LUTHADEL % "Carreta.gltf", Vector3(20, 0, -15), 0.9, 1.0)
+	_batch.add(LUTHADEL % "Carreta.gltf", Vector3(-19, 0, 15), PI + 0.5, 1.0)
+	_batch.add(LUTHADEL % "Carreta.gltf", Vector3(16, 0, 21), -0.6, 1.0)
 	for p in [Vector3(-32, 0, 8), Vector3(-32, 0, 9.4), Vector3(24, 0, 32), Vector3(25.4, 0, 32.2)]:
 		_add_prop("props/Crate", p, _rng.randf() * TAU, 6.0)
 

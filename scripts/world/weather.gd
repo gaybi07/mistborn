@@ -144,16 +144,17 @@ func apply(show_label := true) -> void:
 	# Cielo: [arriba, horizonte, suelo, nubes, borde de nubes, cobertura, estrellas, disco, tamaño del disco]
 	var sky: Array
 	if day:
-		# Sol rojo de Luthadel tras nubes de ceniza pardas.
-		sky = [Color(0.36, 0.27, 0.25), Color(0.78, 0.5, 0.38), Color(0.2, 0.17, 0.16), Color(0.33, 0.25, 0.22),
-				Color(0.95, 0.6, 0.42), 0.62, 0.0, Color(0.75, 0.16, 0.07), 0.06]
-		env.ambient_light_energy = 1.35
-		env.fog_light_color = Color(0.75, 0.55, 0.45)
+		# Sol rojo de Luthadel tras un techo de ceniza gris: el cielo es plomo y solo el horizonte y el borde de las
+		# nubes se tiñen de rojo (G27; antes todo tiraba a naranja).
+		sky = [Color(0.17, 0.16, 0.17), Color(0.5, 0.31, 0.27), Color(0.13, 0.12, 0.12), Color(0.19, 0.17, 0.17),
+				Color(0.7, 0.4, 0.32), 0.74, 0.0, Color(0.75, 0.16, 0.07), 0.06]
+		env.ambient_light_energy = 1.1
+		env.fog_light_color = Color(0.47, 0.43, 0.42)
 		env.volumetric_fog_density = 0.004 * fog_mult
-		env.volumetric_fog_albedo = Color(0.9, 0.75, 0.65)
+		env.volumetric_fog_albedo = Color(0.7, 0.66, 0.64)
 		moon.rotation_degrees = Vector3(-22, -40, 0)
-		moon.light_color = Color(1.0, 0.68, 0.5)
-		_moon_energy = 2.1
+		moon.light_color = Color(0.95, 0.74, 0.64)
+		_moon_energy = 1.7
 	else:
 		# Noche de bruma: luna velada, nubes oscuras con el borde plateado y alguna estrella.
 		sky = [Color(0.02, 0.025, 0.045), Color(0.15, 0.14, 0.16), Color(0.02, 0.02, 0.03), Color(0.045, 0.045, 0.055),
@@ -168,7 +169,7 @@ func apply(show_label := true) -> void:
 	# De día, más luz que la "realista" (parte de la ambiente es un color fijo y no solo el cielo). De
 	# noche se ve poco a propósito: hay que quemar estaño.
 	env.tonemap_exposure = 1.1 if day else 1.0
-	env.ambient_light_color = Color(0.62, 0.48, 0.42)
+	env.ambient_light_color = Color(0.5, 0.46, 0.45) if day else Color(0.62, 0.48, 0.42)
 	env.ambient_light_sky_contribution = 0.75 if day else 1.0
 
 	# --- Clima
