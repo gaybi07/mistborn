@@ -2,8 +2,22 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G4 · Misiones con los NPC del mapa · Gabi
+- **Rama:** `gabi/g4-npc-misiones` (borrada) · **Merge:** `0496a62` · **Estado:** 🧪 falta revisar (ronda 1)
+- **Qué se hizo:** las misiones del Acto 1 salen de la historia (`Story.QUESTS`) con sus pasos: ir al lugar y volver
+  con quien la dio, que pregunta qué pasó y ahí se elige el final (con sus consecuencias). Las tres primeras
+  (tejados, foso, afueras) arrancan solas y se cierran con una narración al llegar; el guardián del bosque, al
+  acercarse. Conversaciones escritas a mano para Sazed, Clubs (también da la de Spook), Ham, Breeze, Tesa, Dockson
+  y Tindwyl. Bajar a las salas del sótano cumple el paso de los maestros. Se fueron las misiones de prueba.
+- **Archivos:** `scripts/story/` (quest_log, dialogues, quest_tracker, story), `scripts/training/training_room.gd`,
+  `tools/story/quest_check.gd`.
+- **Cómo se probó:** `quest_check.gd` recorre el Acto 1 entero y pasa; el juego corre sin errores. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** lo jugable de adentro de cada misión es de G5. Ronda de revisión 1. Las partidas viejas
+  arrancan de nuevo desde "Sobre los tejados".
+
 ### 2026-11-10 · G3 · Espectro de la bruma · Gabi
-- **Rama:** `gabi/g3-espectro-bruma` (borrada) · **Merge:** `50d9b37`
+- **Rama:** `gabi/g3-espectro-bruma` (borrada) · **Merge:** `50d9b37` · **Estado:** 🧪 falta revisar (ronda 1)
 - **Qué se hizo:** el modelo de Meshy ("The Marrow Mist": masa de bruma con esqueletos adentro, sin esqueleto propio)
   en `assets/meshy/Espectro.glb`. Como no se puede riggear, lo mueve un shader (`shaders/mist_wraith.gdshader`):
   respira y ondula, se arrastra a tirones, se echa atrás y se lanza (pega en el pico del estirón) y al morir se
@@ -18,7 +32,7 @@ Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arrib
   no tiene cuerpo para riggear (decisión del 10/11).
 
 ### 2026-11-10 · G2 · Foso de ceniza · Gabi
-- **Rama:** `gabi/g2-foso-ceniza` (borrada) · **Merge:** `6e9db37`
+- **Rama:** `gabi/g2-foso-ceniza` (borrada) · **Merge:** `6e9db37` · **Estado:** 🧪 falta revisar (ronda 1)
 - **Qué se hizo:** foso de trabajo forzado al oeste de Luthadel (-580, 330): unos 200 m de ancho y 40 m de hondo,
   cuatro paredes con terrazas y rampas en espiral; borde irregular, terrazas que ondulan, espolones que cortan
   terrazas y picos de roca en el fondo; lomas alrededor. Empalizada, torres, barracas, fogatas y carros (Quaternius),

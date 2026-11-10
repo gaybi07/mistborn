@@ -4,7 +4,8 @@ Quién hace qué de acá en adelante. Para empezar o terminar una tarea, pedirle
 la L3": la skill `tarea` (`.claude/skills/tarea/SKILL.md`) crea la rama, la mergea a develop, la borra y anota todo acá
 y en `docs/REGISTRO.md`.
 
-**Estados:** `- [ ]` pendiente · `- [ ] 🔄` en curso (con quién, rama y fecha) · `- [x] ✅` verificada (con fecha,
+**Estados:** `- [ ]` pendiente · `- [ ] 🔄` en curso (con quién, rama y fecha) · `- [x] 🧪` en develop, falta revisar
+(anotada en la [ronda de revisión](#ronda-de-revisión) abierta) · `- [x] ✅` verificada: revisada y aprobada (con fecha,
 rama y merge).
 
 ## En curso
@@ -12,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G4. Misiones con los NPC del mapa | `gabi/g4-npc-misiones` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -91,12 +92,12 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 - [x] ✅ **G1. Y10.** Conversaciones, cuaderno, marcas del mapa y guardado en tres partidas.
   — *verificada 2026-11-09, rama `gabi/g1-dialogos-guardado` (borrada), merge `995558a`*
-- [x] ✅ **G2. Y5.** Foso de ceniza.
-  — *verificada 2026-11-10, rama `gabi/g2-foso-ceniza` (borrada), merge `6e9db37`*
-- [x] ✅ **G3. P5.** Espectro de la bruma (modelo y clips propios).
-  — *verificada 2026-11-10, rama `gabi/g3-espectro-bruma` (borrada), merge `50d9b37`*
-- [ ] 🔄 **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
-  — *en curso: Gabi, rama `gabi/g4-npc-misiones`, desde 2026-11-10*
+- [x] 🧪 **G2. Y5.** Foso de ceniza.
+  — *en develop 2026-11-10, rama `gabi/g2-foso-ceniza` (borrada), merge `6e9db37`; falta revisar (ronda 1)*
+- [x] 🧪 **G3. P5.** Espectro de la bruma (modelo y clips propios).
+  — *en develop 2026-11-10, rama `gabi/g3-espectro-bruma` (borrada), merge `50d9b37`; falta revisar (ronda 1)*
+- [x] 🧪 **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
+  — *en develop 2026-11-10, rama `gabi/g4-npc-misiones` (borrada), merge `0496a62`; falta revisar (ronda 1)*
 - [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
 
 ### 2. Escenarios
@@ -127,6 +128,31 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G21. Revisar cómo se mueve el espectro de la bruma**, al terminar la historia: jugarlo contra uno y contra
   tres, ver si el shader alcanza (ondular, arrastrarse, lanzarse, derretirse) o si hace falta otra cosa, y medir los
   FPS con los seis cerca. Hoy no se jugó con teclado (decisión del 10/11). Ver `scripts/character/wraith_rig.gd`.
+
+## Ronda de revisión
+
+Lo que entró a develop sin que nadie lo jugara. Se juega todo junto, se anota acá lo que no anda, se arregla, y recién
+ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
+
+### Ronda 1 (abierta desde 2026-11-10)
+
+- [ ] **G2. Foso de ceniza** (oeste de la ciudad, al sudoeste de la Puerta Oeste):
+  - [ ] bajar las rampas caminando hasta el fondo, y saltar de terraza en terraza;
+  - [ ] que la forma irregular, los picos, los espolones y las lomas se vean bien de cerca y de lejos;
+  - [ ] la empalizada, las torres, las barracas y las fogatas en su lugar; nada flotando ni enterrado;
+  - [ ] presos trabajando y soldados en su puesto; los FPS adentro del foso.
+- [ ] **G3. Espectro de la bruma** (camino del oeste y borde del bosque):
+  - [ ] pelear contra uno y contra tres: que se lea cuándo se lanza y se pueda esquivar;
+  - [ ] que ondular, arrastrarse, lanzarse y derretirse se vean bien (si no, G21);
+  - [ ] los FPS con los seis cerca y su bruma.
+- [ ] **G4. Misiones del Acto 1** (partida nueva):
+  - [ ] tejados, foso y afueras: arrancan solas, el marcador lleva y la narración se abre al llegar;
+  - [ ] Sazed ofrece el taller; después Clubs, Ham, Breeze, Tesa, Dockson y Tindwyl ofrecen la suya;
+  - [ ] cada conversación: ofrecer, preguntar, rechazar, el recordatorio y la vuelta con el final elegido;
+  - [ ] bajar a la sala de combate y a la pista desde Esc → Ir a cumple el paso de Ham y de Clubs;
+  - [ ] el cuaderno (J), la brújula y el mapa muestran bien lo que está en curso y quién ofrece qué;
+  - [ ] cargar una partida vieja (la 1) no rompe nada.
+- [ ] **Misiones en general (G1/G2):** el cartel de la plaza con E, el objetivo bajo la brújula y el marcador en pantalla.
 
 ## Pedidos de animación
 

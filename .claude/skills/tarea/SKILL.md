@@ -22,7 +22,11 @@ Lucho y, si lo es, usar prefijo `lucho/` y tareas L. Nunca tocar el estado de un
 |---|---|
 | Pendiente | `- [ ] **L3. Ventana K, lista.** …` |
 | En curso | `- [ ] 🔄 **L3. Ventana K, lista.** … — *en curso: Lucho, rama `lucho/l3-ventana-lista`, desde 2026-11-10*` |
+| Falta revisar | `- [x] 🧪 **L3. Ventana K, lista.** … — *en develop 2026-11-12, rama `lucho/l3-ventana-lista` (borrada), merge `abc1234`; falta revisar (ronda 1)*` |
 | Verificada | `- [x] ✅ **L3. Ventana K, lista.** … — *verificada 2026-11-12, rama `lucho/l3-ventana-lista` (borrada), merge `abc1234`*` |
+
+🧪 = mergeada a develop sin que nadie la jugara. Va a la **ronda de revisión** abierta en `docs/TAREAS.md` (sección
+"Ronda de revisión") con una lista de qué jugar. Pasa a ✅ recién cuando se juega la ronda y anda.
 
 Arriba de todo, la tabla **En curso** dice qué tiene abierto cada uno: se actualiza al empezar y al terminar.
 
@@ -63,7 +67,8 @@ Arriba de todo, la tabla **En curso** dice qué tiene abierto cada uno: se actua
    `git checkout -- project.godot`.
 7. **Anotar** (en develop, antes de pushear):
    - `docs/TAREAS.md`: la tarea pasa a `- [x] ✅` con fecha, rama (borrada) y el hash corto del merge; sacarla de
-     **En curso**.
+     **En curso**. Si el usuario no la jugó (pidió seguir sin probar), va `- [x] 🧪` y se suma a la ronda de revisión
+     abierta con qué hay que jugar, en casillas; el commit es `Registro: <ID> en develop, falta revisar`.
    - `docs/REGISTRO.md`: una entrada nueva arriba de todo (formato abajo).
    - Si la tarea venía de `docs/PERSONAJES.md` (P…, Y…), tacharla también ahí.
    - Commit `Registro: <ID> verificada` en develop.
@@ -73,6 +78,15 @@ Arriba de todo, la tabla **En curso** dice qué tiene abierto cada uno: se actua
 10. Contar en dos líneas: qué se mergeó, si hubo conflictos y cómo se resolvieron, y qué tarea sigue para esa persona.
 
 Si el merge sale mal y no se quiere seguir: `git merge --abort` y avisar. Nunca `push --force` a develop.
+
+## Revisar una ronda ("revisemos la ronda 1")
+
+1. Desde develop actualizado, abrir el juego y recorrer las casillas de la ronda con el usuario.
+2. Lo que anda: tildar la casilla. Lo que no: anotarlo debajo y arreglarlo en una rama `<prefijo>/ronda<N>-arreglos`
+   (flujo normal de tarea).
+3. Cuando todas las casillas de una tarea están tildadas, la tarea pasa de 🧪 a ✅ ("verificada <fecha>") y en
+   `docs/REGISTRO.md` su estado a ✅. Con todas, la ronda se cierra (queda tachada) y la próxima tarea sin jugar abre la
+   ronda siguiente. Commit `Registro: ronda <N> revisada`.
 
 ## Formato de REGISTRO.md
 

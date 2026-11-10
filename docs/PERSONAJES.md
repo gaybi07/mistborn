@@ -124,7 +124,7 @@ Cada una se pide con su número, por ejemplo «Y2, dale».
 
 **Personajes**
 - [x] **Y1.** NPC y enemigos usan clips compartidos.
-- [ ] **Y18.** Las misiones todavía no usan a estos NPC: por ahora solo están en el mapa.
+- [x] **Y18.** Hecho en G4: los NPC del Acto 1 dan sus misiones. Los de los otros actos, con su acto.
 - [ ] **Y2.** Koloss jefe: adulto más grande, con más vida y otros poderes.
 - [ ] **Y3.** Kandra: pelea con el cuerpo que copia, sorteado entre Dockson, Breeze y Spook. Después de P6, P8 y P9.
 - [ ] **Y4.** Colores de capa, para que dos jugadores puedan repetir personaje.
