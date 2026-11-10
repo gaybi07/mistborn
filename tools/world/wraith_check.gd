@@ -9,6 +9,8 @@ var _dir := ""
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	_dir = args[0] if args.size() > 0 else ""
+	# Matar enemigos da experiencia y se guarda en la progresión real: se restaura al salir.
+	var prog := FileAccess.get_file_as_bytes("user://progression.cfg")
 	Art.player_model = "vin"
 	SaveSlots.current = 9
 	var main: Node = load("res://scenes/main.tscn").instantiate()
@@ -52,6 +54,8 @@ func _initialize() -> void:
 	await create_timer(2.5).timeout
 	_ok(not is_instance_valid(w), "después desaparece")
 	print("FALLAS ", _fails)
+	if not prog.is_empty():
+		FileAccess.open("user://progression.cfg", FileAccess.WRITE).store_buffer(prog)
 	quit(1 if _fails > 0 else 0)
 
 
