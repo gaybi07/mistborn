@@ -13,6 +13,14 @@ const TEST := {
 			{"text": "Contarle a Dockson lo que dice", "talk": "dockson"},
 		],
 		"ends": {"verdad": {"text": "Le contaste lo que decía"}, "mentira": {"text": "Le dijiste que no decía nada"}}},
+	# "after": solo te la ofrecen con esa otra terminada.
+	"prueba_foso": {"kind": "side", "title": "Gente en el foso", "giver": "dockson", "after": "prueba_plaza",
+		"goal": "Dockson quiere saber cuántos guardias hay en el foso de ceniza, al oeste de la ciudad.",
+		"steps": [
+			{"text": "Ir al foso de ceniza, al oeste de la muralla", "place": "foso", "r": 60.0},
+			{"text": "Contarle a Dockson lo que viste", "talk": "dockson"},
+		],
+		"ends": {"visto": {"text": "Le contaste cómo está vigilado el foso"}}},
 }
 
 static var done: Dictionary = {}
@@ -89,6 +97,8 @@ static func offers() -> Array:
 	var out := []
 	for id: String in TEST:
 		if active.has(id) or done.has(id) or locked.has(id):
+			continue
+		if TEST[id].has("after") and not done.has(TEST[id]["after"]):
 			continue
 		var giver: String = TEST[id].get("giver", "")
 		var at: Variant = npc_spot(giver)

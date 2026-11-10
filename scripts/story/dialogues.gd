@@ -9,7 +9,10 @@ class_name Dialogues
 const LINES := {
 	"dockson": {
 		"entries": [
-			[{"done": "prueba_plaza"}, "despues"],
+			[{"done": "prueba_foso"}, "despues"],
+			[{"active": "prueba_foso", "step": 1}, "foso_vuelta"],
+			[{"active": "prueba_foso", "step": 0}, "foso_esperando"],
+			[{"done": "prueba_plaza"}, "foso_inicio"],
 			[{"active": "prueba_plaza", "step": 1}, "vuelta"],
 			[{"active": "prueba_plaza", "step": 0}, "esperando"],
 			[{}, "inicio"],
@@ -35,7 +38,19 @@ const LINES := {
 				]},
 			"fin_verdad": {"text": "Pagan por nombres... Entonces hay que cuidar a quién le hablamos. Gracias.", "options": [{"text": "De nada."}]},
 			"fin_mentira": {"text": "Mm. Si no era nada, no lo habrían puesto ahí. En fin.", "options": [{"text": "Adiós."}]},
-			"despues": {"text": "Ya me ayudaste con el cartel. Por ahora no tengo nada más.", "options": [{"text": "Adiós."}]},
+			"foso_inicio": {"text": "Lo del cartel me dejó pensando. Al oeste de la muralla está el foso de ceniza: ahí mandan a los que agarran. Andá a ver cuántos guardias hay.",
+				"options": [
+					{"text": "Voy.", "do": [["start", "prueba_foso"]], "to": "foso_gracias"},
+					{"text": "Ahora no.", "to": ""},
+				]},
+			"foso_gracias": {"text": "Salí por la Puerta Oeste y seguí hacia el sudoeste. Es un pozo enorme, no lo vas a confundir.", "options": [{"text": "Hasta luego."}]},
+			"foso_esperando": {"text": "¿Fuiste al foso? Está al oeste, pasando la muralla.", "options": [{"text": "Todavía no."}]},
+			"foso_vuelta": {"text": "¿Y? ¿Cómo está el foso?",
+				"options": [
+					{"text": "Hay torres en la empalizada y soldados abajo. Los presos cavan en las terrazas.",
+						"do": [["learn", "El foso de ceniza tiene torres de guardia en la empalizada y soldados en el fondo."], ["finish", "prueba_foso", "visto"]], "to": "despues"},
+				]},
+			"despues": {"text": "Gracias. Por ahora no tengo nada más: las misiones de la historia llegan pronto.", "options": [{"text": "Adiós."}]},
 		},
 	},
 }

@@ -67,6 +67,15 @@ func _initialize() -> void:
 	await create_timer(0.3).timeout
 	_shot("5_cuaderno_paso")
 	journal.toggle()
+	# --- Segunda misión: Dockson te manda al foso
+	_ok(Dialogues.entry("dockson") == "foso_inicio" and QuestLog.offers().size() == 1, "después del cartel, Dockson ofrece ir al foso")
+	Dialogues.run([["start", "prueba_foso"]])
+	p.global_position = Vector3(AshPit.CENTER.x + 40, CityPlan.ground(AshPit.CENTER + Vector2(40, 0)) + 1.0, AshPit.CENTER.y)
+	await create_timer(1.0).timeout
+	_ok(int(QuestLog.active.get("prueba_foso", -1)) == 1, "llegar al foso cumple el paso 1")
+	_ok(Dialogues.entry("dockson") == "foso_vuelta", "Dockson pregunta por el foso")
+	Dialogues.run(Dialogues.LINES["dockson"]["nodes"]["foso_vuelta"]["options"][0]["do"])
+	_ok(QuestLog.done.has("prueba_foso") and Dialogues.entry("dockson") == "despues", "terminar la del foso")
 	SaveSlots.erase(SLOT)
 	print("FALLAS ", _fails)
 	quit(1 if _fails > 0 else 0)

@@ -125,11 +125,12 @@ func _ready() -> void:
 ## Empalizada: cercas de madera alrededor del pozo, con la entrada hacia la ciudad.
 func _palisade(batch: ModelBatcher) -> void:
 	var fence := ModelKit.path("props/Fence")
-	var length := ModelKit.aabb(fence).size.x * KIT
-	var step := length / PALISADE
+	var s := KIT * 2.2  # la cerca de Quaternius es de jardín (1 m): al doble, empalizada de 2 m
+	var length := ModelKit.aabb(fence).size.x * s
+	var step := length * 0.97 / PALISADE  # que se pisen un poco: sin huecos
 	var a := GATE_HALF
 	while a < TAU - GATE_HALF:
-		batch.add(fence, _at(a, PALISADE), -a + PI / 2.0, KIT)
+		batch.add(fence, _at(a, PALISADE), -a + PI / 2.0, s)
 		a += step
 
 
