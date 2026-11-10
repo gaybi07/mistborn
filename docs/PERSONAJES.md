@@ -135,7 +135,7 @@ Cada una se pide con su número, por ejemplo «Y2, dale».
 - [x] **Y17.** Postura, caminata y golpes según el arma (`HeroClips.STANCES`), y enemigos que pelean a puños si les sacan el arma (`Champion.FIST_BLOWS`).
 
 **Lugares**
-- [ ] **Y5.** Foso de ceniza.
+- [x] ~~**Y5.** Foso de ceniza.~~ Hecho en G2.
 - [ ] **Y6.** Aldeas del Camino Sur.
 - [ ] **Y7.** Campamento koloss.
 

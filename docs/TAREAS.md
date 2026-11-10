@@ -12,7 +12,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G2. Foso de ceniza | `gabi/g2-foso-ceniza` | 2026-11-09 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -91,8 +91,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 - [x] ✅ **G1. Y10.** Conversaciones, cuaderno, marcas del mapa y guardado en tres partidas.
   — *verificada 2026-11-09, rama `gabi/g1-dialogos-guardado` (borrada), merge `995558a`*
-- [ ] 🔄 **G2. Y5.** Foso de ceniza.
-  — *en curso: Gabi, rama `gabi/g2-foso-ceniza`, desde 2026-11-09*
+- [x] ✅ **G2. Y5.** Foso de ceniza.
+  — *verificada 2026-11-10, rama `gabi/g2-foso-ceniza` (borrada), merge `6e9db37`*
 - [ ] **G3. P5.** Espectro de la bruma (modelo y clips propios).
 - [ ] **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
 - [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.

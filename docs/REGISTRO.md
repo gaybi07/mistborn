@@ -2,6 +2,24 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G2 · Foso de ceniza · Gabi
+- **Rama:** `gabi/g2-foso-ceniza` (borrada) · **Merge:** `6e9db37`
+- **Qué se hizo:** foso de trabajo forzado al oeste de Luthadel (-580, 330): unos 200 m de ancho y 40 m de hondo,
+  cuatro paredes con terrazas y rampas en espiral; borde irregular, terrazas que ondulan, espolones que cortan
+  terrazas y picos de roca en el fondo; lomas alrededor. Empalizada, torres, barracas, fogatas y carros (Quaternius),
+  cuadrillas skaa y 6 soldados. Las lomas del exterior ya no lo tapan. Misiones: cartel en la plaza que se lee con E,
+  objetivo escrito bajo la brújula, marcador en pantalla de adónde ir, y segunda misión de prueba de Dockson
+  (`prueba_foso`) que te manda al foso.
+- **Archivos:** `scripts/world/ash_pit.gd` (nuevo), `city_plan.gd`, `exterior.gd`, `scripts/npc/` (gate_forces,
+  skaa_crews), `scripts/story/` (story, quest_log, dialogues, quest_tracker), `scripts/ui/` (waypoint_marker nuevo,
+  compass_bar, dialogue_box, hud), `terrain/data` regenerado.
+- **Cómo se probó:** `tools/world/pit_check.gd` (se llega caminando al fondo; guardias en su lugar) y
+  `tools/story/quest_check.gd` pasan; fotos sin bruma. Gabi lo dio por bueno sin jugar el foso nuevo con teclado.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** modelos propios del foso en G20 (Meshy); el foso queda fuera del mapa de la ciudad (región
+  en G6/G7); imágenes de referencia del foso, si llegan, para retocarlo. `story_check` falla por los poderes del
+  final (no es de esta tarea).
+
 ### 2026-11-09 · G1 · Conversaciones, cuaderno, marcas del mapa y guardado · Gabi
 - **Rama:** `gabi/g1-dialogos-guardado` (borrada) · **Merge:** `995558a`
 - **Qué se hizo:** conversaciones con opciones y "[E] Hablar con"; estado de la historia con misiones por pasos;
