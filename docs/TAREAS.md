@@ -12,7 +12,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G3. Espectro de la bruma | `gabi/g3-espectro-bruma` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -93,8 +93,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *verificada 2026-11-09, rama `gabi/g1-dialogos-guardado` (borrada), merge `995558a`*
 - [x] ✅ **G2. Y5.** Foso de ceniza.
   — *verificada 2026-11-10, rama `gabi/g2-foso-ceniza` (borrada), merge `6e9db37`*
-- [ ] 🔄 **G3. P5.** Espectro de la bruma (modelo y clips propios).
-  — *en curso: Gabi, rama `gabi/g3-espectro-bruma`, desde 2026-11-10*
+- [x] ✅ **G3. P5.** Espectro de la bruma (modelo y clips propios).
+  — *verificada 2026-11-10, rama `gabi/g3-espectro-bruma` (borrada), merge `50d9b37`*
 - [ ] **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
 - [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
 
@@ -123,6 +123,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G20. Modelos propios del foso de ceniza** (los generás en Meshy; hoy son piezas de Quaternius): andamios de
   madera para las paredes, grúa o polea con balde, carretilla de ceniza, jaula de presos, cadenas y grilletes, torre
   del capataz, empalizada de troncos y montañas de ceniza. Listo cuando reemplazan a los de `scripts/world/ash_pit.gd`.
+- [ ] **G21. Revisar cómo se mueve el espectro de la bruma**, al terminar la historia: jugarlo contra uno y contra
+  tres, ver si el shader alcanza (ondular, arrastrarse, lanzarse, derretirse) o si hace falta otra cosa, y medir los
+  FPS con los seis cerca. Hoy no se jugó con teclado (decisión del 10/11). Ver `scripts/character/wraith_rig.gd`.
 
 ## Pedidos de animación
 

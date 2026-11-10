@@ -75,7 +75,7 @@ Todos los modelos riggeados en Meshy con esqueleto de Mixamo pueden compartir cl
   - **Yo:** armo sus golpes y saco de él la patrulla y el guardia de casa.
 - [x] **P4. Tesa.** Usa el modelo de la niña skaa (`NinaSkaa`), por decisión del 5/11.
   - **Yo:** ubicada en los corrales.
-- [ ] **P5. Espectro de la bruma.** Modelo riggeado con clips propios: caminar o arrastrarse, atacar, morir.
+- [x] **P5. Espectro de la bruma.** Hecho en G3: modelo sin esqueleto (masa de bruma con huesos), se mueve con shader. Modelo riggeado con clips propios: caminar o arrastrarse, atacar, morir.
   - `Mistwraith, pale translucent gaunt creature with mismatched bones visible under gelatinous skin, humanoid proportions, full body, T-pose`
   - El del libro no tiene forma humana, y puede que Meshy solo riggee cuerpos humanos: por eso este texto lo acerca a un humano. Si no lo riggea, avisame y lo pensamos.
   - **Yo:** armo sus ataques y lo pongo en las afueras.

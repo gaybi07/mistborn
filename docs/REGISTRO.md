@@ -2,6 +2,21 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G3 · Espectro de la bruma · Gabi
+- **Rama:** `gabi/g3-espectro-bruma` (borrada) · **Merge:** `50d9b37`
+- **Qué se hizo:** el modelo de Meshy ("The Marrow Mist": masa de bruma con esqueletos adentro, sin esqueleto propio)
+  en `assets/meshy/Espectro.glb`. Como no se puede riggear, lo mueve un shader (`shaders/mist_wraith.gdshader`):
+  respira y ondula, se arrastra a tirones, se echa atrás y se lanza (pega en el pico del estirón) y al morir se
+  derrite en bruma. Enemigo `MistWraith` (bando de los koloss, 70 de vida, 1,9 a 2,6 m) con cuerpo `WraithRig`.
+  Seis en las afueras (camino del oeste y borde del bosque), por GateForces.
+- **Archivos:** `scripts/npc/mist_wraith.gd`, `scripts/character/wraith_rig.gd`, `shaders/mist_wraith.gdshader`
+  (nuevos), `scripts/core/art.gd`, `scripts/npc/gate_forces.gd`.
+- **Cómo se probó:** `tools/world/wraith_check.gd` pasa (se arrastra, se lanza, pega 14, se derrite y desaparece);
+  fotos. No se jugó con teclado: Gabi lo deja para revisar al terminar la historia (G21).
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** G21 (revisar cómo se mueve y los FPS). Excepción a la regla de clips reales: este bicho
+  no tiene cuerpo para riggear (decisión del 10/11).
+
 ### 2026-11-10 · G2 · Foso de ceniza · Gabi
 - **Rama:** `gabi/g2-foso-ceniza` (borrada) · **Merge:** `6e9db37`
 - **Qué se hizo:** foso de trabajo forzado al oeste de Luthadel (-580, 330): unos 200 m de ancho y 40 m de hondo,
