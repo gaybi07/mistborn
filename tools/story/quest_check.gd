@@ -30,18 +30,21 @@ func _initialize() -> void:
 	_ok(_prompts("Leer el cartel") == 1, "el cartel de la plaza se lee con E")
 	_ok(QuestLog.active.has("tejados") and QuestLog.tracked == "tejados", "la de los tejados arranca sola y se sigue")
 	_shot("1_tejados")
-	# Las tres primeras: llegar y elegir en la narración.
-	for q: Array in [["tejados", "barrio_skaa", 0], ["foso", "foso", 0], ["afueras", "camino_oeste", 0]]:
-		_ok(QuestLog.active.has(q[0]), "%s arranca sola" % q[0])
-		await _go(Story.PLACES[q[1]]["at"])
-		var box := get_first_node_in_group(&"dialogue_box") as DialogueBox
-		_ok(box.visible and box._npc == "narra_" + q[0], "al llegar, la narración de %s" % q[0])
-		if q[0] == "foso":
-			_shot("2_narracion_foso")
-		if box.visible:
-			box._choose(Dialogues.LINES["narra_" + q[0]]["nodes"]["n"]["options"][q[2]])
-		await create_timer(0.4).timeout
-		_ok(QuestLog.done.has(q[0]), "%s terminada" % q[0])
+	# Tejados y foso se juegan (Mission, ver tramo_check.gd): acá se dan por hechos en el mismo cuadro, antes de que
+	# arranque lo jugable. Afueras: llegar y elegir en la narración.
+	QuestLog.finish("tejados", "ok")
+	QuestLog.start("foso")
+	QuestLog.finish("foso", "salvar")
+	await create_timer(0.6).timeout
+	_ok(QuestLog.active.has("afueras"), "afueras arranca sola")
+	await _go(Story.PLACES["camino_oeste"]["at"])
+	var narr := get_first_node_in_group(&"dialogue_box") as DialogueBox
+	_ok(narr.visible and narr._npc == "narra_afueras", "al llegar, la narración de afueras")
+	_shot("2_narracion_afueras")
+	if narr.visible:
+		narr._choose(Dialogues.LINES["narra_afueras"]["nodes"]["n"]["options"][0])
+	await create_timer(0.4).timeout
+	_ok(QuestLog.done.has("afueras"), "afueras terminada")
 	# Sazed y el taller.
 	_ok(QuestLog.offers().size() == 1 and QuestLog.offers()[0]["giver"] == "terrisano", "Sazed ofrece la del taller")
 	await _go(QuestLog.npc_spot("terrisano") + Vector2(0, 2))
@@ -54,8 +57,10 @@ func _initialize() -> void:
 	box._choose(Dialogues.LINES["terrisano"]["nodes"]["ofrece"]["options"][0])
 	box._close()
 	await _go(Story.PLACES["taller"]["at"])
-	_ok(Dialogues.entry("terrisano") == "vuelta", "ir al taller y volver con Sazed")
-	Dialogues.run(Dialogues.LINES["terrisano"]["nodes"]["vuelta"]["options"][0]["do"])
+	_ok(Dialogues.entry("terrisano") == "a_clubs" and Dialogues.entry("clubs") == "taller_explica", "en el taller, Sazed manda con Clubs")
+	Dialogues.run(Dialogues.LINES["clubs"]["nodes"]["taller_explica"]["options"][0]["do"])
+	QuestLog.outcome["el_taller_spent"] = -1  # como si hubiera gastado un punto (sin tocar la progresión guardada)
+	await create_timer(0.6).timeout
 	_ok(QuestLog.done.has("el_taller"), "la del taller terminada")
 	# La banda.
 	var givers := QuestLog.offers().map(func(o: Dictionary) -> String: return o["giver"])
@@ -71,6 +76,8 @@ func _initialize() -> void:
 	_ok(_prompts("Hablar con Tesa") == 1, "solo la Tesa de los corrales habla")
 	Dialogues.run([["start", "corrales"]])
 	await create_timer(0.6).timeout
+	Dialogues.run(Dialogues.LINES["capataz"]["nodes"]["hola"]["options"][2]["do"])  # no meterse (lo jugable: tramo_check)
+	await create_timer(0.3).timeout
 	_ok(Dialogues.entry("tesa") == "vuelta", "en los corrales, Tesa pregunta qué pasó")
 	Dialogues.run(Dialogues.LINES["tesa"]["nodes"]["vuelta"]["options"][2]["do"])
 	_ok(QuestLog.done.has("corrales") and QuestLog.done.has("dato_cuartel"), "el final elegido deja su marca")
