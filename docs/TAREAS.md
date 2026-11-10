@@ -12,7 +12,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G1. Conversaciones, cuaderno, mapa y guardado | `gabi/g1-dialogos-guardado` | 2026-11-09 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -89,8 +89,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 ### 1. Historia jugable (primera meta: el tramo del Acto 1)
 
-- [ ] 🔄 **G1. Y10.** Conversaciones, cuaderno, marcas del mapa y guardado en tres partidas.
-  — *en curso: Gabi, rama `gabi/g1-dialogos-guardado`, desde 2026-11-09*
+- [x] ✅ **G1. Y10.** Conversaciones, cuaderno, marcas del mapa y guardado en tres partidas.
+  — *verificada 2026-11-09, rama `gabi/g1-dialogos-guardado` (borrada), merge `995558a`*
 - [ ] **G2. Y5.** Foso de ceniza.
 - [ ] **G3. P5.** Espectro de la bruma (modelo y clips propios).
 - [ ] **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.

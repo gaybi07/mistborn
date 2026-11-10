@@ -2,6 +2,20 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-09 · G1 · Conversaciones, cuaderno, marcas del mapa y guardado · Gabi
+- **Rama:** `gabi/g1-dialogos-guardado` (borrada) · **Merge:** `995558a`
+- **Qué se hizo:** conversaciones con opciones y "[E] Hablar con"; estado de la historia con misiones por pasos;
+  cuaderno (J); brújula arriba; marcas en mapa y minimapa con flechas al borde y tipos que se ocultan; quien tiene
+  una misión para darte figura en mapa, brújula y cuaderno; tres partidas con pantalla de inicio y Esc → Partidas,
+  guardado al terminar misión y al salir. El mapa ahora muestra las casas sin bruma. Misión de prueba `prueba_plaza`
+  (Dockson y el cartel de la plaza).
+- **Archivos:** `scripts/story/` (quest_log, dialogues, quest_tracker, save_slots), `scripts/ui/` (dialogue_box,
+  journal_window, compass_bar, start_screen, city_map, hud, pause_menu), `scripts/main.gd`, `scripts/core/input_setup.gd`
+- **Cómo se probó:** `tools/story/quest_check.gd` pasa completo; Gabi la jugó: misión, mapa y partidas andan.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** marcas de rumor ("?") y misiones reales en G5; mapa de región con G6/G7; red (L21).
+  La plaza sale oscura en la foto del mapa. Toca `hud.gd`, `pause_menu.gd` y `city_map.gd` (interfaz, cerca de Lucho).
+
 ### 2026-11-09 · G0 · Base para repartir las tareas · Gabi
 - **Rama:** `escenarios-y-jugabilidad` (anterior a este sistema; sigue existiendo) · **Commit:** `d9bba6a`, develop
   avanzado sin merge
