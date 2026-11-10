@@ -1,5 +1,7 @@
 # Personajes: estado y tareas
 
+> La lista de todo lo que falta generar, junta y al día, está en [GENERAR.md](GENERAR.md).
+
 Cómo se usa: hacés una tarea **P**, dejás el zip en `Descargas/MESHY 3D` y me decís, por ejemplo, «P3 listo». Yo ejecuto lo que dice esa tarea y la tacho acá.
 
 Última revisión: 5/11/2026, leyendo los clips que tiene adentro cada `.glb`.
