@@ -2,6 +2,16 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G8 · Puerta Oeste libre · Gabi
+- **Rama:** `gabi/g8-puerta-oeste` (borrada) · **Merge:** `71a7133` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** el Lord Legislador ya no espera en la Puerta Oeste (estaba para probar la pelea); el mapa ya no lo
+  marca. La moneda de combate no se tocó: el plan de progresión de Lucho (L1) le da uno de los 3 puntos del inicio.
+- **Archivos:** `scripts/npc/gate_forces.gd`, `docs/HISTORIA.md`.
+- **Cómo se probó:** recorriendo las tres puertas: la Oeste sin nadie, la Este con sus 7 koloss, la Sur con sus 3
+  encapuchados; el juego corre sin errores.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** la moneda libre, al subir L1 (anotado en "Cuando Lucho suba").
+
 ### 2026-11-10 · G7 · Campamento koloss · Gabi
 - **Rama:** `gabi/g7-campamento-koloss` (borrada) · **Merge:** `fe077b8` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** campamento koloss en un claro al norte del camino de la Puerta Este, centrado en (640, -330) (se

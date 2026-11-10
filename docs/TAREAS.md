@@ -109,7 +109,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *en develop 2026-11-10, rama `gabi/g6-aldeas-sur` (borrada), merges `6b645d0` y `3e41809` (pueblo grande); falta revisar (ronda 2)*
 - [x] 🧪 **G7. Y7.** Campamento koloss.
   — *en develop 2026-11-10, rama `gabi/g7-campamento-koloss` (borrada), merge `fe077b8`; falta revisar (ronda 2)*
-- [ ] **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
+- [x] 🧪 **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
+  — *en develop 2026-11-10, rama `gabi/g8-puerta-oeste` (borrada), merge `71a7133`; falta revisar (ronda 2). La moneda
+  queda libre con L1 de Lucho (el inicio recomendado le da un punto): ver "Cuando Lucho suba"*
 
 ### 3. Modelos (los generás en Meshy; yo los integro)
 
@@ -228,6 +230,8 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] los ocho koloss junto a las fogatas: ¿es mucho para quien pasa por el camino? (te atacan a 24 m);
   - [ ] nada flotando ni enterrado; los FPS adentro, con los koloss y las fogatas.
 
+- [ ] **G8. Puerta Oeste:** saliendo por la Puerta Oeste no hay nadie esperando, y el mapa ya no marca al Lord.
+
 ### Cuando Lucho suba la progresión nueva (L1-L6)
 
 Lo que hay que actualizar de este lado (G22) y volver a probar:
@@ -239,6 +243,8 @@ Lo que hay que actualizar de este lado (G22) y volver a probar:
 - [ ] dificultad de las misiones (G5): vida y cantidad de la patrulla, el capataz y los espectros, contra un jugador
   con 3 puntos al inicio en vez de la progresión de hoy;
 - [ ] experiencia que dan los enemigos de las misiones (`xp_reward` de Champion y MistWraith) contra la curva nueva;
+- [ ] moneda de combate (G8): que una partida nueva la tenga lista en el clic derecho sin gastar nada (el inicio
+  recomendado de `PLAN_PROGRESION.md` le da uno de los 3 puntos); hoy pide un punto en acero;
 - [ ] correr `tools/story/quest_check.gd` y `tools/story/tramo_check.gd`.
 
 ## Pedidos de animación

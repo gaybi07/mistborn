@@ -144,5 +144,5 @@ Cada una se pide con su número, por ejemplo «Y2, dale».
 - [ ] **Y9.** Los cuatro caminando y peleando juntos en la ciudad.
 - [x] **Y10.** Conversaciones, cuaderno, marcas del mapa y guardado en tres partidas.
 - [x] **Y11.** Hecho en G5 (falta revisar). Primer tramo jugable: principales 1 y 2, más una secundaria con consecuencia. Necesita P2, P3, P4, P5 e Y5.
-- [ ] **Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
+- [x] **Y12.** Hecho en G8 (la moneda, con L1 de Lucho). Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
 - [ ] **Y19.** Aterrizaje de héroe: skill nueva que combina peltre y empuje de acero, todavía sin diseñar. Clip listo: `Dive_Down_and_Land_2`, tramo del 18 % al 65 % (cae con una mano al piso y se levanta).

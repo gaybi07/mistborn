@@ -104,4 +104,4 @@ Las conversaciones son una caja de texto básica con opciones.
 3. **Primer tramo:** principales 1 y 2, más una secundaria con decisión y consecuencia, con conversación, cuaderno y marcas básicas. Hay que construir el foso.
 4. **Personajes:** modelos y clips de los que falten, a medida que los pida cada tramo. La lista, con cada tarea, está en [PERSONAJES.md](PERSONAJES.md).
 
-Cuando esto se empiece a jugar hay que sacar al Lord Legislador de la Puerta Oeste (`GateForces`) y dejar libre la moneda de combate, que hoy pide un punto en acero.
+El Lord Legislador ya no espera en la Puerta Oeste (G8). La moneda de combate queda libre con la progresión nueva de Lucho: arranca con uno de los 3 puntos del inicio (`docs/PLAN_PROGRESION.md`); hasta entonces pide un punto en acero.
