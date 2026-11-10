@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G28. Casas modulares | `gabi/g28-casas-modulares` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -172,6 +172,10 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   caserón y torre góticos, fuentes, cadalso, puestos de lona, carreta; Plaza Central y Mercado rearmados; paleta de
   día gris con el horizonte rojo; hollín en las casas comunes.
   — *en develop 2026-11-10, rama `gabi/g27-casas-plaza` (borrada), merge `53ea3f6`; falta revisar (ronda 2)*
+- [ ] 🔄 **G28. Casas modulares** (generadas en Blender con las texturas de G27): módulos (cuerpos, pisos, techos,
+  torres, puertas, ventanas, miradores, chimeneas) que se combinan en unas 24 casas para los barrios buenos y otras 24
+  para los barrios skaa, parecidas entre sí pero distintas, y puestas en sus barrios en lugar de las de Quaternius.
+  — *en curso: Gabi, rama `gabi/g28-casas-modulares`, desde 2026-11-10*
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
