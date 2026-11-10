@@ -136,7 +136,7 @@ Cada una se pide con su número, por ejemplo «Y2, dale».
 
 **Lugares**
 - [x] ~~**Y5.** Foso de ceniza.~~ Hecho en G2.
-- [ ] **Y6.** Aldeas del Camino Sur.
+- [x] **Y6.** Aldeas del Camino Sur. Hecho en G6 (falta revisar).
 - [ ] **Y7.** Campamento koloss.
 
 **Juego** (en este orden, de [HISTORIA.md](HISTORIA.md))

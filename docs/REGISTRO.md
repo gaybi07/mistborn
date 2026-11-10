@@ -2,6 +2,20 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G6 · Aldeas del Camino Sur · Gabi
+- **Rama:** `gabi/g6-aldeas-sur` (borrada) · **Merge:** `6b645d0` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** una aldea skaa a los dos lados del camino de la Puerta Sur, centrada en (-20, 715): 22 chozas
+  desparramadas (casi todas bajas), plaza con pozo, fogata y caldero, molino, establo, herrería, cuatro campos
+  cercados con heno, torre de guardia en la entrada norte y cuadrillas skaa trabajando. Sin árboles ni lomas encima.
+  El lugar `camino_sur` de la historia queda listo. También se puso al día `quest_check.gd`, que la G5 había dejado
+  vieja (el taller y los corrales cambiaron).
+- **Archivos:** `scripts/world/south_village.gd` (nuevo), `scripts/main.gd`, `scripts/world/exterior.gd`,
+  `scripts/npc/skaa_crews.gd`, `scripts/story/story.gd`, `tools/story/quest_check.gd`.
+- **Cómo se probó:** fotos sin bruma (desde arriba, en diagonal, por el camino y en la plaza); el juego corre sin
+  errores; `quest_check.gd` y `tramo_check.gd` pasan. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** ronda 2; modelos propios en G23; la misión "aldea" (Acto 2) llega con su acto.
+
 ### 2026-11-10 · G5 · Primer tramo jugable · Gabi
 - **Rama:** `gabi/g5-primer-tramo` (borrada) · **Merge:** `35d8ae7` · **Estado:** 🧪 falta revisar (ronda 1)
 - **Qué se hizo:** lo jugable de adentro de las misiones (`Mission`, `scripts/story/missions/`). Tejados: ruta de techo

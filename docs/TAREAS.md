@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G6. Aldeas del Camino Sur | `gabi/g6-aldeas-sur` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -105,8 +105,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 ### 2. Escenarios
 
-- [ ] 🔄 **G6. Y6.** Aldeas del Camino Sur.
-  — *en curso: Gabi, rama `gabi/g6-aldeas-sur`, desde 2026-11-10*
+- [x] 🧪 **G6. Y6.** Aldeas del Camino Sur.
+  — *en develop 2026-11-10, rama `gabi/g6-aldeas-sur` (borrada), merge `6b645d0`; falta revisar (ronda 2)*
 - [ ] **G7. Y7.** Campamento koloss.
 - [ ] **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
 
@@ -132,6 +132,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **G21. Revisar cómo se mueve el espectro de la bruma**, al terminar la historia: jugarlo contra uno y contra
   tres, ver si el shader alcanza (ondular, arrastrarse, lanzarse, derretirse) o si hace falta otra cosa, y medir los
   FPS con los seis cerca. Hoy no se jugó con teclado (decisión del 10/11). Ver `scripts/character/wraith_rig.gd`.
+- [ ] **G23. Modelos propios de la aldea del Camino Sur** (en Meshy; hoy son piezas de Quaternius): chozas skaa de
+  barro y paja (las de piedra con techo plano de Quaternius parecen ruinas), cultivos de ceniza para los campos,
+  espantapájaros, secaderos y un pozo más rústico. Listo cuando reemplazan a los de `scripts/world/south_village.gd`.
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
@@ -175,6 +178,28 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] mensajero: seis espectros alrededor; recién sin espectros se puede hablar con él;
   - [ ] que la dificultad se sienta bien (vida de la patrulla, cuántos te atacan juntos).
 - [ ] **Misiones en general (G1/G2):** el cartel de la plaza con E, el objetivo bajo la brújula y el marcador en pantalla.
+
+### Ronda 2 (abierta desde 2026-11-10)
+
+- [ ] **G6. Aldeas del Camino Sur** (saliendo por la Puerta Sur, unos 300 m por el camino):
+  - [ ] que la aldea se lea como aldea skaa pobre y no como pueblo (chozas desparramadas, plaza, campos, molino);
+  - [ ] las chozas bajas de Quaternius (piedra, techo plano): ¿alcanzan o van a G23?
+  - [ ] nada flotando ni enterrado (el pozo, las cercas de los campos, la torre de la entrada);
+  - [ ] cuadrillas skaa trabajando en los campos y la plaza; los FPS adentro de la aldea;
+  - [ ] el camino sur pasa limpio por el medio (sin casas encima) y el desvío al bosque sigue libre.
+
+### Cuando Lucho suba la progresión nueva (L1-L6)
+
+Lo que hay que actualizar de este lado (G22) y volver a probar:
+- [ ] taller (G5): el paso "Gastar un punto en el árbol (K)" pasa a puntos por poder y elegir estilo
+  (`QuestLog.STEPS["el_taller"]`, `QuestTracker`, `Progression.points_spent()` / `points_free()`);
+- [ ] lo que explica Clubs de los metales (`Dialogues.LINES["clubs"]["taller_explica"]`);
+- [ ] maestros (G4): las misiones de Ham, Breeze, Clubs y Spook enseñan poderes; ver si conviene que terminen
+  dando o sugiriendo un punto en su estilo;
+- [ ] dificultad de las misiones (G5): vida y cantidad de la patrulla, el capataz y los espectros, contra un jugador
+  con 3 puntos al inicio en vez de la progresión de hoy;
+- [ ] experiencia que dan los enemigos de las misiones (`xp_reward` de Champion y MistWraith) contra la curva nueva;
+- [ ] correr `tools/story/quest_check.gd` y `tools/story/tramo_check.gd`.
 
 ## Pedidos de animación
 
