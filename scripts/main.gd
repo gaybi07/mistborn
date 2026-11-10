@@ -68,6 +68,7 @@ func _ready() -> void:
 	PolyProps.spawn(self, _poly)
 	add_child(Exterior.new())
 	add_child(AshPit.new())
+	add_child(SouthVillage.new())
 	_spawn_people()
 	add_child(WorldFx.new())
 	var player := Player.new()
