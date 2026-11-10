@@ -2,6 +2,24 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G27 · Piezas propias de Luthadel y plazas góticas · Gabi
+- **Rama:** `gabi/g27-casas-plaza` (borrada) · **Merge:** `53ea3f6` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** piezas generadas por código en Blender (sin Meshy), para acercar el juego a las fotos de
+  referencia de Gabi (plaza central y plaza de comercio): doce texturas repetibles (sillar, ladrillo, pizarra, teja,
+  revoque, madera, lona, adoquín) y catorce modelos (tres casas, caserón y torre góticos, dos fuentes, cadalso, dos
+  puestos de lona, carreta, tablón, banco, obelisco). Plaza Central: fuente con la estatua, frentes góticos, puestos,
+  carretas, cadalso, obeliscos. Mercado: fuente de tres platos, puestos, casas con tienda, faroles. Paleta de día gris
+  con el horizonte rojo (`weather.gd`) y hollín sobre las casas comunes (`main.gd`, SOOT). El pueblo del Camino Sur
+  mezcla las casas nuevas.
+- **Archivos:** `assets/luthadel/` (nuevo), `tools/blender/make_luthadel_textures.py` y `make_luthadel_kit.py`
+  (nuevos), `scripts/main.gd`, `scripts/world/weather.gd`, `scripts/world/south_village.gd`,
+  `scripts/story/quest_tracker.gd`, `scripts/story/missions/tejados_mission.gd`, `tools/story/tramo_check.gd`.
+- **Cómo se probó:** las catorce piezas pasan `qa_check.py` (sin caras a ras, partes flotando ni normales
+  invertidas); fotos; el juego corre sin errores; `quest_check.gd` y `tramo_check.gd` pasan. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** al reservar terrenos para los frentes góticos, las casas comunes quedaron en otro lugar en
+  toda la ciudad: revisar en la ronda 2. La paleta de día cambia lo que ve Lucho. Casas modulares, en G28.
+
 ### 2026-11-10 · Lista de lo que hay que generar · Gabi
 - **Rama:** `gabi/lista-generar` (borrada) · **Merge:** `cf1ad7b`
 - **Qué se hizo:** `docs/GENERAR.md`, una sola lista con todo lo que falta generar para lo anotado: personajes con

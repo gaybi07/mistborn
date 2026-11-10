@@ -168,6 +168,10 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   - Carreta de carga: `Wooden cargo wagon with four spoked wheels, plank sides, canvas cover, medieval, no horse`
   - Carruaje noble: `Ornate black noble carriage with four wheels, gilded trim, small windows, lanterns, no horse`
   Listo cuando hay carretas y carruajes moviéndose por las calles y los caminos, con caballos que caminan al paso.
+- [x] 🧪 **G27. Piezas propias de Luthadel y plazas góticas** (generadas por Claude en Blender, con texturas): casas,
+  caserón y torre góticos, fuentes, cadalso, puestos de lona, carreta; Plaza Central y Mercado rearmados; paleta de
+  día gris con el horizonte rojo; hollín en las casas comunes.
+  — *en develop 2026-11-10, rama `gabi/g27-casas-plaza` (borrada), merge `53ea3f6`; falta revisar (ronda 2)*
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
@@ -232,6 +236,16 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] nada flotando ni enterrado; los FPS adentro, con los koloss y las fogatas.
 
 - [ ] **G8. Puerta Oeste:** saliendo por la Puerta Oeste no hay nadie esperando, y el mapa ya no marca al Lord.
+
+- [ ] **G27. Plazas góticas y piezas propias** (Plaza Central, donde arrancás, y Mercado, al noreste):
+  - [ ] que el clima se parezca a las fotos de referencia: piedra oscura, lonas grises, cielo plomo con rojo;
+  - [ ] la paleta de día nueva en toda la ciudad (antes naranja): ¿queda bien lejos de las plazas? ¿y de noche?
+  - [ ] el hollín sobre las casas comunes: ¿demasiado oscuras?
+  - [ ] subir a la grada de la fuente, caer al agua, subir al cadalso por la escalera (colisiones propias);
+  - [ ] los frentes góticos de la plaza: que no tapen calles ni pisen otras casas;
+  - [ ] las casas comunes cambiaron de lugar en toda la ciudad (por los terrenos reservados): recorrer los barrios y
+    ver que no haya casas sobre calles, NPC adentro de una casa o puestos de misión tapados;
+  - [ ] los cajones de metal, monedas y frascos de la plaza siguen a mano; los FPS con las texturas nuevas.
 
 ### Cuando Lucho suba la progresión nueva (L1-L6)
 
