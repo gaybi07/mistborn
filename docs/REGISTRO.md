@@ -2,6 +2,18 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · Lista de lo que hay que generar · Gabi
+- **Rama:** `gabi/lista-generar` (borrada) · **Merge:** `cf1ad7b`
+- **Qué se hizo:** `docs/GENERAR.md`, una sola lista con todo lo que falta generar para lo anotado: personajes con
+  nombre (Spook, Yomen), enemigos (violento, lanzamonedas, inquisidor), gente para la ciudad y los pueblos (G25: diez
+  modelos), lo que hay que volver a exportar (nena skaa, rugido del koloss), animales (caballos, ganado) y objetos
+  (foso G20, pueblos G23, campamento koloss G24, carretas G26), cada uno con su texto para Meshy y para qué sirve.
+  TAREAS y PERSONAJES apuntan ahí.
+- **Archivos:** `docs/GENERAR.md` (nuevo), `docs/TAREAS.md`, `docs/PERSONAJES.md`.
+- **Cómo se probó:** solo documentos.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** Gabi genera lo de la lista; la G9 (Spook) y las demás de modelos esperan eso.
+
 ### 2026-11-10 · G8 · Puerta Oeste libre · Gabi
 - **Rama:** `gabi/g8-puerta-oeste` (borrada) · **Merge:** `71a7133` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** el Lord Legislador ya no espera en la Puerta Oeste (estaba para probar la pelea); el mapa ya no lo
