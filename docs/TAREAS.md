@@ -1,6 +1,18 @@
 # Tareas: Lucho y Gabi
 
-Quién hace qué de acá en adelante. Cada tarea se tacha (`[x]`) en el mismo commit que la termina.
+Quién hace qué de acá en adelante. Para empezar o terminar una tarea, pedirle a Claude "empiezo la L3" o "terminé
+la L3": la skill `tarea` (`.claude/skills/tarea/SKILL.md`) crea la rama, la mergea a develop, la borra y anota todo acá
+y en `docs/REGISTRO.md`.
+
+**Estados:** `- [ ]` pendiente · `- [ ] 🔄` en curso (con quién, rama y fecha) · `- [x] ✅` verificada (con fecha,
+rama y merge).
+
+## En curso
+
+| Quién | Tarea | Rama | Desde |
+|---|---|---|---|
+| Lucho | — | — | — |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -71,8 +83,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 ### 0. Base
 
-- [ ] **G0.** Probar a Vin 5 minutos (vuelo, cinturón, guardia de puños, Casa skaa 6, lo que dejó la sesión de
+- [x] ✅ **G0.** Probar a Vin 5 minutos (vuelo, cinturón, guardia de puños, Casa skaa 6, lo que dejó la sesión de
   correcciones). Si está bien, commitear todo y subir a `develop` para que Lucho arranque desde ahí.
+  — *verificada 2026-11-09, rama `escenarios-y-jugabilidad`, commit `d9bba6a`*
 
 ### 1. Historia jugable (primera meta: el tramo del Acto 1)
 
