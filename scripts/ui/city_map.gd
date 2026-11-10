@@ -106,9 +106,22 @@ func _capture() -> Texture2D:
 	sub.add_child(cam)
 	add_child(sub)
 	cam.make_current()
+	# Desde 900 m todo queda más allá de Art.DRAW_FAR: se dibuja todo mientras dura la foto, sin bruma, humo ni partículas.
+	var undo := []
+	for n: Node in get_tree().root.find_children("*", "VisualInstance3D", true, false):
+		if n is FogVolume or n is GPUParticles3D or n is CPUParticles3D:
+			if (n as Node3D).visible:
+				undo.append([n, "visible", true])
+				(n as Node3D).visible = false
+		elif n is GeometryInstance3D and (n as GeometryInstance3D).visibility_range_end > 0.0:
+			undo.append([n, "visibility_range_end", (n as GeometryInstance3D).visibility_range_end])
+			(n as GeometryInstance3D).visibility_range_end = 0.0
 	for i in 3:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+	for u: Array in undo:
+		if is_instance_valid(u[0]):
+			(u[0] as Object).set(u[1], u[2])
 	if not is_inside_tree():
 		return null
 	var img := sub.get_texture().get_image()
@@ -218,6 +231,9 @@ func _mark(layer: Control, map: TextureRect, frame: Rect2, m: Dictionary) -> voi
 		HudKit.diamond(layer, at, r + 2.0, Color(0, 0, 0, 0.6))
 		HudKit.diamond(layer, at, r, style[0])
 		layer.draw_string(ThemeDB.fallback_font, at + Vector2(-4, 5), style[1], HORIZONTAL_ALIGNMENT_CENTER, -1, 12, INK)
+		if frame.size.x > MINI_SIZE + 1.0:  # en el mapa grande, con su nombre
+			layer.draw_string_outline(ThemeDB.fallback_font, at + Vector2(r + 5, 5), m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 5, INK)
+			layer.draw_string(ThemeDB.fallback_font, at + Vector2(r + 5, 5), m["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, style[0])
 		return
 	var center := frame.get_center()
 	var edge := at.clamp(inner.position, inner.end)

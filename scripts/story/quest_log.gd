@@ -67,14 +67,34 @@ static func step_target(id: String) -> Variant:
 	var s := current_step(id)
 	if s.has("at"):
 		return s["at"]
-	if s.has("talk"):  # donde anda ese NPC (GateForces.PEOPLE)
-		var model: String = Story.NPCS.get(s["talk"], {}).get("model", "")
-		for spec: Array in GateForces.PEOPLE:
-			if spec[0] == model:
-				return spec[1]
+	if s.has("talk"):
+		return npc_spot(s["talk"])
 	var place: String = s.get("place", quest(id).get("place", ""))
 	var p: Dictionary = Story.PLACES.get(place, {})
 	return p.get("at", null)
+
+
+## Dónde anda ese NPC de Story.NPCS (GateForces.PEOPLE), o null.
+static func npc_spot(npc: String) -> Variant:
+	var model: String = Story.NPCS.get(npc, {}).get("model", "")
+	for spec: Array in GateForces.PEOPLE:
+		if spec[0] == model:
+			return spec[1]
+	return null
+
+
+## Misiones que alguien tiene para darte y todavía no empezaste: [{"id", "giver", "xz"}].
+## shortcut: solo las de prueba (TEST); las de la historia se suman en G5, cuando tengan conversación.
+static func offers() -> Array:
+	var out := []
+	for id: String in TEST:
+		if active.has(id) or done.has(id) or locked.has(id):
+			continue
+		var giver: String = TEST[id].get("giver", "")
+		var at: Variant = npc_spot(giver)
+		if at != null:
+			out.append({"id": id, "giver": giver, "xz": at})
+	return out
 
 
 static func start(id: String) -> void:
@@ -158,6 +178,9 @@ static func map_marks() -> Array:
 		var at: Variant = step_target(id)
 		if at != null:
 			out.append({"xz": at, "kind": MARK_OF_KIND.get(quest(id).get("kind", "side"), "secundaria"), "label": title(id), "tracked": id == tracked})
+	for o: Dictionary in offers():
+		out.append({"xz": o["xz"], "kind": MARK_OF_KIND.get(quest(o["id"]).get("kind", "side"), "secundaria"),
+				"label": "Hablar con " + String(Story.NPCS[o["giver"]]["name"]), "tracked": false})
 	for place: String in seen_places:
 		var p: Dictionary = Story.PLACES.get(place, {})
 		for kind: String in p.get("marks", []):

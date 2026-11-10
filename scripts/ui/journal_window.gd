@@ -66,8 +66,12 @@ func _refresh() -> void:
 	for box in [_pending, _known, _past]:
 		for c in box.get_children():
 			c.queue_free()
-	if QuestLog.active.is_empty():
+	var offers := QuestLog.offers()
+	if QuestLog.active.is_empty() and offers.is_empty():
 		_pending.add_child(_line("Nada pendiente por ahora.", 0.6))
+	for o: Dictionary in offers:
+		var place: String = CityPlan.district(o["xz"])["name"] if CityPlan.inside(o["xz"]) else "fuera de la muralla"
+		_pending.add_child(_line("%s (%s) tiene algo para vos. Está marcado en el mapa." % [Story.NPCS[o["giver"]]["name"], place], 0.85))
 	for id: String in QuestLog.active:
 		var row := HBoxContainer.new()
 		var text := VBoxContainer.new()

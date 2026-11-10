@@ -15,6 +15,7 @@ func _initialize() -> void:
 	# --- Datos, sin escena
 	QuestLog.reset()
 	_ok(Dialogues.entry("dockson") == "inicio", "Dockson arranca en inicio")
+	_ok(QuestLog.offers().size() == 1 and QuestLog.map_marks().size() == 1, "Dockson figura en el mapa antes de hablarle")
 	Dialogues.run([["start", "prueba_plaza"]])
 	_ok(QuestLog.active.has("prueba_plaza") and QuestLog.tracked == "prueba_plaza", "la misión empieza y se sigue")
 	_ok(Dialogues.entry("dockson") == "esperando", "Dockson espera mientras no fuiste a la plaza")
@@ -31,6 +32,11 @@ func _initialize() -> void:
 	await create_timer(6.0).timeout
 	var p := get_first_node_in_group(&"player") as Player
 	_shot("1_brujula")
+	var map := (main.get_children().filter(func(n: Node) -> bool: return n is CityMap) as Array)[0] as CityMap
+	map._big.visible = true
+	await create_timer(0.5).timeout
+	_shot("0_mapa")
+	map._big.visible = false
 	p.global_position = Vector3(5, CityPlan.ground(Vector2(5, 0)) + 1.0, 0)
 	await create_timer(1.0).timeout
 	_ok(int(QuestLog.active.get("prueba_plaza", -1)) == 1, "llegar a la plaza cumple el paso 1")
