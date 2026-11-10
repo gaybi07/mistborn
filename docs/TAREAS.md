@@ -26,6 +26,7 @@ rama y merge).
   puntuales, nunca reescribir. Ver `CLAUDE.md`.
 - **Animaciones de poderes:** Lucho programa el poder con un clip provisorio en `HeroClips.SKILLS` y lo anota en
   [Pedidos de animación](#pedidos-de-animación). Gabi elige el clip real y tacha el pedido.
+- Todo lo que hay que generar (personajes, gente, animales, objetos), en una sola lista: `docs/GENERAR.md`.
 - Las tareas de modelos (P…) y de Gabi (Y…) tienen el detalle en `docs/PERSONAJES.md`; los actos, en
   `docs/HISTORIA_FLUJO.md`; el cambio de progresión, en `docs/PLAN_PROGRESION.md`.
 
