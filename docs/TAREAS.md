@@ -12,7 +12,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G4. Misiones con los NPC del mapa | `gabi/g4-npc-misiones` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -95,7 +95,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *verificada 2026-11-10, rama `gabi/g2-foso-ceniza` (borrada), merge `6e9db37`*
 - [x] ✅ **G3. P5.** Espectro de la bruma (modelo y clips propios).
   — *verificada 2026-11-10, rama `gabi/g3-espectro-bruma` (borrada), merge `50d9b37`*
-- [ ] **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
+- [ ] 🔄 **G4. Y18.** Que las misiones usen a los NPC que ya están en el mapa.
+  — *en curso: Gabi, rama `gabi/g4-npc-misiones`, desde 2026-11-10*
 - [ ] **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
 
 ### 2. Escenarios

@@ -56,7 +56,7 @@ const NPCS := {
 	"spook": {"name": "Spook", "model": "", "clips": false, "ally": true, "role": "Maestro del estilo Volador. Puede ser el kandra."},
 	"breeze": {"name": "Breeze", "model": "Breeze", "clips": true, "ally": true, "role": "Maestro del estilo Manipulador. Puede ser el kandra."},
 	"dockson": {"name": "Dockson", "model": "Dockson", "clips": true, "role": "Organiza la banda. Puede ser el kandra."},
-	"tesa": {"name": "Tesa", "model": "NinaSkaa", "clips": true, "role": "Capataza de los corrales. Lleva a los skaa al levantamiento, o deja de hablarte."},
+	"tesa": {"name": "Tesa", "model": "NinaSkaa", "clips": true, "at": Vector2(-280, 250), "role": "Capataza de los corrales. Lleva a los skaa al levantamiento, o deja de hablarte."},
 	"kelsier": {"name": "Kelsier", "model": "Kelsier", "clips": true, "ally": true, "role": "Vuelve con un plan propio: lo seguís o lo enfrentás."},
 	"vin": {"name": "Vin", "model": "Vin", "clips": true, "ally": true, "role": "Mistborn sin casa: aliada, rival o enemiga en el final."},
 	"marsh": {"name": "Marsh", "model": "Obligador", "clips": true, "ally": true, "role": "Infiltrado en el Ministerio: abre la entrada por abajo, o te traiciona."},
