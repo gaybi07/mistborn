@@ -29,6 +29,9 @@ const PEOPLE := [
 	# Foso de ceniza (AshPit): en la entrada, en el borde y abajo, en el fondo.
 	["Soldado", Vector2(-462, 322), 0.0], ["Soldado", Vector2(-462, 338), 0.0], ["Soldado", Vector2(-520, 245), 0.0],
 	["Soldado", Vector2(-640, 412), 0.0], ["Soldado", Vector2(-585, 322), 0.0], ["Soldado", Vector2(-572, 338), 0.0],
+	# Aldeas del Camino Sur (SouthVillage): guardias en la entrada norte y en la sur.
+	["Soldado", Vector2(-15, 603), 0.0], ["Soldado", Vector2(2, 603), 0.0],
+	["Soldado", Vector2(-17, 828), 0.0], ["Soldado", Vector2(0, 828), 0.0],
 	# Espectros de la bruma (MistWraith), de a tres: en el camino del oeste (yendo al foso) y en el borde del bosque.
 	["Espectro", Vector2(-430, 150), 10.0], ["Espectro", Vector2(-444, 162), 10.0], ["Espectro", Vector2(-421, 168), 10.0],
 	["Espectro", Vector2(-540, 470), 14.0], ["Espectro", Vector2(-556, 482), 14.0], ["Espectro", Vector2(-528, 490), 14.0],
