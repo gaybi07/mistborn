@@ -27,7 +27,7 @@ const PLACES := {
 	"camino_sur": {"name": "Aldeas del Camino Sur", "at": Vector2(-20, 715), "city": false, "ready": true},
 	"bosque": {"name": "Bosque Muerto", "at": Vector2(-620, 620), "city": false, "ready": true},
 	"montes": {"name": "Faldas de los Montes de Ceniza", "at": Vector2(-300, -640), "city": false, "ready": true},
-	"campamento": {"name": "Campamento koloss", "at": Vector2(620, -240), "city": false, "ready": false},
+	"campamento": {"name": "Campamento koloss", "at": Vector2(640, -330), "city": false, "ready": true},
 	"puerta_este": {"name": "Afuera de la Puerta Este", "at": Vector2(372, -147), "city": false, "ready": true},
 	"taller": {"name": "Taller de Clubs", "at": Vector2(-60, 205), "city": true, "ready": true, "marks": ["refugio", "tienda"]},
 	"sala_combate": {"name": "Sótano de Clubs: práctica de combate", "scene": "res://scenes/combat_room.tscn", "ready": true},

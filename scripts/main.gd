@@ -69,6 +69,7 @@ func _ready() -> void:
 	add_child(Exterior.new())
 	add_child(AshPit.new())
 	add_child(SouthVillage.new())
+	add_child(KolossCamp.new())
 	_spawn_people()
 	add_child(WorldFx.new())
 	var player := Player.new()
