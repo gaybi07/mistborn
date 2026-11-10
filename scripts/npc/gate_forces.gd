@@ -32,6 +32,10 @@ const PEOPLE := [
 	# Aldeas del Camino Sur (SouthVillage): guardias en la entrada norte y en la sur.
 	["Soldado", Vector2(-15, 603), 0.0], ["Soldado", Vector2(2, 603), 0.0],
 	["Soldado", Vector2(-17, 828), 0.0], ["Soldado", Vector2(0, 828), 0.0],
+	# Campamento koloss (KolossCamp): junto a la hoguera del centro y a las fogatas de los corros.
+	["KolossAdulto", Vector2(640, -330), 10.0], ["KolossJoven", Vector2(612, -322), 10.0], ["KolossJoven", Vector2(668, -338), 10.0],
+	["KolossJoven", Vector2(670, -290), 10.0], ["KolossAdulto", Vector2(600, -365), 10.0], ["KolossJoven", Vector2(650, -385), 10.0],
+	["KolossJoven", Vector2(700, -330), 10.0], ["KolossJoven", Vector2(585, -300), 10.0],
 	# Espectros de la bruma (MistWraith), de a tres: en el camino del oeste (yendo al foso) y en el borde del bosque.
 	["Espectro", Vector2(-430, 150), 10.0], ["Espectro", Vector2(-444, 162), 10.0], ["Espectro", Vector2(-421, 168), 10.0],
 	["Espectro", Vector2(-540, 470), 14.0], ["Espectro", Vector2(-556, 482), 14.0], ["Espectro", Vector2(-528, 490), 14.0],
@@ -149,7 +153,7 @@ static func _person(spec: Array) -> Npc:
 		var wraith := MistWraith.new()
 		wraith.roam_radius = spec[2]
 		return wraith
-	if spec[0] in ["Soldado", "Obligador"]:
+	if spec[0] in ["Soldado", "Obligador", "KolossJoven", "KolossAdulto"]:
 		var guard := Champion.new()
 		guard.kit = spec[0]
 		return guard

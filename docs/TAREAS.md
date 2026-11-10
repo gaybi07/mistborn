@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G7. Campamento koloss | `gabi/g7-campamento-koloss` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -107,7 +107,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 - [x] 🧪 **G6. Y6.** Aldeas del Camino Sur.
   — *en develop 2026-11-10, rama `gabi/g6-aldeas-sur` (borrada), merges `6b645d0` y `3e41809` (pueblo grande); falta revisar (ronda 2)*
-- [ ] **G7. Y7.** Campamento koloss.
+- [ ] 🔄 **G7. Y7.** Campamento koloss.
+  — *en curso: Gabi, rama `gabi/g7-campamento-koloss`, desde 2026-11-10*
 - [ ] **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
 
 ### 3. Modelos (los generás en Meshy; yo los integro)
