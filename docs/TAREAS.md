@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G7. Campamento koloss | `gabi/g7-campamento-koloss` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -107,8 +107,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 - [x] 🧪 **G6. Y6.** Aldeas del Camino Sur.
   — *en develop 2026-11-10, rama `gabi/g6-aldeas-sur` (borrada), merges `6b645d0` y `3e41809` (pueblo grande); falta revisar (ronda 2)*
-- [ ] 🔄 **G7. Y7.** Campamento koloss.
-  — *en curso: Gabi, rama `gabi/g7-campamento-koloss`, desde 2026-11-10*
+- [x] 🧪 **G7. Y7.** Campamento koloss.
+  — *en develop 2026-11-10, rama `gabi/g7-campamento-koloss` (borrada), merge `fe077b8`; falta revisar (ronda 2)*
 - [ ] **G8. Y12.** Sacar al Lord Legislador de la Puerta Oeste y dejar libre la moneda de combate.
 
 ### 3. Modelos (los generás en Meshy; yo los integro)
@@ -137,6 +137,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   Quaternius, mansión noble propia, muralla de pueblo, cultivos de ceniza para los campos, espantapájaros, secaderos,
   bebederos y **animales para los corrales** (vacas, ovejas, cerdos, gallinas, caballos: hoy los corrales están
   vacíos). Listo cuando reemplazan a los de `scripts/world/south_village.gd`.
+- [ ] **G24. Modelos propios del campamento koloss** (los pasa Gabi; hoy: conos, cercas y rocas): tiendas de cuero y
+  hueso, estacas afiladas para la empalizada, huesos y calaveras de verdad, estantes de carne, jaulas, y carros para
+  traer koloss (el "Cart" de Quaternius es un carrito de mercado, por eso hoy hay pilas de cajones).
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
@@ -193,6 +196,12 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] la cuadrícula: ¿se nota demasiado? (las calles están algo corridas y torcidas);
   - [ ] nada flotando ni enterrado (casas en pendiente, cercas, pozo); los caminos sin casas encima;
   - [ ] los FPS adentro del pueblo y mirándolo de lejos (300 casas, con colisión).
+
+- [ ] **G7. Campamento koloss** (saliendo por la Puerta Este, unos 300 m al noreste, al norte del camino):
+  - [ ] que se lea como campamento koloss: tiendas en corros, fogatas, hoguera del centro, huesos, carga apilada;
+  - [ ] la empalizada rota a tramos y la entrada desde el camino (el camino pasa por el borde sur, sin cerca encima);
+  - [ ] los ocho koloss junto a las fogatas: ¿es mucho para quien pasa por el camino? (te atacan a 24 m);
+  - [ ] nada flotando ni enterrado; los FPS adentro, con los koloss y las fogatas.
 
 ### Cuando Lucho suba la progresión nueva (L1-L6)
 

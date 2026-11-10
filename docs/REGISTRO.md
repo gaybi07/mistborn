@@ -2,6 +2,21 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G7 · Campamento koloss · Gabi
+- **Rama:** `gabi/g7-campamento-koloss` (borrada) · **Merge:** `fe077b8` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** campamento koloss en un claro al norte del camino de la Puerta Este, centrado en (640, -330) (se
+  corrió del punto viejo, que caía sobre el camino): empalizada de estacas rota a tramos, unas 57 tiendas de cuero en
+  corros alrededor de fogatas, hoguera en el centro, pilas de huesos, estantes de carne, la carga apilada que llega por
+  la entrada y cuatro torres de vigía. Ocho koloss (dos adultos) junto a las fogatas, por GateForces (ahora sabe poner
+  koloss). El lugar `campamento` de la historia queda listo.
+- **Archivos:** `scripts/world/koloss_camp.gd` (nuevo), `scripts/main.gd`, `scripts/world/exterior.gd`,
+  `scripts/npc/gate_forces.gd`, `scripts/story/story.gd`.
+- **Cómo se probó:** fotos sin bruma (desde arriba, en diagonal, la entrada, la hoguera y las tiendas); el juego corre
+  sin errores. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** modelos propios en G24 (los pasa Gabi); la misión "rastros" (Acto 2) llega con su acto;
+  ronda 2.
+
 ### 2026-11-10 · G6 (arreglo) · Aldeas del Camino Sur, pueblo grande · Gabi
 - **Rama:** `gabi/g6-aldea-grande` (borrada) · **Merge:** `3e41809` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** pedido de Gabi: pueblos chico 50, mediano 100, grande 300 casas; densos, no pobres; con fortificación,

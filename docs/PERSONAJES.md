@@ -137,7 +137,7 @@ Cada una se pide con su número, por ejemplo «Y2, dale».
 **Lugares**
 - [x] ~~**Y5.** Foso de ceniza.~~ Hecho en G2.
 - [x] **Y6.** Aldeas del Camino Sur. Hecho en G6 (falta revisar).
-- [ ] **Y7.** Campamento koloss.
+- [x] **Y7.** Campamento koloss. Hecho en G7 (falta revisar).
 
 **Juego** (en este orden, de [HISTORIA.md](HISTORIA.md))
 - [ ] **Y8.** Medir si Luthadel aguanta cuatro jugadores en red.
