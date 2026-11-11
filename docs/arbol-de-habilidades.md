@@ -6,13 +6,13 @@ Estado: propuesta para confirmar. Todavía no hay código.
 
 | Tema | Decisión |
 |---|---|
-| Techo | Jugador nivel 100, cada metal nivel 20 (atium: máximo 10) |
-| Puntos de alomancia | 1 por nivel de jugador (99 en total). Subir un nivel de metal cuesta 1 punto; atium cuesta 2 por nivel |
-| Elección | Se puede subir cualquier metal, pero no alcanza para maxear todos (180 niveles posibles contra 99 puntos, más el costo de atium) |
-| Reasignar | En cualquier momento fuera de combate, desde el menú, sin costo |
+| Techo | Jugador nivel 100; cada poder, nivel 5. El nivel de un metal es la suma de los puntos en sus poderes (ver `docs/PLAN_PROGRESION.md`) |
+| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, cinc, cobre, bronce, latón) se suben directo; atium cuesta 2 por nivel |
+| Elección | Para poner un punto en un poder, todos los poderes de los que nace (en su rama) tienen que tener al menos 1. No alcanza para maxear todo |
+| Reasignar | En cualquier momento, sin costo: "−" por poder (si ninguno que depende de él queda sin requisito) o "Devolver todos los puntos" |
 | XP | Combate y objetivos, más un bonus chico por usar cada metal con tope por minuto |
-| Inicio | Acero y hierro en nivel 1; los otros metales se aprenden con su primer punto. Opción "modo prueba" para desbloquear todo |
-| Habilidad nueva | En los niveles 1, 4, 8, 12, 16 y 20 de cada metal; en los demás niveles solo mejoran números (alcance, fuerza, consumo) |
+| Inicio | Empuje básico, Tirón básico y Moneda de combate con 1 punto cada uno (los 3 del inicio). Opción "modo prueba" para desbloquear todo |
+| Mejora | Cada poder escala con sus propios puntos (traducidos a la escala vieja 1-20 con `SkillTree.equiv_level`). El metal mejora con su nivel: gasta menos y su reserva crece (`SkillTree.METAL_SCALING`) |
 | Combinadas | Se desbloquean solas cuando ambos metales llegan a 5 (escalón 1), 10 (escalón 2) y 15 (escalón 3) |
 | Uso | 10 ranuras de habilidades activas con teclas reasignables. Las pasivas se aplican solas |
 | Activación | Al apretar la tecla de una habilidad se queman solos los metales que necesita, hasta que termina o se aprieta otra vez la tecla. No hace falta tener el metal prendido antes |
@@ -33,7 +33,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 | Activas | Se mantiene la tecla mientras se apunta (tirón, empuje, balanceo); las instantáneas (onda, anillo) son un toque con cooldown |
 | Teclas viejas | Tirón (E), anillo y recoger monedas (Alt+E) y el resto de los gestos inventados dejan de existir y pasan a ranuras. E queda solo para interactuar |
 | Metal bloqueado | Aviso corto y no se enciende |
-| Habilidades existentes | Se bloquean por nivel según el catálogo; lo básico sigue disponible desde el nivel 1 |
+| Habilidades existentes | Se usan con al menos 1 punto en el poder |
 | XP | Valores base ×3 mientras se prueba: NPC común 60, guardia 180, jugador 300, y práctica de ~6 XP por segundo de metal en uso con tope de 180 por minuto |
 | Menú | `K` abre el árbol como panel sin pausar: el cursor se libera y la cámara se frena, pero NPC y jugadores siguen moviéndose. Reasignar se puede hacer siempre. La pausa vive en el menú general (Esc); en multijugador la decide el host |
 | Servidor | El juego debe quedar pensado para servidor, pero hoy se prueba en LAN: el cliente manda su progreso al conectarse y quien aloja lo acota y guarda una copia por jugador |
