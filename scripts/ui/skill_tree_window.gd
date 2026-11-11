@@ -1,6 +1,6 @@
 class_name SkillTreeWindow
 extends CanvasLayer
-## Árbol de habilidades (tecla K): una columna por metal con sus habilidades en orden de nivel, un panel con el detalle de
+## Árbol de habilidades (tecla K): una columna por metal con sus habilidades (cada una con "−  n/5  +"), un panel con el detalle de
 ## la que elijas (qué hace, cómo mejora, ponerla en una ranura o cambiarle la tecla) y la lista de los demás metales. Arriba
 ## van el nivel, la experiencia y los puntos libres de alomancia; abajo, las ranuras. Los puntos se pueden reasignar en
 ## cualquier momento. Mientras está abierto el juego sigue, pero el ratón es para la ventana.
@@ -46,7 +46,8 @@ var _canvas: SkillTreeCanvas
 ## Ctrl apretado: se resaltan las habilidades que se pueden poner en una ranura y se apagan las demás.
 var _assign_mode := false
 ## Vista de árbol (true) o de lista (false).
-var _tree_mode := true
+## shortcut: arranca en la lista porque los puntos por poder todavía solo se ponen ahí; vuelve a true con L4 (pips en el árbol).
+var _tree_mode := false
 var _selected: StringName = &"steel_light_push"
 ## Habilidad bajo el ratón: Ctrl + tecla pone esa; si no hay ninguna, la elegida.
 var _hovered: StringName = &""
@@ -205,7 +206,8 @@ func _build_header() -> Control:
 	_points_label.add_theme_font_size_override("font_size", 22)
 	header.add_child(_points_label)
 	var reset := Button.new()
-	reset.text = "Reasignar puntos"
+	reset.text = "Devolver todos los puntos"
+	reset.tooltip_text = "Vuelve al inicio recomendado: Empuje básico, Tirón básico y Moneda de combate."
 	reset.focus_mode = Control.FOCUS_NONE
 	reset.pressed.connect(func() -> void:
 		Progression.respec()
@@ -370,11 +372,12 @@ func _column(metal: StringName) -> Control:
 	var level_row := HBoxContainer.new()
 	level_row.add_theme_constant_override("separation", 10)
 	var level_l := Label.new()
-	level_l.text = ("Nivel %d / %d" % [lvl, Progression.metal_cap(metal)]) if lvl > 0 else "Sin aprender"
+	level_l.text = ("Nivel del metal: %d" % lvl) if lvl > 0 else "Sin aprender"
+	level_l.tooltip_text = "Suma de los puntos en sus poderes. Con más nivel, el metal gasta menos y dura más."
+	level_l.mouse_filter = Control.MOUSE_FILTER_PASS
 	level_l.add_theme_color_override("font_color", color.lightened(0.3) if lvl > 0 else DIM)
 	level_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	level_row.add_child(level_l)
-	level_row.add_child(_raise_button(metal))
 	var pad := MarginContainer.new()
 	pad.add_theme_constant_override("margin_top", 8)
 	pad.add_theme_constant_override("margin_bottom", 8)
@@ -388,6 +391,62 @@ func _column(metal: StringName) -> Control:
 	return panel
 
 
+## Por qué no se puede poner un punto en el poder ("" = se puede).
+func _raise_reason(id: StringName) -> String:
+	if Progression.skill_level(id) >= SkillTree.max_level(id):
+		return "Nivel máximo"
+	var missing := PackedStringArray()
+	for p in SkillTree.parents(id):
+		if Progression.skill_level(p) < 1:
+			missing.append(String(SkillTree.find(p)["name"]))
+	if not missing.is_empty():
+		return "Necesita: %s" % ", ".join(missing)
+	if Progression.points_free() < SkillTree.skill_cost(id):
+		return "Sin puntos libres: se gana uno por nivel"
+	return "" if Progression.can_raise_skill(id) else "No se puede subir"
+
+
+## Por qué no se puede sacar un punto del poder ("" = se puede).
+func _lower_reason(id: StringName) -> String:
+	if Progression.skill_level(id) <= 0:
+		return "No tiene puntos"
+	var blocker := Progression.lower_blocker(id)
+	if blocker != &"":
+		return "%s depende de este: bajalo primero" % SkillTree.find(blocker)["name"]
+	return "" if Progression.can_lower_skill(id) else "No se puede bajar"
+
+
+## "−  2/5  +" de un poder: cada botón, apagado con el motivo en el tooltip.
+func _skill_buttons(id: StringName) -> Control:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var lvl := Progression.skill_level(id)
+	for raise: bool in [false, true]:
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.text = "+" if raise else "−"
+		b.custom_minimum_size = Vector2(28, 28)
+		var why := _raise_reason(id) if raise else _lower_reason(id)
+		b.disabled = why != ""
+		b.tooltip_text = why if why != "" else ("Poner un punto" if raise else "Devolver un punto")
+		b.pressed.connect(func() -> void:
+			_selected = id
+			var changed := Progression.raise_skill(id) if raise else Progression.lower_skill(id)
+			if changed:
+				_refresh())
+		if raise:
+			var count := Label.new()
+			count.text = "%d/%d" % [lvl, SkillTree.max_level(id)]
+			count.add_theme_color_override("font_color", GOLD if lvl > 0 else DIM)
+			count.custom_minimum_size.x = 30
+			count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			box.add_child(count)
+		box.add_child(b)
+	return box
+
+
+## shortcut: "+" de los metales sin poderes (Otros metales); se va con L12.
 func _raise_button(metal: StringName) -> Button:
 	var lvl := Progression.metal_level(metal)
 	var cost := Progression.point_cost(metal)
@@ -445,9 +504,11 @@ func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> 
 	text.add_theme_constant_override("separation", 1)
 	var top := HBoxContainer.new()
 	var level_l := Label.new()
-	level_l.text = "Nivel %d/%d" % [Progression.skill_level(id), SkillTree.max_level(id)]
+	# El requisito que falta; si no falta nada, si ya tiene puntos.
+	var need := String(SkillTree.tooltip_parts(id, 0).get("unlock", "")).trim_suffix(".")
+	level_l.text = need if need != "" else ("Aprendida" if unlocked else "Sin puntos")
 	level_l.add_theme_font_size_override("font_size", 12)
-	level_l.add_theme_color_override("font_color", GOOD if unlocked else LOCKED)
+	level_l.add_theme_color_override("font_color", LOCKED if need != "" else (GOOD if unlocked else DIM))
 	level_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(level_l)
 	top.add_child(_chip("Activa" if is_active else "Pasiva", ACTIVE_COLOR if is_active else PASSIVE_COLOR))
@@ -468,6 +529,7 @@ func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> 
 	text.add_child(desc)
 	h.add_child(text)
 	_ignore_mouse(h)
+	h.add_child(_skill_buttons(id))  # después de _ignore_mouse: los botones sí reciben el clic
 	return row
 
 
