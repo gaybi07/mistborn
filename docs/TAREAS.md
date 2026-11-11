@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G28. Casas modulares | `gabi/g28-casas-modulares` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -172,6 +172,19 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   caserón y torre góticos, fuentes, cadalso, puestos de lona, carreta; Plaza Central y Mercado rearmados; paleta de
   día gris con el horizonte rojo; hollín en las casas comunes.
   — *en develop 2026-11-10, rama `gabi/g27-casas-plaza` (borrada), merge `53ea3f6`; falta revisar (ronda 2)*
+- [ ] 🔄 **G28. Casas modulares** (generadas en Blender con las texturas de G27): módulos (cuerpos, pisos, techos,
+  torres, puertas, ventanas, miradores, chimeneas) que se combinan en unas 24 casas para los barrios buenos y otras 24
+  para los barrios skaa, parecidas entre sí pero distintas, y puestas en sus barrios en lugar de las de Quaternius.
+  — *en curso: Gabi, rama `gabi/g28-casas-modulares`, desde 2026-11-10*
+- [ ] **G29. Muralla de Luthadel, rehecha** (pedido de Gabi, 10/11): hoy es una fila pareja de piezas de Quaternius
+  con 3 puertas. Tiene que verse medieval e imperfecta:
+  - altos y bajos: tramos de distinta altura, lienzos remendados, almenas rotas, contrafuertes, algún tramo más viejo;
+  - textura propia (sillar grande tiznado, distinto del de las casas), generada como las de G27;
+  - **12 puertas**, como en el libro, cada una con sus torres; en algunas zonas, varias puertas cerca;
+  - cada puerta con su camino afuera (`Exterior`), su puesto de guardia (`GateForces`) y su nombre en el mapa;
+  - revisar lo que hoy depende de las 3 puertas: `CityPlan.GATE_SPECS`, los enemigos de cada puerta, la reja del río
+    y los lugares de la historia (Puerta Este, afueras del oeste, Camino Sur).
+  Listo cuando la muralla se ve irregular, tiene las 12 puertas con torres y nada de lo anterior quedó roto.
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";

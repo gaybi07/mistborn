@@ -51,7 +51,7 @@ static func route_from(from: Vector2, center: Vector2, space: PhysicsDirectSpace
 			var q := PhysicsRayQueryParameters3D.create(Vector3(p.x, g + 40.0, p.y), Vector3(p.x, g - 1.0, p.y))
 			q.collision_mask = Props.LAYER_WORLD
 			var hit := space.intersect_ray(q)
-			if not hit.is_empty() and hit["position"].y > g + 3.5 and (hit["normal"] as Vector3).y > 0.7:
+			if not hit.is_empty() and hit["position"].y > g + 3.5 and (hit["normal"] as Vector3).y > 0.55:  # techos de hasta ~56°: los de G28 son empinados
 				roofs.append(hit["position"])
 	# Hacia el otro lado del barrio; si se llega justo por el centro, hacia el este.
 	var away := center - from

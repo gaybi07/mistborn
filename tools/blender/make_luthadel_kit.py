@@ -724,4 +724,5 @@ def main():
         photo(plaza, [20, 12, 9, 7, 6, 5, 4.5, 4.5, 4.5], (24, -48, 26), (0, 0, 2.0), os.path.join(args[1], "plaza.png"), 70)
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -94,20 +94,22 @@ const STREETS := [
 ## Barrios: el de cada punto es el del centro más cercano.
 ## density: "dense" (casas en hilera en todas las calles y relleno apretado), "medium", "sparse".
 ## houses: [modelo, escala mínima, escala máxima, peso]
+## "kit": el barrio usa las casas modulares propias (G28: "buena" = CasaB01..24, "skaa" = CasaS01..24, en
+## assets/luthadel/casas), a escala "kit_scale"; "houses" queda para la décima parte que sigue siendo de la lista.
 const DISTRICTS := [
-	{"name": "Distrito Noble", "centers": [Vector2(-200, -300), Vector2(-110, -240)], "density": "sparse",
+	{"name": "Distrito Noble", "centers": [Vector2(-200, -300), Vector2(-110, -240)], "density": "sparse", "kit": "buena", "kit_scale": 1.15,
 		"tint": Color(0.82, 0.78, 0.74),
 		"houses": [["buildings/Inn", 3.4, 3.8, 2], ["buildings/House_2", 3.6, 4.0, 2], ["buildings/Bell_Tower", 3.4, 3.8, 1]]},
-	{"name": "Laderas de Kredik Shaw", "centers": [Vector2(-80, -420), Vector2(110, -360)], "density": "medium",
+	{"name": "Laderas de Kredik Shaw", "centers": [Vector2(-80, -420), Vector2(110, -360)], "density": "medium", "kit": "buena",
 		"tint": Color(0.62, 0.6, 0.58),
 		"houses": [["buildings/House_1", 2.7, 3.0, 3], ["buildings/House_3", 3.0, 3.3, 2], ["buildings/House_2", 2.7, 3.0, 2]]},
-	{"name": "Distrito Mercantil", "centers": [Vector2(70, -165), Vector2(170, -140), Vector2(250, -200)], "density": "medium",
+	{"name": "Distrito Mercantil", "centers": [Vector2(70, -165), Vector2(170, -140), Vector2(250, -200)], "density": "medium", "kit": "buena",
 		"tint": Color(0.64, 0.6, 0.56),
 		"houses": [["buildings/Inn", 2.6, 2.9, 2], ["buildings/House_2", 2.8, 3.1, 3], ["buildings/Blacksmith", 2.7, 3.0, 1], ["buildings/Bell_Tower", 3.0, 3.3, 1]]},
-	{"name": "Viviendas de mercaderes", "centers": [Vector2(-150, -40), Vector2(-60, -170), Vector2(110, -30)], "density": "medium",
+	{"name": "Viviendas de mercaderes", "centers": [Vector2(-150, -40), Vector2(-60, -170), Vector2(110, -30)], "density": "medium", "kit": "buena",
 		"tint": Color(0.7, 0.66, 0.62),
 		"houses": [["buildings/House_2", 2.8, 3.1, 3], ["buildings/House_1", 2.8, 3.1, 3], ["buildings/Inn", 2.7, 3.0, 1]]},
-	{"name": "Plaza Central", "centers": [Vector2(0, 0)], "density": "medium",
+	{"name": "Plaza Central", "centers": [Vector2(0, 0)], "density": "medium", "kit": "buena", "kit_scale": 1.1,
 		"tint": Color(0.62, 0.6, 0.58),
 		"houses": [["buildings/Inn", 3.4, 3.8, 3], ["buildings/Bell_Tower", 3.4, 3.8, 1], ["buildings/House_2", 3.4, 3.8, 2]]},
 	{"name": "Distrito de Forja", "centers": [Vector2(-270, 40), Vector2(-200, 90)], "density": "dense",
@@ -117,7 +119,7 @@ const DISTRICTS := [
 		"tint": Color(0.42, 0.4, 0.39),
 		"houses": [["buildings/Stable", 2.5, 2.8, 3], ["buildings/Blacksmith", 2.6, 2.9, 1]]},
 	{"name": "Distrito Skaa", "centers": [Vector2(-100, 190), Vector2(-150, 330), Vector2(30, 230), Vector2(-90, 80), Vector2(-40, 380)],
-		"density": "dense", "tint": Color(0.56, 0.53, 0.5),
+		"density": "dense", "tint": Color(0.56, 0.53, 0.5), "kit": "skaa",
 		"houses": [["buildings/House_3", 2.5, 2.9, 5], ["buildings/House_1", 2.3, 2.7, 4], ["buildings/House_2", 2.3, 2.7, 2], ["buildings/Stable", 2.2, 2.5, 1],
 			["res://assets/meshy/casas/CasaSkaa6", 15.55, 15.55, 3]]},  # 8 m de alto
 	{"name": "Talleres y almacenes", "centers": [Vector2(190, 200), Vector2(220, 330), Vector2(90, 120)], "density": "dense",
