@@ -171,12 +171,23 @@ static func fan_angle(metal_level: int, min_level := FAN_MIN_LEVEL) -> float:
 	return lerpf(FAN_MIN_ANGLE, FAN_MAX_ANGLE, clampf(float(metal_level - min_level) / float(FAN_RADIAL_LEVEL - 1 - min_level), 0.0, 1.0))
 
 
-static func skills_of(metal: StringName) -> Array:
-	return SKILLS.filter(func(s): return s["metal"] == metal)
+## Poderes de prueba que agrega progression_check (por ejemplo, uno de feruquimia antes de que existan los de verdad).
+## En el juego queda vacía: los poderes van en SKILLS.
+static var test_skills: Array = []
+
+
+static func all_skills() -> Array:
+	return SKILLS + test_skills
+
+
+## Poderes de un metal; con `tree`, solo los de ese árbol (&"allomancy" o &"feruchemy"). Sin `tree`, los de los dos
+## (así el nivel del metal suma alomancia y feruquimia).
+static func skills_of(metal: StringName, tree := &"") -> Array:
+	return all_skills().filter(func(s): return s["metal"] == metal and (tree == &"" or s.get("tree", &"allomancy") == tree))
 
 
 static func find(id: StringName) -> Dictionary:
-	for s in SKILLS:
+	for s in all_skills():
 		if s["id"] == id:
 			return s
 	return {}
@@ -231,7 +242,7 @@ static func parents(id: StringName) -> Array[StringName]:
 ## Poderes que nacen de este en su rama.
 static func children(id: StringName) -> Array[StringName]:
 	var out: Array[StringName] = []
-	for s: Dictionary in SKILLS:
+	for s: Dictionary in all_skills():
 		if id in parents(s["id"]):
 			out.append(s["id"])
 	return out

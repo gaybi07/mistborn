@@ -47,6 +47,10 @@ var _canvas: SkillTreeCanvas
 var _assign_mode := false
 ## Vista de árbol (true) o de lista (false).
 var _tree_mode := true
+## Pestaña: &"allomancy" o &"feruchemy". Los puntos libres son los mismos en las dos.
+var _tree := &"allomancy"
+## En Feruquimia, mientras no tenga poderes: aviso en lugar del árbol y la lista.
+var _soon: Label
 var _selected: StringName = &"steel_light_push"
 ## Habilidad bajo el ratón: Ctrl + tecla pone esa; si no hay ninguna, la elegida.
 var _hovered: StringName = &""
@@ -100,6 +104,15 @@ func _ready() -> void:
 		if Progression.raise_metal(metal):
 			_refresh())
 	col.add_child(_canvas)
+	_soon = Label.new()
+	_soon.text = "Feruquimia: próximamente.\nCualquier personaje va a poder guardar atributos en mentes de metal. Usa los mismos puntos que la alomancia, y sus poderes también suben el nivel de cada metal."
+	_soon.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_soon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_soon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_soon.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_soon.add_theme_font_size_override("font_size", 20)
+	_soon.modulate = DIM
+	col.add_child(_soon)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -158,9 +171,11 @@ func _fit_to_window() -> void:
 func _set_mode(tree: bool) -> void:
 	_tree_mode = tree
 	_hovered = &""
-	_body.visible = not tree
-	_canvas.visible = tree
-	if tree:
+	var empty: bool = _tree != &"allomancy" and (SkillTree.LAYOUTS.get(_tree, {}) as Dictionary).is_empty()
+	_soon.visible = empty
+	_body.visible = not tree and not empty
+	_canvas.visible = tree and not empty
+	if _canvas.visible:
 		_canvas.fit()
 
 
@@ -172,6 +187,19 @@ func _build_header() -> Control:
 	title.add_theme_font_size_override("font_size", 32)
 	title.add_theme_color_override("font_color", GOLD_SOFT)
 	header.add_child(title)
+	var trees := ButtonGroup.new()
+	for tree: StringName in [&"allomancy", &"feruchemy"]:
+		var t := Button.new()
+		t.toggle_mode = true
+		t.button_group = trees
+		t.focus_mode = Control.FOCUS_NONE
+		t.text = "Alomancia" if tree == &"allomancy" else "Feruquimia"
+		t.button_pressed = tree == _tree
+		t.pressed.connect(func() -> void:
+			_tree = tree
+			_set_mode(_tree_mode))
+		header.add_child(t)
+	header.add_child(VSeparator.new())
 	var views := ButtonGroup.new()
 	for tree_view: bool in [false, true]:
 		var b := Button.new()
@@ -269,9 +297,9 @@ func _refresh() -> void:
 	_clear(_others)
 	_others.add_child(_heading("Otros metales"))
 	for metal: StringName in Allomancy.METALS:
-		if SkillTree.skills_of(metal).is_empty():
+		if SkillTree.skills_of(metal).is_empty():  # sin poderes en ningún árbol: se sube directo
 			_others.add_child(_other_metal_row(metal))
-		else:
+		elif not SkillTree.skills_of(metal, &"allomancy").is_empty():
 			_columns.add_child(_column(metal))
 	_refresh_detail()
 	_refresh_slots()
@@ -385,7 +413,7 @@ func _column(metal: StringName) -> Control:
 	box.add_child(pad)
 	box.add_child(HSeparator.new())
 
-	var skills := SkillTree.skills_of(metal)
+	var skills := SkillTree.skills_of(metal, &"allomancy")
 	for i in skills.size():
 		box.add_child(_skill_row(skills[i] as Dictionary, lvl, color, i > 0, i < skills.size() - 1))
 	return panel
