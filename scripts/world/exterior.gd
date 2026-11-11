@@ -60,14 +60,20 @@ func _ready() -> void:
 ## Caminos (polilíneas en XZ) que salen de cada puerta; el del sur tiene un desvío al bosque.
 func _roads() -> Array:
 	var out := []
-	for g in CityPlan.gates():
+	var gates := CityPlan.gates()
+	for gi in gates.size():
+		var g: Array = gates[gi]
 		var p: Vector2 = g[1]
 		var outward: Vector2 = g[2]
 		var along: Vector2 = g[3]
 		var road := [p + outward * 4.0]
 		var cur: Vector2 = road[0]
-		for k in 4:
-			cur = cur + outward * 180.0 + along * _rng.randf_range(-40.0, 40.0)
+		var story := gi < CityPlan.STORY_GATES
+		for k in (4 if story else 2):
+			var next: Vector2 = cur + outward * (180.0 if story else 110.0) + along * _rng.randf_range(-40.0, 40.0)
+			if not story and (AshPit.covers(next, 20.0) or KolossCamp.covers(next, 20.0) or SouthVillage.covers(next, 20.0)):
+				break
+			cur = next
 			if cur.y < MOUNTAIN_LINE + 20.0:
 				cur.y = MOUNTAIN_LINE + 20.0
 				road.append(cur)

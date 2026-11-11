@@ -151,6 +151,24 @@ def cobble(name, out_dir, base):
     save(name, color, dome, out_dir, 4.0)
 
 
+def rampart(name, out_dir, base):
+    """Muralla: sillares grandes y desparejos, con chorreados largos de hollín y manchas de liquen seco."""
+    edge, ident = cells(4, 2, joint=0.05, jitter=0.6)
+    small, ident2 = cells(8, 4, joint=0.04, jitter=0.3)
+    mix = (ident2 > 0.7)  # algunos sillares remendados con piedra más chica
+    edge = np.where(mix, small, edge)
+    ident = np.where(mix, ident2, ident)
+    grain = noise(1.2)
+    color = shade(base, 0.72 + 0.45 * (ident - 0.5) + 0.3 * (grain - 0.5))
+    color = color * np.where(mix, 0.8, 1.0)[..., None]
+    color *= (0.4 + 0.6 * edge ** 0.5)[..., None]
+    streak = np.repeat(noise(1.0)[:4, :], N // 4, axis=0)
+    color *= (1.0 - 0.6 * np.clip(streak * 1.3 - 0.25, 0, 1))[..., None]
+    lichen = np.clip((noise(2.0) - 0.62) * 5.0, 0, 1) * (edge > 0.5)
+    color = color * (1 - 0.5 * lichen[..., None]) + np.asarray((0.3, 0.31, 0.24))[None, None, :] * 0.5 * lichen[..., None]
+    save(name, color, edge * 0.75 + grain * 0.25, out_dir, 3.5)
+
+
 def main():
     out_dir = sys.argv[1]
     os.makedirs(out_dir, exist_ok=True)
@@ -166,6 +184,7 @@ def main():
     canvas("lona", out_dir, (0.33, 0.32, 0.31))
     canvas("lona_roja", out_dir, (0.3, 0.08, 0.07))
     cobble("adoquin", out_dir, (0.25, 0.24, 0.24))
+    rampart("muralla", out_dir, (0.27, 0.26, 0.25))
 
 
 main()

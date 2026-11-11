@@ -37,6 +37,7 @@ PAL = {
     "cuerda": ((0.42, 0.34, 0.22), 1.0, 0.0),
     "ladrillo": ((0.3, 0.2, 0.17), 0.95, 0.0),
     "adoquin": ((0.25, 0.24, 0.24), 0.95, 0.0),
+    "muralla": ((0.27, 0.26, 0.25), 0.95, 0.0),
 }
 
 # Material -> [textura (en <salida>/tex), metros que cubre una repetición]. Los demás van de color liso.
@@ -44,7 +45,7 @@ TEX = {
     "piedra": ["sillar", 3.0], "piedra_clara": ["sillar_claro", 3.0], "piedra_oscura": ["sillar_oscuro", 3.5],
     "ladrillo": ["ladrillo", 2.2], "revoque": ["revoque", 3.0], "madera": ["madera", 1.6],
     "madera_clara": ["madera_clara", 1.6], "pizarra": ["pizarra", 2.4], "teja": ["teja", 2.4],
-    "lona": ["lona_roja", 2.0], "lona_gris": ["lona", 2.0], "adoquin": ["adoquin", 2.5],
+    "lona": ["lona_roja", 2.0], "lona_gris": ["lona", 2.0], "adoquin": ["adoquin", 2.5], "muralla": ["muralla", 4.5],
 }
 TEX_DIR = ""
 
