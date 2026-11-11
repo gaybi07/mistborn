@@ -257,6 +257,19 @@ static func respec() -> void:
 	save()
 
 
+## Truco de prueba (menú Esc): nivel 100 y todos los puntos repartidos, cada rama en orden (padres antes que hijos)
+## y cada poder hasta su máximo, mientras alcancen (100 puntos no llenan los 24 poderes: el último metal queda a medias).
+static func fill_all() -> void:
+	level = MAX_LEVEL
+	xp = 0
+	for tree: StringName in SkillTree.LAYOUTS:
+		for metal: StringName in SkillTree.LAYOUTS[tree]:
+			for entry: Array in SkillTree.LAYOUTS[tree][metal]:
+				while can_raise_skill(entry[0]):
+					skill_levels[entry[0]] = skill_level(entry[0]) + 1
+	save()
+
+
 ## Si los niveles cargados son posibles: cada poder con sus requisitos y sin gastar más puntos de los que hay.
 static func is_valid() -> bool:
 	if points_free() < 0:
