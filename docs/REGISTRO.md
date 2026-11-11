@@ -2,6 +2,27 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · L1-L5 · Puntos en poderes (datos, poderes y metal, K lista, K árbol, trucos) · Lucho
+- **Ramas:** `lucho/l1-progresion-datos` → `l2-poderes-metal` → `l3-ventana-lista` → `l4-ventana-arbol` →
+  `l5-trucos-sala` (apiladas, borradas) · **Merges:** `a176d5c`, `bc25a1b`, `c4a011c`, `f5136dc`, `9b8f46b` ·
+  **Estado:** ✅ verificada (jugada por Lucho)
+- **Qué se hizo:** los puntos van en cada poder (0-5) y el nivel del metal es la suma. Arrancás con 3 puntos (Empuje,
+  Tirón y Moneda de combate) y ganás uno por nivel desde el 4. Para poner un punto, todos los padres del poder en su
+  rama necesitan al menos 1; bajar no se puede si otro poder depende de este. Guardado v5 (los viejos quedan en el
+  inicio). Cada poder escala con sus puntos (`SkillTree.equiv_level`: Ráfaga 3/7/11/15/19 monedas, Escudo 8-20); el
+  metal gasta menos y dura más con su nivel (`METAL_SCALING`). En K: "− n/5 +" en la lista; pips, clic y clic derecho
+  en el árbol, con el motivo cuando no se puede. Esc → Personaje: "Todos los poderes al máximo" e "Inicio recomendado".
+- **Archivos:** `scripts/progression/progression.gd`, `skill_tree.gd` (recibe `LAYOUTS`),
+  `scripts/ui/skill_tree_window.gd`, `skill_tree_canvas.gd`, `skill_row_label.gd`, `metal_list.gd`, `pause_menu.gd`,
+  `scripts/allomancy/allomancy.gd`, `steel_iron.gd`, `scripts/training/skill_room.gd`, `scripts/player/player.gd`
+  (puntual: `skill_unlocked`, `power_level` y los usos de las fórmulas), `tools/anim_check/progression_check.gd`
+  (nuevo), `aim_check.gd`, `aim_pitch_check.gd`, `docs/arbol-de-habilidades.md`.
+- **Cómo se probó:** `progression_check` pasa; `aim_check` y `aim_pitch_check` pasan; el juego corre sin errores;
+  Lucho jugó las cinco completas.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** G22 (taller, Gabi): el paso "gastar un punto" hoy se da por hecho solo. En red, los
+  poderes de los otros jugadores se siguen calculando por nivel de metal hasta L19. Sigue L6.
+
 ### 2026-11-10 · G28 · Casas modulares · Gabi
 - **Rama:** `gabi/g28-casas-modulares` (borrada) · **Merge:** `fffd775` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** `tools/blender/make_luthadel_houses.py` arma 48 casas combinando módulos con las texturas de G27:

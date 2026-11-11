@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | L1 a L5 (ramas apiladas: se mergean juntas) | `lucho/l1-progresion-datos` → `lucho/l2-poderes-metal` → `lucho/l3-ventana-lista` → `lucho/l4-ventana-arbol` → `lucho/l5-trucos-sala` | 2026-11-10 |
+| Lucho | — | — | — |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -34,23 +34,26 @@ rama y merge).
 
 ### 1. Puntos en poderes (ver `docs/PLAN_PROGRESION.md`)
 
-- [ ] 🔄 **L1. Datos.** `skill_levels`, puntos (3 al inicio, 100 en el nivel 100), nivel del metal calculado,
+- [x] ✅ **L1. Datos.** `skill_levels`, puntos (3 al inicio, 100 en el nivel 100), nivel del metal calculado,
   requisitos (todos los padres con 1 punto), inicio recomendado, guardado, `LAYOUTS` movido a `SkillTree`.
-  Listo cuando pasa `tools/anim_check/progression_check.gd`.
-  — *en curso: Lucho, rama `lucho/l1-progresion-datos`, desde 2026-11-10*
-- [ ] 🔄 **L2. Poderes y metal.** Cada poder escala con sus puntos (`equiv_level`); el metal escala consumo y reserva
-  con `METAL_SCALING`. Tooltips y textos. Listo cuando la Ráfaga 1 y 5 se ven distintas y el acero con 10 puntos
-  dura más. — *en curso: Lucho, rama `lucho/l2-poderes-metal` (sale de la de L1), desde 2026-11-10*
-- [ ] 🔄 **L3. Ventana K, lista.** "+" y "−" por poder, `0/5`, motivo cuando no se puede, nivel del metal calculado.
-  — *en curso: Lucho, rama `lucho/l3-ventana-lista` (sale de la de L2), desde 2026-11-10*
-- [ ] 🔄 **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
-  — *en curso: Lucho, rama `lucho/l4-ventana-arbol` (sale de la de L3), desde 2026-11-10*
-- [ ] 🔄 **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
-  `aim_check` y `aim_pitch_check`. — *en curso: Lucho, rama `lucho/l5-trucos-sala` (sale de la de L4), desde 2026-11-10*
+  — *verificada 2026-11-10, rama `lucho/l1-progresion-datos` (borrada), merge `a176d5c`*
+- [x] ✅ **L2. Poderes y metal.** Cada poder escala con sus puntos (`equiv_level`); el metal escala consumo y reserva
+  con `METAL_SCALING`. Tooltips y textos.
+  — *verificada 2026-11-10, rama `lucho/l2-poderes-metal` (borrada), merge `bc25a1b`*
+- [x] ✅ **L3. Ventana K, lista.** "+" y "−" por poder, `0/5`, motivo cuando no se puede, nivel del metal calculado.
+  — *verificada 2026-11-10, rama `lucho/l3-ventana-lista` (borrada), merge `c4a011c`*
+- [x] ✅ **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
+  — *verificada 2026-11-10, rama `lucho/l4-ventana-arbol` (borrada), merge `f5136dc`*
+- [x] ✅ **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
+  `aim_check` y `aim_pitch_check`. — *verificada 2026-11-10, rama `lucho/l5-trucos-sala` (borrada), merge `9b8f46b`*
 - [ ] **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
   compartidos.
 - ⚠️ **Al cerrar L1-L6, avisar a Gabi:** la misión del taller (G5) usa la progresión vieja para "gastar el primer
   punto"; se adapta en G22.
+  **Aviso a Gabi (2026-11-10):** L1-L5 ya están en develop; L6 solo agrega la pestaña de feruquimia y no cambia nada
+  para G22, que ya se puede hacer. Hoy, con los 3 puntos del inicio ya gastados, el paso del taller se da por hecho solo.
+  Para gastar un punto: `Progression.raise_skill(id)` / `can_raise_skill(id)`; los puntos libres siguen en
+  `points_free()`.
 
 ### 2. Metales que faltan (después de L1-L6)
 
