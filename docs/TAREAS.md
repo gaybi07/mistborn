@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | — | — | — |
+| Lucho | L8 a L11 (ramas apiladas: latón, cobre, bronce, atium) | `lucho/l8-laton` → `lucho/l9-cobre` → `lucho/l10-bronce` → `lucho/l11-atium` | 2026-11-11 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -61,7 +61,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 ("Otros metales").
 
 - [x] ✅ **L7. Cinc.** (enardecer) — *verificada 2026-11-10, rama `lucho/l7-cinc` (borrada), merge `9ca9394`*
-- [ ] **L8. Latón.** (aplacar)
+- [ ] 🔄 **L8. Latón.** (aplacar) — *en curso: Lucho, rama `lucho/l8-laton`, desde 2026-11-11*
 - [ ] **L9. Cobre.** (ocultarse)
 - [ ] **L10. Bronce.** (detectar)
 - [ ] **L11. Atium.** (ver el futuro)
