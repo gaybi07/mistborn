@@ -15,6 +15,7 @@ func _init() -> void:
 	_check_save()
 	_check_bad_files()
 	_check_formulas()
+	_check_fill_all()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
 	print("progression_check: %s" % ("OK" if _fails == 0 else "%d fallas" % _fails))
 	quit(1 if _fails > 0 else 0)
@@ -140,3 +141,11 @@ func _check_formulas() -> void:
 	_expect(seconds_10 > seconds_0 * 1.4, "acero con 10 puntos dura más (%.0f s contra %.0f s)" % [seconds_10, seconds_0])
 	_expect(SkillTree.burn_scale(&"steel", 100) == SkillTree.MIN_BURN_SCALE, "el consumo no baja del mínimo")
 	steel.free()
+
+
+func _check_fill_all() -> void:
+	Progression.reset()
+	Progression.fill_all()
+	_expect(Progression.level == Progression.MAX_LEVEL and Progression.points_free() == 0, "todo al máximo: nivel 100 sin puntos libres")
+	_expect(Progression.skill_level(&"steel_spear") == 5 and Progression.skill_level(&"tin_extreme") == 5, "todo al máximo: acero y estaño llenos")
+	_expect(Progression.is_valid(), "todo al máximo: queda válido (se puede guardar y cargar)")

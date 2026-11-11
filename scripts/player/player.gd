@@ -1091,7 +1091,7 @@ func is_rioted() -> bool:
 
 
 ## Segundos que le quedan al arrastre de peltre (0 si no lo tienes).
-## Fuerza del peltre para el efecto de una habilidad: si todavía no la tienes (según el nivel de peltre), 0.
+## Fuerza del peltre para el efecto de una habilidad: si todavía no la tienes (sin puntos en el poder), 0.
 func pewter_for(skill: StringName) -> float:
 	var p := allomancy.strength(&"pewter")
 	if p <= 0.0 or skill_unlocked(skill):
