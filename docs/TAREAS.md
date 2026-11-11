@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | L1. Datos | `lucho/l1-progresion-datos` | 2026-11-10 |
+| Lucho | L1, L2 y L3 (ramas apiladas: se mergean juntas) | `lucho/l1-progresion-datos` → `lucho/l2-poderes-metal` → `lucho/l3-ventana-lista` | 2026-11-10 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -38,9 +38,9 @@ rama y merge).
   requisitos (todos los padres con 1 punto), inicio recomendado, guardado, `LAYOUTS` movido a `SkillTree`.
   Listo cuando pasa `tools/anim_check/progression_check.gd`.
   — *en curso: Lucho, rama `lucho/l1-progresion-datos`, desde 2026-11-10*
-- [ ] **L2. Poderes y metal.** Cada poder escala con sus puntos (`equiv_level`); el metal escala consumo y reserva
+- [ ] 🔄 **L2. Poderes y metal.** Cada poder escala con sus puntos (`equiv_level`); el metal escala consumo y reserva
   con `METAL_SCALING`. Tooltips y textos. Listo cuando la Ráfaga 1 y 5 se ven distintas y el acero con 10 puntos
-  dura más.
+  dura más. — *en curso: Lucho, rama `lucho/l2-poderes-metal` (sale de la de L1), desde 2026-11-10*
 - [ ] **L3. Ventana K, lista.** "+" y "−" por poder, `0/5`, motivo cuando no se puede, nivel del metal calculado.
 - [ ] **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
 - [ ] **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
