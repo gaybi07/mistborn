@@ -2,6 +2,21 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-11 · Ajustes de poderes · Latón, cobre, bronce y atium después de probarlos · Lucho
+- **Rama:** `lucho/ajustes-poderes` (borrada) · **Merge:** `2313b72` · **Estado:** ✅ verificada (jugada por Lucho)
+- **Qué se hizo:** lo que salió de probar L8-L11 con Gabi (ver `docs/arbol-de-habilidades.md`). Sosiego suma un aura:
+  a 8 m te pegan un 25 % menos seguido y un guardia provocado se olvida en la mitad del tiempo. Cobre: Desvanecerse
+  pasa a ser la básica (la nube viene con quemar cobre), Señuelo y Golpe a traición reemplazan a Nube y Silencio.
+  Bronce: leer metales es la base, Pulso activo, Anticipar también con el Lord, Ritmo (pegar en el aviso es crítico),
+  Cazar (Pulso perturbador + Rastreo) y Resonancia. Atium: Sombras del futuro activa (5 s), Desarme en vez de Golpe
+  certero, Monedas guiadas gastan 4 % de atium cada una, Leer la pelea marca en rojo al que te va a pegar.
+- **Archivos:** `scripts/allomancy/*_powers.gd`, `metals.gd`, `allomancy.gd`; `scripts/progression/skill_tree.gd`;
+  `scripts/npc/npc.gd`, `guard.gd`, `koloss.gd`, `champion.gd`, `allomancer_npc.gd`, `lord_powers.gd` (puntuales);
+  `scripts/player/player.gd` (puntual); `scripts/ui/city_map.gd`, `compass_bar.gd`;
+  `tools/anim_check/power_rework_check.tscn` (nueva).
+- **Pruebas:** `power_rework_check` (24 casos), `progression_check`, `quest_check`, `tramo_check`, `aim_pitch_check`.
+- **Ojo:** un guardado con puntos en poderes que ya no existen vuelve al inicio recomendado.
+
 ### 2026-11-11 · L8-L12 · Latón, cobre, bronce, atium y sala de pruebas · Lucho
 - **Ramas:** `lucho/l8-laton` → `l9-cobre` → `l10-bronce` → `l11-atium` → `l12-sala-pruebas` (apiladas, borradas) ·
   **Merges:** `2cb844b`, `037c20e`, `2951ed7`, `35390d3`, `4f3a342` · **Estado:** ✅ verificada (jugada por Lucho)
