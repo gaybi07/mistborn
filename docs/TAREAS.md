@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | L7. Cinc | `lucho/l7-cinc` | 2026-11-10 |
+| Lucho | — | — | — |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -60,7 +60,7 @@ Cada uno: diseño de su rama en `docs/arbol-de-habilidades.md` (partiendo de lo 
 en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, ese metal deja de subirse directo
 ("Otros metales").
 
-- [ ] 🔄 **L7. Cinc.** (enardecer) — *en curso: Lucho, rama `lucho/l7-cinc`, desde 2026-11-10*
+- [x] ✅ **L7. Cinc.** (enardecer) — *verificada 2026-11-10, rama `lucho/l7-cinc` (borrada), merge `9ca9394`*
 - [ ] **L8. Latón.** (aplacar)
 - [ ] **L9. Cobre.** (ocultarse)
 - [ ] **L10. Bronce.** (detectar)

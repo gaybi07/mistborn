@@ -2,6 +2,24 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · L7 · Cinc · Lucho
+- **Rama:** `lucho/l7-cinc` (borrada) · **Merge:** `9ca9394` · **Estado:** ✅ verificada (jugada por Lucho; la Ira,
+  poco)
+- **Qué se hizo:** seis poderes del cinc (diseño de Lucho): Ira, Pánico, Avaricia, Domar, Contagio emocional (pasiva)
+  y Tormenta de emociones. Rama: Ira → Contagio; Pánico → Avaricia → Domar; la Tormenta pide Contagio y Domar. `Npc`
+  ganó estados de pánico, codicia, lealtad (domado) e ira contra otro NPC que mandan sobre `_think`, para todos los
+  NPC sin tocar cada IA; lo que mata un NPC enardecido o domado le da su parte de experiencia al jugador. Los
+  `Champion` no se dejan domar. El cinc dejó de subirse directo.
+- **Archivos:** `scripts/allomancy/zinc_powers.gd` (nuevo), `scripts/npc/npc.gd` y `champion.gd` (puntuales),
+  `scripts/player/player.gd` (puntual: despacha a `ZincPowers`), `scripts/progression/skill_tree.gd`,
+  `scripts/ui/skill_tree_window.gd`, `pause_menu.gd`, `docs/arbol-de-habilidades.md`.
+- **Cómo se probó:** prueba sin pantalla con NPC reales (huye, va a la moneda, pelea con otro, la experiencia llega,
+  el jefe no se deja) y desde el jugador (Tormenta, recarga, Avaricia); `progression_check`, `quest_check` y
+  `tramo_check` pasan; Lucho jugó los poderes.
+- **Conflictos:** ninguno (develop tenía G9 y G24 de Gabi).
+- **Pendiente o pedidos:** 5 pedidos de animación para Gabi (tabla en TAREAS.md). El domado pega con un golpe
+  genérico de 12. Sigue L8 (latón).
+
 ### 2026-11-10 · L6 · Lugar para la feruquimia · Lucho
 - **Rama:** `lucho/l6-feruquimia-lugar` (borrada) · **Merge:** `cbd106e` · **Estado:** ✅ verificada (jugada por Lucho)
 - **Qué se hizo:** `SkillTree.skills_of(metal, tree)` filtra por árbol; sin árbol suma los dos, así el nivel del metal
