@@ -50,8 +50,8 @@ func _check_points() -> void:
 	_expect(not Progression.can_raise(&"steel"), "el acero no se sube directo")
 	Progression.reset()
 	Progression.level = 10
-	_expect(Progression.raise_metal(&"atium") and Progression.points_free() == 5, "atium directo cuesta 2")
-	_expect(Progression.metal_level(&"atium") == 1, "atium directo cuenta en su nivel")
+	_expect(Progression.raise_skill(&"atium_shadows") and Progression.points_free() == 5, "cada nivel de atium cuesta 2")
+	_expect(Progression.metal_level(&"atium") == 1 and not Progression.can_raise(&"atium"), "el atium suma su nivel y ya no se sube directo")
 
 
 func _check_requirements() -> void:
@@ -90,7 +90,7 @@ func _check_save() -> void:
 	Progression.raise_skill(&"steel_coin_burst")
 	Progression.raise_skill(&"steel_coin_burst")
 	Progression.raise_skill(&"tin_senses")
-	Progression.raise_metal(&"zinc")
+	Progression.raise_skill(&"zinc_fury")
 	Progression.save()
 	var skills := Progression.skill_levels.duplicate()
 	var direct := Progression.direct_levels.duplicate()

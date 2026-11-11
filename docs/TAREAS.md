@@ -337,3 +337,5 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Pulso perturbador (bronce, `bronze_disrupt`) | `field` | Golpe seco de las dos palmas hacia afuera, como rompiendo algo invisible | |
 | Rastreo (bronce, `bronze_track`) | `extreme_senses` | Ojos cerrados, cabeza que gira despacio escuchando | |
 | Contrapulso (bronce, `bronze_counter`) | `mass_yank` | Junta las manos y suelta una onda hacia todos lados | |
+| Monedas guiadas (atium, `atium_guided`) | `coin_wave` | Abanico de monedas lanzado sin mirar, cada una hacia un lado distinto | |
+| Momento eterno (atium, `atium_eternal`) | `burn_focus` | Inspira hondo y abre los ojos de golpe; el cuerpo se tensa listo para moverse | |

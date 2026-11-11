@@ -91,6 +91,13 @@ const SKILLS := [
 	{"id": &"bronze_disrupt", "metal": &"bronze", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Pulso perturbador"},
 	{"id": &"bronze_track", "metal": &"bronze", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Rastreo"},
 	{"id": &"bronze_counter", "metal": &"bronze", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Contrapulso"},
+	# Atium (L11): más preciso y más espectacular, no más barato: cada nivel cuesta 2 puntos (ver skill_cost).
+	{"id": &"atium_shadows", "metal": &"atium", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Sombras del futuro"},
+	{"id": &"atium_perfect", "metal": &"atium", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Esquiva perfecta"},
+	{"id": &"atium_sure", "metal": &"atium", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Golpe certero"},
+	{"id": &"atium_guided", "metal": &"atium", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Monedas guiadas"},
+	{"id": &"atium_read", "metal": &"atium", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Leer la pelea"},
+	{"id": &"atium_eternal", "metal": &"atium", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Momento eterno"},
 ]
 
 
@@ -171,6 +178,15 @@ const LAYOUTS := {
 			[&"bronze_disrupt", Vector2(170, 150), [&"bronze_pulses"]],
 			[&"bronze_track", Vector2(320, 220), [&"bronze_disrupt"]],
 			[&"bronze_counter", Vector2(400, 0), [&"bronze_foresee", &"bronze_track"]],
+		],
+		# Atium: arriba, pelear cuerpo a cuerpo viendo el futuro; abajo, verlo de lejos (monedas y jefes).
+		&"atium": [
+			[&"atium_shadows", Vector2(75, 0), [&"root"]],
+			[&"atium_perfect", Vector2(170, -150), [&"atium_shadows"]],
+			[&"atium_sure", Vector2(320, -220), [&"atium_perfect"]],
+			[&"atium_guided", Vector2(170, 150), [&"atium_shadows"]],
+			[&"atium_read", Vector2(320, 220), [&"atium_guided"]],
+			[&"atium_eternal", Vector2(400, 0), [&"atium_sure", &"atium_read"]],
 		],
 	},
 	&"feruchemy": {},
@@ -281,9 +297,9 @@ static func equiv_level(id: StringName, lvl: int) -> int:
 	return roundi(lerpf(legacy, MAX_EQUIV, float(mini(lvl, top) - 1) / float(top - 1)))
 
 
-## Puntos por nivel de un poder (D5: todos 1).
-static func skill_cost(_id: StringName) -> int:
-	return 1
+## Puntos por nivel de un poder: 1, salvo el atium (ATIUM_COST, el metal más fuerte).
+static func skill_cost(id: StringName) -> int:
+	return ATIUM_COST if find(id).get("metal", &"") == &"atium" else 1
 
 
 static func tree_of(id: StringName) -> StringName:
@@ -438,6 +454,22 @@ const BRONZE_TRACK_COOLDOWN := 40.0
 const BRONZE_COUNTER_TIME := 4.0
 const BRONZE_COUNTER_RADIUS := 12.0
 const BRONZE_COUNTER_COOLDOWN := 60.0
+## Atium (L11): cámara lenta (escala del tiempo y s), críticos, monedas, recargas (s), en nivel 1.
+const ATIUM_COST := 2
+const ATIUM_PERFECT_SLOW := 0.3
+const ATIUM_PERFECT_TIME := 1.0
+const ATIUM_PERFECT_CRIT_WINDOW := 3.0
+const ATIUM_SURE_CRIT := 0.15
+const ATIUM_SURE_STUN := 1.0
+const ATIUM_GUIDED_COUNT := 5
+const ATIUM_GUIDED_RANGE := 25.0
+const ATIUM_GUIDED_SPEED := 45.0
+const ATIUM_GUIDED_COOLDOWN := 15.0
+const ATIUM_READ_WARN := 2.0
+const ATIUM_READ_LOOKAHEAD := 1.0
+const ATIUM_ETERNAL_TIME := 6.0
+const ATIUM_ETERNAL_SLOW := 0.15
+const ATIUM_ETERNAL_COOLDOWN := 90.0
 const SLAM_COOLDOWN := 12.0
 const SLAM_RADIUS := 6.0
 const FURY_TIME := 8.0
@@ -506,6 +538,12 @@ const DESCRIPTIONS := {
 	&"bronze_disrupt": "Un toque: rompe las nubes de cobre a 15 m durante 8 s. Los Humeadores no pueden quemar cobre y ves a los que tapaban.\nRecarga: 25 s.",
 	&"bronze_track": "Un toque: durante 20 s, todos los alománticos a 60 m aparecen en la brújula y en el mapa.\nRecarga: 40 s.",
 	&"bronze_counter": "Un toque: una onda que les apaga todos los metales durante 4 s a los alománticos enemigos a 12 m. Se quedan sin poderes y trastabillan.\nRecarga: 60 s.",
+	&"atium_shadows": "Pasiva: lo que hace el atium desde el principio. Ves la sombra de dónde va a estar cada uno, esquivás los golpes de quien no quema atium, tus monedas buscan el blanco y tus golpes no se bloquean (45 % de crítico; 70 % avivando).\nCada nivel cuesta 2 puntos.",
+	&"atium_perfect": "Pasiva: cuando el atium te hace esquivar un golpe, el mundo se frena 1 s y tu próximo golpe (en 3 s) es crítico.\nLa cámara lenta, solo jugando solo. Cada nivel cuesta 2 puntos.",
+	&"atium_sure": "Pasiva: con atium encendido, +15 % de probabilidad de crítico, y tus críticos dejan aturdido 1 s (a los jefes, menos).\nCada nivel cuesta 2 puntos.",
+	&"atium_guided": "Un toque: lanzás hasta 5 monedas, una a cada enemigo distinto a 25 m, que lo siguen hasta pegarle. Gasta una moneda por cada una.\nRecarga: 15 s. Cada nivel cuesta 2 puntos.",
+	&"atium_read": "Pasiva: con atium encendido, los ataques de los jefes se avisan con el doble de tiempo, y la sombra de cada enemigo te muestra dónde va a estar en 1 s.\nCada nivel cuesta 2 puntos.",
+	&"atium_eternal": "Un toque: 6 s con el mundo al 15 % de velocidad mientras vos te movés normal; cada golpe es crítico. Aviva el atium todo el tiempo: lo gasta muy rápido.\nCon otros jugadores el tiempo no se frena (solo los críticos). Recarga: 90 s. Cada nivel cuesta 2 puntos.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }
 

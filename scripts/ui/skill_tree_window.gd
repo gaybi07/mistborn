@@ -29,6 +29,7 @@ const METAL_TAGLINE := {
 	&"brass": "Apaga emociones",
 	&"copper": "Oculta y protege",
 	&"bronze": "Lee al enemigo",
+	&"atium": "Ve el futuro",
 }
 
 var player: Player
