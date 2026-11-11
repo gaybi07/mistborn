@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | — | — | — |
+| Lucho | L6. Lugar para la feruquimia | `lucho/l6-feruquimia-lugar` | 2026-11-10 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -46,8 +46,8 @@ rama y merge).
   — *verificada 2026-11-10, rama `lucho/l4-ventana-arbol` (borrada), merge `f5136dc`*
 - [x] ✅ **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
   `aim_check` y `aim_pitch_check`. — *verificada 2026-11-10, rama `lucho/l5-trucos-sala` (borrada), merge `9b8f46b`*
-- [ ] **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
-  compartidos.
+- [ ] 🔄 **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
+  compartidos. — *en curso: Lucho, rama `lucho/l6-feruquimia-lugar`, desde 2026-11-10*
 - ⚠️ **Al cerrar L1-L6, avisar a Gabi:** la misión del taller (G5) usa la progresión vieja para "gastar el primer
   punto"; se adapta en G22.
   **Aviso a Gabi (2026-11-10):** L1-L5 ya están en develop; L6 solo agrega la pestaña de feruquimia y no cambia nada
