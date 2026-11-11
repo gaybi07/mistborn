@@ -53,7 +53,7 @@ const NPCS := {
 	"terrisano": {"name": "Sazed", "model": "Terrisano", "clips": true, "ally": true, "role": "Guarda memorias: lleva al secreto de la Regeneración."},
 	"tindwyl": {"name": "Tindwyl", "model": "Tindwyl", "clips": true, "role": "Lidera a los terrisanos refugiados. Apoya o cierra las misiones de Terris."},
 	"ham": {"name": "Ham", "model": "Ham", "clips": true, "ally": true, "role": "Maestro del estilo Peleador."},
-	"spook": {"name": "Spook", "model": "", "clips": false, "ally": true, "role": "Maestro del estilo Volador. Puede ser el kandra."},
+	"spook": {"name": "Spook", "model": "Spook", "clips": true, "ally": true, "role": "Maestro del estilo Volador. Puede ser el kandra."},
 	"breeze": {"name": "Breeze", "model": "Breeze", "clips": true, "ally": true, "role": "Maestro del estilo Manipulador. Puede ser el kandra."},
 	"dockson": {"name": "Dockson", "model": "Dockson", "clips": true, "role": "Organiza la banda. Puede ser el kandra."},
 	"tesa": {"name": "Tesa", "model": "NinaSkaa", "clips": true, "at": Vector2(-280, 250), "role": "Capataza de los corrales. Lleva a los skaa al levantamiento, o deja de hablarte."},
