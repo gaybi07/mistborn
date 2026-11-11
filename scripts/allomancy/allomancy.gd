@@ -30,6 +30,9 @@ var reserve: Dictionary = {}
 var state: Dictionary = {}
 ## Si es válida, dice si un metal está aprendido (el árbol de habilidades del jugador). Sin ella, todos valen.
 var can_burn: Callable
+## Si es válida, da el nivel de un metal (puntos en sus poderes), que escala el consumo y la reserva
+## (SkillTree.METAL_SCALING). Sin ella (NPC), escala 1.
+var metal_level: Callable
 ## Aplacado por el latón de otro: no puedes avivar (lo avivado baja a quemar).
 var flare_blocked := false:
 	set(v):
@@ -42,7 +45,7 @@ var flare_blocked := false:
 
 func _ready() -> void:
 	for m in METALS:
-		reserve[m] = METALS[m]["max"]
+		reserve[m] = max_reserve(m)
 		state[m] = State.OFF
 
 
@@ -56,6 +59,8 @@ func _process(delta: float) -> void:
 			state[m] = State.OFF  # se reasignaron los puntos con el metal encendido
 			continue
 		var rate: float = METALS[m]["flare"] if state[m] == State.FLARE else METALS[m]["burn"]
+		if metal_level.is_valid():
+			rate *= SkillTree.burn_scale(m, metal_level.call(m))
 		reserve[m] = maxf(reserve[m] - rate * real_delta, 0.0)
 		if reserve[m] <= 0.0:
 			state[m] = State.OFF
@@ -107,7 +112,7 @@ func stop_all() -> void:
 
 
 func refill(metal: StringName, amount: float) -> void:
-	reserve[metal] = minf(reserve[metal] + amount, METALS[metal]["max"])
+	reserve[metal] = minf(reserve[metal] + amount, max_reserve(metal))
 
 
 func burning_metals() -> Array[StringName]:
@@ -133,3 +138,9 @@ func strength(metal: StringName) -> float:
 		State.FLARE:
 			return FLARE_STRENGTH
 	return 0.0
+
+
+## Reserva máxima de un metal: la de METALS, más grande con el nivel del metal (ver metal_level).
+func max_reserve(metal: StringName) -> float:
+	var base: float = METALS[metal]["max"]
+	return base * SkillTree.reserve_scale(metal, metal_level.call(metal)) if metal_level.is_valid() else base

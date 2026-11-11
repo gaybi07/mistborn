@@ -15,35 +15,54 @@ const POWER_PER_LEVEL := 0.15
 
 ## Niveles de cada poder si su entrada no dice "max".
 const DEFAULT_MAX := 5
+## Tope de la escala vieja de nivel de metal (ver equiv_level).
+const MAX_EQUIV := 20
 
-## id, metal, nivel de metal (el desbloqueo viejo: pasa a "legacy_level" con equiv_level, en L2), tipo y nombre.
+## Cómo mejora el metal en sí con cada punto en sus poderes (nivel del metal): "burn", cambio del consumo por punto, y
+## "max", cambio de la reserva por punto. Provisorio (D7): igual para todos hasta balancear; un metal sin entrada
+## usa DEFAULT_METAL_SCALING. El consumo nunca baja de MIN_BURN_SCALE.
+const DEFAULT_METAL_SCALING := {"burn": -0.02, "max": 0.03}
+const METAL_SCALING := {}
+const MIN_BURN_SCALE := 0.4
+
+
+## Multiplicador del consumo (quemar y avivar) con ese nivel de metal.
+static func burn_scale(metal: StringName, metal_level: int) -> float:
+	return maxf(1.0 + float(METAL_SCALING.get(metal, DEFAULT_METAL_SCALING)["burn"]) * metal_level, MIN_BURN_SCALE)
+
+
+## Multiplicador de la reserva máxima con ese nivel de metal.
+static func reserve_scale(metal: StringName, metal_level: int) -> float:
+	return 1.0 + float(METAL_SCALING.get(metal, DEFAULT_METAL_SCALING)["max"]) * metal_level
+
+## id, metal, "legacy_level" (el nivel de metal en que se desbloqueaba antes: de ahí arranca equiv_level), tipo y nombre.
 ## Opcionales: "max" (niveles del poder, DEFAULT_MAX), "tree" (&"allomancy" o &"feruchemy"; falta = alomancia) y
 ## "requires" (requisitos extra, ver _requirement_ok).
 const SKILLS := [
-	{"id": &"steel_light_push", "metal": &"steel", "level": 1, "kind": Kind.ACTIVE, "name": "Empuje básico"},
-	{"id": &"steel_combat_coin", "metal": &"steel", "level": 2, "kind": Kind.ACTIVE, "name": "Moneda de combate"},
-	{"id": &"steel_coin_burst", "metal": &"steel", "level": 3, "kind": Kind.ACTIVE, "name": "Ráfaga de monedas"},
-	{"id": &"steel_coin_shield", "metal": &"steel", "level": 8, "kind": Kind.ACTIVE, "name": "Escudo de monedas"},
-	{"id": &"steel_magnetic_field", "metal": &"steel", "level": 12, "kind": Kind.ACTIVE, "name": "Campo magnético"},
-	{"id": &"steel_spear", "metal": &"steel", "level": 20, "kind": Kind.ACTIVE, "name": "Lanza de acero"},
-	{"id": &"iron_pull", "metal": &"iron", "level": 1, "kind": Kind.ACTIVE, "name": "Tirón básico"},
-	{"id": &"iron_drag", "metal": &"iron", "level": 4, "kind": Kind.ACTIVE, "name": "Arrastre"},
-	{"id": &"iron_coin_magnet", "metal": &"iron", "level": 2, "kind": Kind.ACTIVE, "name": "Imán de monedas"},
-	{"id": &"iron_hook", "metal": &"iron", "level": 8, "kind": Kind.ACTIVE, "name": "Gancho"},
-	{"id": &"iron_disarm", "metal": &"iron", "level": 12, "kind": Kind.ACTIVE, "name": "Desarme"},
-	{"id": &"iron_mass_yank", "metal": &"iron", "level": 20, "kind": Kind.ACTIVE, "name": "Atracción masiva"},
-	{"id": &"pewter_endurance", "metal": &"pewter", "level": 1, "kind": Kind.PASSIVE, "name": "Resistencia"},
-	{"id": &"pewter_charge", "metal": &"pewter", "level": 4, "kind": Kind.ACTIVE, "name": "Embestida"},
-	{"id": &"pewter_strike", "metal": &"pewter", "level": 8, "kind": Kind.PASSIVE, "name": "Golpe reforzado"},
-	{"id": &"pewter_slam", "metal": &"pewter", "level": 12, "kind": Kind.ACTIVE, "name": "Martillazo"},
-	{"id": &"pewter_last_stand", "metal": &"pewter", "level": 16, "kind": Kind.PASSIVE, "name": "Último aliento"},
-	{"id": &"pewter_fury", "metal": &"pewter", "level": 20, "kind": Kind.ACTIVE, "name": "Furia"},
-	{"id": &"tin_senses", "metal": &"tin", "level": 1, "kind": Kind.PASSIVE, "name": "Sentidos agudos"},
-	{"id": &"tin_focus", "metal": &"tin", "level": 4, "kind": Kind.ACTIVE, "name": "Foco"},
-	{"id": &"tin_ear", "metal": &"tin", "level": 8, "kind": Kind.PASSIVE, "name": "Oído agudo"},
-	{"id": &"tin_mark", "metal": &"tin", "level": 12, "kind": Kind.ACTIVE, "name": "Marca del cazador"},
-	{"id": &"tin_clear_mind", "metal": &"tin", "level": 16, "kind": Kind.ACTIVE, "name": "Mente despejada"},
-	{"id": &"tin_extreme", "metal": &"tin", "level": 20, "kind": Kind.ACTIVE, "name": "Sentidos extremos"},
+	{"id": &"steel_light_push", "metal": &"steel", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Empuje básico"},
+	{"id": &"steel_combat_coin", "metal": &"steel", "legacy_level": 2, "kind": Kind.ACTIVE, "name": "Moneda de combate"},
+	{"id": &"steel_coin_burst", "metal": &"steel", "legacy_level": 3, "kind": Kind.ACTIVE, "name": "Ráfaga de monedas"},
+	{"id": &"steel_coin_shield", "metal": &"steel", "legacy_level": 8, "kind": Kind.ACTIVE, "name": "Escudo de monedas"},
+	{"id": &"steel_magnetic_field", "metal": &"steel", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Campo magnético"},
+	{"id": &"steel_spear", "metal": &"steel", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Lanza de acero"},
+	{"id": &"iron_pull", "metal": &"iron", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Tirón básico"},
+	{"id": &"iron_drag", "metal": &"iron", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Arrastre"},
+	{"id": &"iron_coin_magnet", "metal": &"iron", "legacy_level": 2, "kind": Kind.ACTIVE, "name": "Imán de monedas"},
+	{"id": &"iron_hook", "metal": &"iron", "legacy_level": 8, "kind": Kind.ACTIVE, "name": "Gancho"},
+	{"id": &"iron_disarm", "metal": &"iron", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Desarme"},
+	{"id": &"iron_mass_yank", "metal": &"iron", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Atracción masiva"},
+	{"id": &"pewter_endurance", "metal": &"pewter", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Resistencia"},
+	{"id": &"pewter_charge", "metal": &"pewter", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Embestida"},
+	{"id": &"pewter_strike", "metal": &"pewter", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Golpe reforzado"},
+	{"id": &"pewter_slam", "metal": &"pewter", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Martillazo"},
+	{"id": &"pewter_last_stand", "metal": &"pewter", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Último aliento"},
+	{"id": &"pewter_fury", "metal": &"pewter", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Furia"},
+	{"id": &"tin_senses", "metal": &"tin", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Sentidos agudos"},
+	{"id": &"tin_focus", "metal": &"tin", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Foco"},
+	{"id": &"tin_ear", "metal": &"tin", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Oído agudo"},
+	{"id": &"tin_mark", "metal": &"tin", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Marca del cazador"},
+	{"id": &"tin_clear_mind", "metal": &"tin", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Mente despejada"},
+	{"id": &"tin_extreme", "metal": &"tin", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Sentidos extremos"},
 ]
 
 
@@ -172,6 +191,20 @@ static func max_level(id: StringName) -> int:
 	return int(find(id).get("max", DEFAULT_MAX))
 
 
+## Nivel del poder (1..max) traducido a la escala vieja de nivel de metal (1-20), la que reciben fan_count,
+## shield_count, power_mass y compañía: va de su desbloqueo viejo (nivel 1) a 20 (nivel máximo). 0 = sin puntos.
+## Ráfaga (desbloqueo 3): 3, 7, 12, 16, 20. El balance se ajusta acá, no en las fórmulas.
+static func equiv_level(id: StringName, lvl: int) -> int:
+	var s := find(id)
+	if s.is_empty() or lvl <= 0:
+		return 0
+	var top := max_level(id)
+	var legacy := int(s["legacy_level"])
+	if top <= 1:
+		return MAX_EQUIV
+	return roundi(lerpf(legacy, MAX_EQUIV, float(mini(lvl, top) - 1) / float(top - 1)))
+
+
 ## Puntos por nivel de un poder (D5: todos 1).
 static func skill_cost(_id: StringName) -> int:
 	return 1
@@ -296,13 +329,13 @@ static func shield_block_chance(coins: int) -> float:
 
 ## Qué hace cada habilidad y cómo mejora con los niveles (se muestra al pasar el ratón por encima en el árbol).
 const DESCRIPTIONS := {
-	&"steel_combat_coin": "Clic derecho: lanza una moneda hacia donde apuntas. Si apuntas a algo fijo (suelo, pared, farola) a menos de 25 m, la moneda queda clavada al instante y el empuje empieza ya: sirve para frenar una caída, saltar o desplazarte. Mantén el clic para seguir empujando; si te interpones con algo, el lazo se corta.\nSi apuntas a un enemigo, un objeto suelto o algo más lejos, sale como proyectil rápido (60 m/s) que hiere al chocar.\nTe empuja solo cuando la moneda está clavada en algo fijo o más pesado que tu poder. Entre impulsos hay 1 s de recarga.\nCayendo, la moneda sale siempre hacia abajo (al menos 55° bajo la horizontal). En el aire, un aro suave en la mira te avisa cuando lo que apuntas está a distancia para impulsarte con la moneda.\nMejora: el empuje gana un 3 % de fuerza por nivel de acero.",
-	&"steel_light_push": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo empuja lejos de ti. Lo fijo (farolas, rejas, anclas) o más pesado que tu poder no se mueve: te empuja a ti en sentido contrario. Lo más liviano sale despedido y casi no te mueve.\nTu poder de empuje es tu peso en el nivel 1 y sube un 15 % por nivel: con más niveles mueves cosas cada vez más pesadas que tú.\nLa fuerza también sube un 3 % por nivel.",
-	&"iron_pull": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo trae hacia ti. Lo más liviano que tu poder viene curvando si te mueves; una moneda se guarda al tocarte y otro objeto puede golpearte. Lo fijo o más pesado que tu poder (farolas, rejas, techos) no se mueve: te acerca a él, así puedes subir a un techo.\nAl soltar la tecla, lo que traías cae con la física normal. Al terminar un agarre pasa solo al siguiente metal dentro del círculo.\nTu poder de tirón es tu peso en el nivel 1 y sube un 15 % por nivel; la fuerza sube un 3 % por nivel.",
-	&"iron_drag": "Un toque apuntando a un enemigo que lleve metal: lo arrastra hacia ti durante 1,5 s a 16 m/s y, al llegar a unos 2 m, queda aturdido 1 s. Necesita línea de visión.\nSolo arrastra a quien pese hasta tu poder de tirón (tu peso en el nivel 1 y un 15 % más por nivel).\nRecarga: 6 s.",
+	&"steel_combat_coin": "Clic derecho: lanza una moneda hacia donde apuntas. Si apuntas a algo fijo (suelo, pared, farola) a menos de 25 m, la moneda queda clavada al instante y el empuje empieza ya: sirve para frenar una caída, saltar o desplazarte. Mantén el clic para seguir empujando; si te interpones con algo, el lazo se corta.\nSi apuntas a un enemigo, un objeto suelto o algo más lejos, sale como proyectil rápido (60 m/s) que hiere al chocar.\nTe empuja solo cuando la moneda está clavada en algo fijo o más pesado que tu poder. Entre impulsos hay 1 s de recarga.\nCayendo, la moneda sale siempre hacia abajo (al menos 55° bajo la horizontal). En el aire, un aro suave en la mira te avisa cuando lo que apuntas está a distancia para impulsarte con la moneda.\nMejora: el empuje gana fuerza con cada nivel de la Moneda.",
+	&"steel_light_push": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo empuja lejos de ti. Lo fijo (farolas, rejas, anclas) o más pesado que tu poder no se mueve: te empuja a ti en sentido contrario. Lo más liviano sale despedido y casi no te mueve.\nTu poder de empuje es tu peso en el nivel 1 y sube con cada nivel de este poder: mueves cosas cada vez más pesadas que tú, y con más fuerza.",
+	&"iron_pull": "Mantén la tecla apuntando a un metal dentro del círculo de la mira: lo trae hacia ti. Lo más liviano que tu poder viene curvando si te mueves; una moneda se guarda al tocarte y otro objeto puede golpearte. Lo fijo o más pesado que tu poder (farolas, rejas, techos) no se mueve: te acerca a él, así puedes subir a un techo.\nAl soltar la tecla, lo que traías cae con la física normal. Al terminar un agarre pasa solo al siguiente metal dentro del círculo.\nTu poder de tirón es tu peso en el nivel 1 y sube con cada nivel de este poder, igual que la fuerza.",
+	&"iron_drag": "Un toque apuntando a un enemigo que lleve metal: lo arrastra hacia ti durante 1,5 s a 16 m/s y, al llegar a unos 2 m, queda aturdido 1 s. Necesita línea de visión.\nSolo arrastra a quien pese hasta tu poder de tirón (sube con los niveles del Tirón básico).\nRecarga: 6 s.",
 	&"iron_hook": "Un toque apuntando a cualquier superficie fija a menos de 25 m (el mismo alcance que la moneda del clic derecho): clava una moneda ahí (gasta 1) y una soga te tira hacia ella hasta unos 28 m/s. Frenas al llegar y, durante un momento, los golpes casi no te lastiman. Sirve para trepar y cruzar entre techos sin depender de farolas.\nRecarga: 3 s.",
 	&"iron_disarm": "Un toque apuntando a un enemigo con arma metálica: el arma sale despedida y cae al piso a mitad de camino entre él y tú; durante 8 s ese enemigo pega un 70 % menos. Con hierro puedes tirar del arma que cayó.\nRecarga: 8 s.",
-	&"iron_mass_yank": "Un toque: tira de todos los enemigos con metal en 12 m a la vez y los junta en un anillo a tu alrededor; quedan aturdidos 1,2 s. Solo a los que pesan hasta tu poder de tirón.\nRecarga: 20 s.",
+	&"iron_mass_yank": "Un toque: tira de todos los enemigos con metal en 12 m a la vez y los junta en un anillo a tu alrededor; quedan aturdidos 1,2 s. Solo a los que pesan hasta tu poder de tirón (sube con los niveles del Tirón básico).\nRecarga: 20 s.",
 	&"pewter_endurance": "Pasiva: mientras quemas peltre aguantas más: gastas menos aguante, lo recuperas antes y recibes menos daño y menos empujón.\nQuemando: ~40 % menos daño; avivando: ~55 % menos.",
 	&"pewter_charge": "Un toque: te lanzas hacia donde miras unos 0,4 s a gran velocidad; a quien toques en el camino lo golpeas, lo empujas y lo dejas aturdido 1,5 s. Más fuerte con el peltre encendido.\nRecarga: 8 s.",
 	&"pewter_strike": "Pasiva: con peltre pegas más fuerte y más rápido: +75 % de daño y más empuje cuerpo a cuerpo; avivando, más aún.",
@@ -319,45 +352,71 @@ const DESCRIPTIONS := {
 
 
 ## Partes del tooltip de una habilidad (ver SkillTooltip): "body" (qué hace y cómo mejora, con párrafos separados
-## por salto de línea), "now" (los números con el nivel actual del metal) y "unlock" (cuándo se desbloquea).
-static func tooltip_parts(id: StringName, metal_level: int) -> Dictionary:
+## por salto de línea), "now" (los números con el nivel actual del poder y con el siguiente) y "unlock" (qué falta
+## para poder ponerle un punto).
+static func tooltip_parts(id: StringName, skill_level: int) -> Dictionary:
 	var s := find(id)
 	if s.is_empty():
 		return {}
 	var body: String = DESCRIPTIONS.get(id, "")
-	var now := ""
 	match id:
 		&"steel_coin_burst":
-			body = "Lanza monedas en abanico hacia donde apunta el ratón. Gasta una moneda del monedero por cada una.\nSiempre sale una cantidad impar, con una moneda justo en el centro, donde apuntas.\nNivel 3: 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas (una a cada lado) y el cono se abre; en el nivel 15 es un círculo completo de 15 monedas a tu alrededor, y desde ahí las nuevas salen hacia arriba y hacia abajo."
-			now = _fan_now("monedas", metal_level, BURST_MIN_LEVEL)
-			var up := fan_count(metal_level, BURST_MIN_LEVEL) - BURST_CIRCLE
-			if up > 0:
-				now = "Ahora (nivel %d): %d monedas en círculo y %d hacia arriba y abajo." % [metal_level, BURST_CIRCLE, up]
+			body = "Lanza monedas en abanico hacia donde apunta el ratón. Gasta una moneda del monedero por cada una.\nSiempre sale una cantidad impar, con una moneda justo en el centro, donde apuntas.\nCon cada nivel salen más monedas y el cono se abre hasta cerrar un círculo completo a tu alrededor; las que sobran salen hacia arriba y hacia abajo.\nMonedas por nivel: %s." % _per_level(id, func(eq: int) -> String: return str(fan_count(eq, BURST_MIN_LEVEL)))
 		&"iron_coin_magnet":
-			body = "Atrae las monedas sueltas cercanas hacia donde apunta el ratón; vuelan hacia ti y se guardan al tocarte, sin hacerte daño.\nNivel 2: hasta 3 monedas en un cono de 30°. Cada 2 niveles suma 2 monedas y el cono se abre; en el nivel 15 atrae todas las de alrededor."
-			now = _fan_now("monedas atraídas", metal_level, FAN_MIN_LEVEL)
-		&"iron_drag", &"iron_mass_yank":
-			now = "Ahora (nivel %d): arrastras a quien pese hasta %d kg." % [metal_level, roundi(power_mass(metal_level))]
-		&"steel_light_push", &"iron_pull":
-			now = "Ahora (nivel %d): mueves objetos de hasta %d kg; lo más pesado o fijo te mueve a ti." % [metal_level, roundi(power_mass(metal_level))]
+			body = "Atrae las monedas sueltas cercanas hacia donde apunta el ratón; vuelan hacia ti y se guardan al tocarte, sin hacerte daño.\nCon cada nivel atrae más monedas y el cono se abre, hasta atraer todas las de alrededor.\nMonedas por nivel: %s." % _per_level(id, func(eq: int) -> String: return str(fan_count(eq)))
 		&"steel_coin_shield":
-			body = "Pulsa la tecla: monedas del monedero giran a tu alrededor en órbitas inclinadas que se cruzan, como el escudo de maná de un mago. Cada golpe cuerpo a cuerpo que te den tiene una probabilidad de ser desviado: sin daño ni empuje. No frena proyectiles (para eso está el Campo magnético).\nDura 5,5 s y se retira solo (o pulsando de nuevo): las monedas no se gastan, vuelven al monedero.\n8 monedas en el nivel 8 y una más por nivel (20 en el 20). Con más monedas, más probabilidad: 40 % con 8 y 3 % más por moneda (76 % con 20).\nCombinación: la Ráfaga de monedas o el Campo magnético con el escudo puesto lo hacen reventar: sus monedas y muchas más del monedero salen volando, con una onda magnética."
-			if metal_level >= 8:
-				now = "Ahora (nivel %d): %d monedas, %d %% de probabilidad de desviar un golpe." % [metal_level, shield_count(metal_level), roundi(shield_block_chance(shield_count(metal_level)) * 100.0)]
+			body = "Pulsa la tecla: monedas del monedero giran a tu alrededor en órbitas inclinadas que se cruzan, como el escudo de maná de un mago. Cada golpe cuerpo a cuerpo que te den tiene una probabilidad de ser desviado: sin daño ni empuje. No frena proyectiles (para eso está el Campo magnético).\nDura 5,5 s y se retira solo (o pulsando de nuevo): las monedas no se gastan, vuelven al monedero.\nCon más monedas, más probabilidad. Monedas por nivel: %s.\nCombinación: la Ráfaga de monedas o el Campo magnético con el escudo puesto lo hacen reventar: sus monedas y muchas más del monedero salen volando, con una onda magnética." % _per_level(id, func(eq: int) -> String: return str(shield_count(eq)))
 		&"steel_magnetic_field":
 			body = "Durante %d segundos un campo magnético te rodea (hasta %d m): las monedas y proyectiles metálicos enemigos que se acercan se desvían y vuelven hacia quien los lanzó, con su misma velocidad y daño. Es la defensa contra ataques a distancia.\nCombinación: el Imán de monedas con el campo puesto trae todas las monedas cercanas, rebotan hacia afuera y el campo se rompe en una onda de choque. Encenderlo con el Escudo de monedas puesto hace reventar el escudo.\nRecarga: %d s." % [int(FIELD_DURATION), int(FIELD_RADIUS), int(FIELD_COOLDOWN)]
 		&"steel_spear":
 			body = "Gasta %d monedas en un solo proyectil muy veloz y pesado que sale hacia donde apuntas, atraviesa hasta 4 enemigos y pega muy fuerte, lanzándolos lejos.\nRecarga: %d s." % [SPEAR_COST, int(SPEAR_COOLDOWN)]
+	var lines := PackedStringArray()
+	var top := max_level(id)
+	if skill_level >= 1 and _numbers(id, equiv_level(id, skill_level)) != "":
+		lines.append("Ahora (nivel %d/%d): %s" % [skill_level, top, _numbers(id, equiv_level(id, skill_level))])
+	if skill_level < top and _numbers(id, equiv_level(id, skill_level + 1)) != "":
+		lines.append("Nivel %d: %s" % [skill_level + 1, _numbers(id, equiv_level(id, skill_level + 1))])
 	var unlock := ""
-	if int(s["level"]) > metal_level:
-		unlock = "Se desbloquea en el nivel %d." % int(s["level"])
-	return {"body": body, "now": now, "unlock": unlock}
+	var missing := PackedStringArray()
+	for p in parents(id):
+		if Progression.skill_level(p) < 1:
+			missing.append(String(find(p)["name"]))
+	if not missing.is_empty():
+		unlock = "Necesita: %s." % ", ".join(missing)
+	return {"body": body, "now": "\n".join(lines), "unlock": unlock}
 
 
-static func _fan_now(noun: String, metal_level: int, min_level: int) -> String:
-	if metal_level < min_level:
-		return ""
-	var n := fan_count(metal_level, min_level)
-	if fan_angle(metal_level, min_level) >= TAU:
-		return "Ahora (nivel %d): %d %s, en círculo completo." % [metal_level, n, noun]
-	return "Ahora (nivel %d): %d %s, cono de %d°." % [metal_level, n, noun, roundi(rad_to_deg(fan_angle(metal_level, min_level)))]
+## Los números de un poder en un nivel equivalente (escala vieja 1-20; ver equiv_level). "" = sin números.
+static func _numbers(id: StringName, eq: int) -> String:
+	match id:
+		&"steel_coin_burst":
+			var up := fan_count(eq, BURST_MIN_LEVEL) - BURST_CIRCLE
+			if up > 0:
+				return "%d monedas en círculo y %d hacia arriba y abajo." % [BURST_CIRCLE, up]
+			return _fan_text("monedas", eq, BURST_MIN_LEVEL)
+		&"iron_coin_magnet":
+			return _fan_text("monedas atraídas", eq, FAN_MIN_LEVEL)
+		&"iron_drag", &"iron_mass_yank":
+			return "arrastras a quien pese hasta %d kg (según tu Tirón básico)." % roundi(power_mass(equiv_level(&"iron_pull", Progression.skill_level(&"iron_pull"))))
+		&"steel_light_push", &"iron_pull":
+			return "mueves objetos de hasta %d kg, con %d %% más de fuerza; lo más pesado o fijo te mueve a ti." % [roundi(power_mass(eq)), roundi(3.0 * maxi(eq - 1, 0))]
+		&"steel_combat_coin":
+			return "el empuje de la moneda tiene %d %% más de fuerza." % roundi(3.0 * maxi(eq - 1, 0))
+		&"steel_coin_shield":
+			return "%d monedas, %d %% de probabilidad de desviar un golpe." % [shield_count(eq), roundi(shield_block_chance(shield_count(eq)) * 100.0)]
+	return ""
+
+
+static func _fan_text(noun: String, eq: int, min_level: int) -> String:
+	var n := fan_count(eq, min_level)
+	if fan_angle(eq, min_level) >= TAU:
+		return "%d %s, en círculo completo." % [n, noun]
+	return "%d %s, cono de %d°." % [n, noun, roundi(rad_to_deg(fan_angle(eq, min_level)))]
+
+
+## "3, 7, 11, 15 y 19": el número de cada nivel del poder.
+static func _per_level(id: StringName, text: Callable) -> String:
+	var out := PackedStringArray()
+	for lvl in range(1, max_level(id) + 1):
+		out.append(text.call(equiv_level(id, lvl)))
+	return ", ".join(out.slice(0, -1)) + " y " + out[-1] if out.size() > 1 else out[0]

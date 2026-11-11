@@ -406,7 +406,7 @@ func _raise_button(metal: StringName) -> Button:
 
 func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> Control:
 	var id: StringName = s["id"]
-	var unlocked := lvl >= int(s["level"])
+	var unlocked := SkillTree.is_unlocked(s["id"])
 	var is_active: bool = s["kind"] == SkillTree.Kind.ACTIVE
 	var row := PanelContainer.new()
 	var selected := id == _selected
@@ -445,7 +445,7 @@ func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> 
 	text.add_theme_constant_override("separation", 1)
 	var top := HBoxContainer.new()
 	var level_l := Label.new()
-	level_l.text = "Nivel %d" % int(s["level"])
+	level_l.text = "Nivel %d/%d" % [Progression.skill_level(id), SkillTree.max_level(id)]
 	level_l.add_theme_font_size_override("font_size", 12)
 	level_l.add_theme_color_override("font_color", GOOD if unlocked else LOCKED)
 	level_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -458,7 +458,7 @@ func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> 
 	name_l.add_theme_color_override("font_color", Color.WHITE if unlocked else Color(0.7, 0.72, 0.78))
 	text.add_child(name_l)
 	var desc := Label.new()
-	desc.text = String(SkillTree.tooltip_parts(id, lvl).get("body", "")).split("\n")[0]
+	desc.text = String(SkillTree.tooltip_parts(id, Progression.skill_level(id)).get("body", "")).split("\n")[0]
 	desc.add_theme_font_size_override("font_size", 12)
 	desc.modulate = DIM
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -487,8 +487,8 @@ func _refresh_detail() -> void:
 	var metal: StringName = s["metal"]
 	var color: Color = Allomancy.METALS[metal]["color"]
 	var lvl := Progression.metal_level(metal)
-	var unlocked := lvl >= int(s["level"])
-	var parts := SkillTree.tooltip_parts(_selected, lvl)
+	var unlocked := SkillTree.is_unlocked(s["id"])
+	var parts := SkillTree.tooltip_parts(_selected, Progression.skill_level(_selected))
 	var kind := "Activa" if s["kind"] == SkillTree.Kind.ACTIVE else "Pasiva"
 	var slot := Progression.slot_of(_selected)
 
@@ -510,7 +510,7 @@ func _refresh_detail() -> void:
 	name_l.custom_minimum_size.x = 100
 	names.add_child(name_l)
 	var sub := Label.new()
-	sub.text = "Nivel %d · %s · %s" % [int(s["level"]), kind, Allomancy.METALS[metal]["label"]]
+	sub.text = "Nivel %d/%d · %s · %s" % [Progression.skill_level(_selected), SkillTree.max_level(_selected), kind, Allomancy.METALS[metal]["label"]]
 	sub.modulate = color.lightened(0.3)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sub.custom_minimum_size.x = 100
@@ -717,7 +717,7 @@ func _assign_with_key(code: int) -> void:
 	if skill in SkillTree.FIXED_KEY:
 		_say("%s tiene su propia tecla: doble clic en la tecla RMB de abajo" % skill_name, LOCKED)
 	elif not SkillTree.is_unlocked(skill):
-		_say("%s todavía está bloqueada (nivel %d de %s)" % [skill_name, int(info["level"]), Allomancy.METALS[info["metal"]]["label"]], LOCKED)
+		_say("%s todavía no tiene puntos: subila con +" % skill_name, LOCKED)
 	elif not SkillTree.is_assignable(skill):
 		_say("%s es pasiva: funciona sola y no va en una ranura" % skill_name, LOCKED)
 	else:

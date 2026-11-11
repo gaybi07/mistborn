@@ -85,7 +85,7 @@ func _draw() -> void:
 		var c := _slot_center(i)
 		var r := SLOT * 0.5 - 1.0
 		var col: Color = info["color"]
-		var frac: float = a.reserve[m] / info["max"]
+		var frac: float = a.reserve[m] / a.max_reserve(m)
 		var burning := a.is_burning(m)
 		var flaring := a.is_flaring(m)
 		var learned := a.is_learned(m)

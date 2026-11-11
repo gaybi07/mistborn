@@ -14,6 +14,7 @@ func _init() -> void:
 	_check_lower()
 	_check_save()
 	_check_bad_files()
+	_check_formulas()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
 	print("progression_check: %s" % ("OK" if _fails == 0 else "%d fallas" % _fails))
 	quit(1 if _fails > 0 else 0)
@@ -117,3 +118,25 @@ func _check_bad_files() -> void:
 	_expect(Progression.skill_level(&"steel_light_push") == 5 and not Progression.skill_levels.has(&"no_existe"), "acota al máximo y descarta ids desconocidos")
 	_write("[jugador]\nnivel=30\n[metales]\nsteel=12\npewter=8\n[ranuras]\nversion=4\n")
 	_expect(Progression.level == 30 and Progression.skill_levels == Progression.START_SKILLS, "archivo viejo: nivel sí, metales no")
+
+
+func _check_formulas() -> void:
+	var burst: Array[int] = []
+	var shield: Array[int] = []
+	for lvl in range(1, 6):
+		burst.append(SkillTree.fan_count(SkillTree.equiv_level(&"steel_coin_burst", lvl), SkillTree.BURST_MIN_LEVEL))
+		shield.append(SkillTree.shield_count(SkillTree.equiv_level(&"steel_coin_shield", lvl)))
+	_expect(burst == [3, 7, 11, 15, 19], "Ráfaga 1-5 da 3, 7, 11, 15, 19 monedas (da %s)" % [burst])
+	_expect(shield == [8, 11, 14, 17, 20], "Escudo 1-5 da 8, 11, 14, 17, 20 monedas (da %s)" % [shield])
+	_expect(SkillTree.equiv_level(&"steel_coin_burst", 0) == 0, "sin puntos, nivel equivalente 0")
+	var steel := Allomancy.new()
+	var levels := {&"steel": 0}
+	steel.metal_level = func(m: StringName) -> int: return int(levels.get(m, 0))
+	var base := steel.max_reserve(&"steel")
+	levels[&"steel"] = 10
+	_expect(steel.max_reserve(&"steel") > base, "acero con 10 puntos: más reserva")
+	var seconds_0: float = base / Allomancy.METALS[&"steel"]["burn"]
+	var seconds_10: float = steel.max_reserve(&"steel") / (Allomancy.METALS[&"steel"]["burn"] * SkillTree.burn_scale(&"steel", 10))
+	_expect(seconds_10 > seconds_0 * 1.4, "acero con 10 puntos dura más (%.0f s contra %.0f s)" % [seconds_10, seconds_0])
+	_expect(SkillTree.burn_scale(&"steel", 100) == SkillTree.MIN_BURN_SCALE, "el consumo no baja del mínimo")
+	steel.free()

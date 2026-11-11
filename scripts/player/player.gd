@@ -338,6 +338,7 @@ func _ready() -> void:
 	allomancy.name = "Allomancy"
 	add_child(allomancy)
 	allomancy.can_burn = func(metal: StringName) -> bool: return metal_level(metal) > 0
+	allomancy.metal_level = metal_level
 	allomancy.blocked.connect(func(metal: StringName) -> void:
 		notice.emit("%s bloqueado: gasta un punto en el árbol (K)" % Allomancy.METALS[metal]["label"]))
 	steel_iron = SteelIron.new()
@@ -684,8 +685,16 @@ func metal_level(metal: StringName) -> int:
 func skill_unlocked(id: StringName) -> bool:
 	if net_peer_id != 0 and not is_local_player():
 		var s := SkillTree.find(id)
-		return not s.is_empty() and metal_level(s["metal"]) >= int(s["level"])
+		return not s.is_empty() and metal_level(s["metal"]) >= int(s["legacy_level"])
 	return SkillTree.is_unlocked(id)
+
+
+## Nivel de un poder en la escala vieja de 1-20 que reciben las fórmulas (SkillTree.equiv_level). Remoto: el nivel
+## de su metal, como antes, hasta L19.
+func power_level(id: StringName) -> int:
+	if net_peer_id != 0 and not is_local_player():
+		return metal_level(SkillTree.find(id).get("metal", &""))
+	return SkillTree.equiv_level(id, Progression.skill_level(id))
 
 
 ## Cliente: tecla de una ranura. Manda al servidor la habilidad (y el metal que miras si es un tirón o empuje).
@@ -948,7 +957,7 @@ func _net_metal(code: int, pressed: bool) -> void:
 ## Servidor: al reaparecer o empezar una ronda los metales vuelven a estar llenos, apagados y sin agarres.
 func _refill_net_metals() -> void:
 	for m in NET_METALS:
-		allomancy.reserve[m] = Allomancy.METALS[m]["max"]
+		allomancy.reserve[m] = allomancy.max_reserve(m)
 		allomancy.state[m] = Allomancy.State.OFF
 	steel_iron.net_release_all()
 	_pewter_drag = 0.0
@@ -1328,7 +1337,7 @@ func _start_aim(skill: StringName) -> void:
 	match spec[0]:
 		"cone":
 			# Un rayo de humo por moneda, en las mismas direcciones que _release_burst (sin contar si te alcanzan las monedas).
-			var level := metal_level(&"steel")
+			var level := power_level(&"steel_coin_burst")
 			_aim_preview = Telegraph.smoke_rays(scene, 1e6, tint, SkillTree.burst_dirs(level, SkillTree.fan_count(level, SkillTree.BURST_MIN_LEVEL)))
 		"strip":
 			# El ancho de la cinta (~0,9 m) se lleva al de la franja; por el piso no hay cuerpo que tape el comienzo.
@@ -3075,7 +3084,7 @@ func _release_burst(aim: Vector3) -> void:
 	var view_up := right.cross(base).normalized()
 	var speed := COIN_HAND_SPEED + COIN_STEEL_SPEED * allomancy.strength(&"steel")
 	var start := _coin_origin(aim.is_finite())
-	var level := metal_level(&"steel")
+	var level := power_level(&"steel_coin_burst")
 	var count := mini(SkillTree.fan_count(level, SkillTree.BURST_MIN_LEVEL), coins_held)
 	if count % 2 == 0:
 		count -= 1  # con pocas monedas también sale una cantidad impar: siempre hay una al centro
@@ -3115,7 +3124,7 @@ const ARMS_OPEN_TIME := 0.18
 
 
 func _raise_shield() -> void:
-	_shield = mini(SkillTree.shield_count(metal_level(&"steel")), coins_held)
+	_shield = mini(SkillTree.shield_count(power_level(&"steel_coin_shield")), coins_held)
 	coins_held -= _shield
 	_shield_until_ms = Time.get_ticks_msec() + int(SkillTree.SHIELD_DURATION * 1000.0)
 	_rebuild_shield()
@@ -3518,7 +3527,7 @@ func _update_pewter_powers(rd: float) -> void:
 			mark_combat()
 	if _fury_until_ms > 0:
 		if now < _fury_until_ms and not dead:
-			allomancy.reserve[&"pewter"] = float(Allomancy.METALS[&"pewter"]["max"])
+			allomancy.reserve[&"pewter"] = allomancy.max_reserve(&"pewter")
 			if not allomancy.is_flaring(&"pewter"):
 				allomancy.set_state(&"pewter", Allomancy.State.FLARE)
 		else:
@@ -3571,7 +3580,7 @@ func _can_yank(n: Node3D, announce: bool) -> bool:
 	var npc := n as Npc
 	if npc == null or npc.down or not npc.is_in_group(&"metal"):
 		return false
-	if Metals.movable_mass(npc) > SkillTree.power_mass(metal_level(&"iron"), body_mass):
+	if Metals.movable_mass(npc) > SkillTree.power_mass(power_level(&"iron_pull"), body_mass):
 		if announce:
 			notice.emit("Pesa demasiado para tu poder de tirón")
 		return false
@@ -3920,8 +3929,8 @@ func start_gather(aim := Vector3.INF) -> void:
 	_stop_gather()
 	var chest := chest_position()
 	var blast := _field_shell != null and _field_shell.visible and Time.get_ticks_msec() < _field_until_ms
-	# Imán de monedas: las más cercanas dentro del abanico hacia adelante (nivel de hierro + 1; todas si es radial).
-	var level := metal_level(&"iron")
+	# Imán de monedas: las más cercanas dentro del abanico hacia adelante (crece con su nivel; todas si es radial).
+	var level := power_level(&"iron_coin_magnet")
 	var angle := TAU if blast else SkillTree.fan_angle(level)
 	var base := _burst_aim(aim)  # el abanico apunta hacia donde apunta el ratón
 	var front := Vector3(base.x, 0.0, base.z)

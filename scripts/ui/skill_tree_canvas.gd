@@ -217,7 +217,7 @@ func _make_custom_tooltip(for_text: String) -> Object:
 			return null
 		var card := SkillRowLabel.new()
 		card.skill_id = StringName(parts[1])
-		card.metal_level = Progression.metal_level(s["metal"])
+		card.skill_level = Progression.skill_level(s["id"])
 		var panel: Object = card._make_custom_tooltip("")
 		card.free()
 		return panel
