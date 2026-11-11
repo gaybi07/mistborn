@@ -17,7 +17,14 @@ const WALL := [
 ## Rectángulo que abarca la muralla (para recorrer la ciudad).
 const BOUNDS := Rect2(-370, -474, 724, 910)
 ## Puertas: [nombre, índice del tramo de muralla, posición a lo largo del tramo (0..1)]
-const GATE_SPECS := [["Puerta Este", 4, 0.82], ["Puerta Sur", 11, 0.5], ["Puerta Oeste", 16, 0.5]]
+## Las 12 puertas de Luthadel: [nombre, tramo de WALL, dónde en el tramo]. Las tres primeras son las de la historia
+## (caminos al campamento koloss, al Camino Sur y a las afueras del oeste); las otras nueve llevan nombre de metal y
+## un camino corto. El orden importa: Exterior traza los caminos en este orden con su semilla.
+const GATE_SPECS := [["Puerta Este", 4, 0.82], ["Puerta Sur", 11, 0.5], ["Puerta Oeste", 16, 0.5],
+	["Puerta del Estaño", 0, 0.5], ["Puerta del Peltre", 1, 0.35], ["Puerta del Cinc", 6, 0.3], ["Puerta del Latón", 6, 0.75],
+	["Puerta del Cobre", 10, 0.5], ["Puerta del Bronce", 12, 0.5], ["Puerta del Hierro", 17, 0.5],
+	["Puerta del Acero", 19, 0.5], ["Puerta del Oro", 21, 0.5]]
+const STORY_GATES := 3  ## las primeras de GATE_SPECS: las que tienen camino largo y enemigos
 const GATE_WIDTH := 10.0
 
 ## Río (polilínea) y su anchura: baja por el este, entra en la ciudad junto a la Puerta Este y
@@ -210,7 +217,10 @@ static func _alley_ok(p: Vector2) -> bool:
 
 ## Polilíneas de calles principales (avenidas, calles y el anillo de la colina).
 static func main_streets() -> Array:
-	return AVENUES + STREETS + [hill_ring()]
+	var spurs := []  # de cada puerta nueva, una calle hacia adentro (que no la tapen las casas)
+	for g: Array in gates().slice(STORY_GATES):
+		spurs.append([g[1], (g[1] as Vector2) - (g[2] as Vector2) * 45.0])
+	return AVENUES + STREETS + [hill_ring()] + spurs
 
 
 ## Todas las calles como segmentos [a, b, medio ancho] (se calculan una vez).

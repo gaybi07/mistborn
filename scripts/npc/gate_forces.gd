@@ -127,6 +127,12 @@ func _start(post: Dictionary) -> void:
 
 static func _foes_of(gate_name: String) -> Array[Npc]:
 	var foes: Array[Npc] = []
+	if gate_name.begins_with("Puerta del "):  # las puertas nuevas (G29): un par de guardias, que no buscan pelea
+		for i in 2:
+			var guard := Champion.new()
+			guard.kit = "Soldado"
+			foes.append(guard)
+		return foes
 	match gate_name:
 		"Puerta Este":
 			for i in FOES[gate_name]:

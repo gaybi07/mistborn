@@ -13,7 +13,6 @@ extends Node3D
 const HOUSES := [Color(0.38, 0.08, 0.08), Color(0.1, 0.16, 0.36), Color(0.12, 0.26, 0.16), Color(0.3, 0.22, 0.32)]
 
 ## Muralla: alto de 16 m sobre piezas de 2,35 m.
-const WALL_SCALE := 6.8
 ## Tonos: los colores del pack son alegres; en Luthadel todo está apagado por la ceniza.
 const SKAA_TINT := Color(0.68, 0.64, 0.6)
 const STONE_TINT := Color(0.46, 0.44, 0.43)
@@ -163,67 +162,69 @@ func _q(name: String) -> String:
 
 # ---------------------------------------------------------------- Muralla
 
-## Cada tramo entre dos vértices: piezas de muralla, torre en el vértice, torres intermedias,
-## puertas y los huecos por donde pasa el río (con rejas de hierro).
+## Piezas de la muralla (G29, tools/blender/make_luthadel_wall.py): tramos de 12 m de distinta altura y estado,
+## torres y el portón. El frente de cada pieza (+Z) mira afuera de la ciudad.
+const WALL_KIT := "res://assets/luthadel/muralla/%s.gltf"
+const WALL_TRAMOS := ["TramoAlto", "TramoBajo", "TramoRoto", "TramoRemendado", "TramoContrafuerte", "TramoViejo"]
+const WALL_PIECE := 12.0
+const GATE_HALF := 14.0  ## medio ancho del portón con sus torres
+
+
+## Cada tramo entre dos vértices: piezas de muralla salteadas (altos y bajos, remiendos, almenas rotas), torre en el
+## vértice, torres intermedias, portones y los pasos del río (con rejas de hierro).
 func _build_wall() -> void:
-	var gates := CityPlan.gates()
+	var r := RandomNumberGenerator.new()
+	r.seed = 1212  # aparte de _rng: cambiar la muralla no mueve las casas
 	var n := CityPlan.WALL.size()
-	var piece_w := ModelKit.aabb(_q("castle/TallWall")).size.x * WALL_SCALE
+	var gates := CityPlan.gates()
 	for i in n:
 		var a: Vector2 = CityPlan.WALL[i]
 		var b: Vector2 = CityPlan.WALL[(i + 1) % n]
 		var length := a.distance_to(b)
 		var dir := (b - a) / length
-		var yaw := atan2(-dir.y, dir.x)  # el X del modelo a lo largo del tramo
+		var out := Vector2(dir.y, -dir.x)
+		if CityPlan.inside(a.lerp(b, 0.5) + out * 5.0):
+			out = -out
+		var yaw := atan2(-dir.y, dir.x)
+		if Vector2(sin(yaw), cos(yaw)).dot(out) < 0.0:
+			yaw += PI  # que el frente de la pieza mire afuera
 		# Huecos: [centro (m desde a), medio ancho, tipo]
 		var gaps := []
 		for gi in CityPlan.GATE_SPECS.size():
 			if CityPlan.GATE_SPECS[gi][1] == i:
-				gaps.append([CityPlan.GATE_SPECS[gi][2] * length, piece_w / 2.0, "gate", gi])
+				gaps.append([CityPlan.GATE_SPECS[gi][2] * length, GATE_HALF, "gate", gi])
 		for ri in CityPlan.RIVER.size() - 1:
 			var hit: Variant = Geometry2D.segment_intersects_segment(a, b, CityPlan.RIVER[ri], CityPlan.RIVER[ri + 1])
 			if hit != null:
 				gaps.append([a.distance_to(hit), CityPlan.RIVER_WIDTH / 2.0 + 3.0, "river", -1])
-		# Piezas de muralla repartidas a lo largo del tramo (se solapan un poco).
-		var count := ceili(length / piece_w)
+		var count := ceili(length / WALL_PIECE)
+		var last := ""
 		for k in count:
 			var x := (k + 0.5) * length / count
-			var blocked := false
-			for g in gaps:
-				if absf(x - g[0]) < g[1] + piece_w * 0.45:
-					blocked = true
-			if not blocked:
-				var p := a + dir * x
-				_batch.add(_q("castle/TallWall"), Vector3(p.x, 0, p.y), yaw, WALL_SCALE, STONE_TINT)
-		# Torre grande en el vértice.
-		_batch.add(_q("castle/LargeTower"), Vector3(a.x, 0, a.y), yaw, 7.0, STONE_TINT)
-		# Torres intermedias cada ~50 m, lejos de los huecos.
-		var towers := int(length / 50.0)
+			if gaps.any(func(g: Array) -> bool: return absf(x - g[0]) < g[1] + WALL_PIECE * 0.4):
+				continue
+			var piece: String = WALL_TRAMOS[r.randi() % WALL_TRAMOS.size()]
+			if piece == last:  # nunca dos iguales seguidos
+				piece = WALL_TRAMOS[(WALL_TRAMOS.find(piece) + 1) % WALL_TRAMOS.size()]
+			last = piece
+			var p := a + dir * x
+			_batch.add(WALL_KIT % piece, Vector3(p.x, 0, p.y), yaw + r.randf_range(-0.015, 0.015), 1.0)
+		# Torre en el vértice, y otras cada ~55 m lejos de los huecos (alguna, rota).
+		_batch.add(WALL_KIT % ("TorreRedonda" if i % 3 != 1 else "TorreCuadrada"), Vector3(a.x, 0, a.y), yaw, 1.0)
+		var towers := int(length / 55.0)
 		for k in range(1, towers + 1):
 			var x := length * k / (towers + 1)
-			var near_gap := gaps.any(func(g): return absf(x - g[0]) < g[1] + 12.0)
-			if not near_gap:
-				var p := a + dir * x
-				_batch.add(_q("castle/Tower"), Vector3(p.x, 0, p.y), yaw, 6.0, STONE_TINT)
+			if gaps.any(func(g: Array) -> bool: return absf(x - g[0]) < g[1] + 12.0):
+				continue
+			var p := a + dir * x
+			var kind := "TorreRota" if r.randf() < 0.15 else ("TorreCuadrada" if r.randf() < 0.5 else "TorreRedonda")
+			_batch.add(WALL_KIT % kind, Vector3(p.x, 0, p.y), yaw, 1.0)
 		for g in gaps:
 			var c: Vector2 = a + dir * g[0]
 			if g[2] == "gate":
-				_gate(c, dir, yaw, g[3])
+				_batch.add(WALL_KIT % "Porton", Vector3(c.x, 0, c.y), yaw, 1.0)
 			else:
 				_water_gate(c, dir, yaw, g[1] * 2.0)
-
-
-func _gate(c: Vector2, dir: Vector2, yaw: float, house: int) -> void:
-	var w := ModelKit.aabb(_q("castle/TallWallEntrance")).size.x * WALL_SCALE
-	_batch.add(_q("castle/TallWallEntrance"), Vector3(c.x, 0, c.y), yaw, WALL_SCALE, STONE_TINT)
-	for side in [-1.0, 1.0]:
-		var p: Vector2 = c + dir * side * (w / 2.0 + 4.0)
-		_batch.add(_q("castle/LargeSquareTower"), Vector3(p.x, 0, p.y), yaw, 6.2, STONE_TINT)
-		var inward := Vector2(dir.y, -dir.x) if Vector2(dir.y, -dir.x).dot(-c) > 0.0 else Vector2(-dir.y, dir.x)
-		var bp: Vector2 = p + inward * 4.6
-		var banner := Props.static_box(Vector3(2.0, 7.0, 0.08), Vector3(bp.x, 14.0, bp.y), Props.material(HOUSES[house], 0.0, 1.0))
-		banner.rotation.y = yaw
-		add_child(banner)
 
 
 ## Paso del río bajo la muralla: arco de piedra y rejas de hierro (metal de verdad, un ancla).
@@ -232,8 +233,8 @@ func _water_gate(c: Vector2, dir: Vector2, yaw: float, width: float) -> void:
 	lintel.rotation.y = yaw
 	add_child(lintel)
 	for side in [-1.0, 1.0]:
-		var p: Vector2 = c + dir * side * (width / 2.0 + 2.0)
-		_batch.add(_q("castle/SmallSquareTower"), Vector3(p.x, 0, p.y), yaw, 8.0, STONE_TINT)
+		var p: Vector2 = c + dir * side * (width / 2.0 + 5.0)
+		_batch.add(WALL_KIT % "TorreCuadrada", Vector3(p.x, 0, p.y), yaw, 1.0)
 	var grate := StaticBody3D.new()
 	grate.collision_layer = Props.LAYER_WORLD
 	grate.position = Vector3(c.x, 2.5, c.y)
