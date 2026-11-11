@@ -108,6 +108,21 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   — *en develop 2026-11-10, rama `gabi/g4-npc-misiones` (borrada), merge `0496a62`; falta revisar (ronda 1)*
 - [x] 🧪 **G5. Y11.** Primer tramo jugable: principales 1 y 2 y una secundaria con consecuencia. Necesita G1-G4.
   — *en develop 2026-11-10, rama `gabi/g5-primer-tramo` (borrada), merge `35d8ae7`; falta revisar (ronda 1)*
+- [ ] **G30. Conversaciones sin frenar el juego** (pedido de Lucho, 10/11): hoy el cartel de diálogo
+  (`scripts/ui/dialogue_box.gd`) pone `player.ui_open = true` y suelta el cursor, así que el personaje se congela y,
+  si te persigue alguien o estás peleando, no podés seguir jugando mientras elegís. Lo acordado:
+  - mientras el cartel está abierto, **caminás, mirás, saltás, rodás y peleás**: no se toca `ui_open` y el cursor
+    queda capturado;
+  - **1–4** eligen la opción (ya están numeradas en pantalla); mientras hay una conversación abierta, las ranuras en
+    1–4 se pausan (5, Q, E, F, Z, X, C y V siguen andando);
+  - **Enter** elige la primera opción o "(Seguir)";
+  - **Tab** (mantener) libera el cursor para elegir con clic, como ya hace con los metales;
+  - **Esc** cierra, como hoy;
+  - el cartel **se cierra solo** si te alejás a más de **8 m** del NPC.
+  Revisar que la tecla de ranura (`Player._skill_key` / `Progression.slot_for_key`) no dispare un poder con 1–4 mientras
+  hablás, y que Esc cierre el cartel sin abrir también el menú de pausa.
+  Listo cuando se puede hablar con un NPC de misión mientras te persigue la patrulla, elegir con 1–4 o Enter sin
+  frenarte, y alejarse cierra la conversación.
 
 ### 2. Escenarios
 
