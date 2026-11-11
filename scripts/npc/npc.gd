@@ -308,6 +308,15 @@ func is_disheartened() -> bool:
 	return _world_time < _dishearten_until
 
 
+## Sosiego (latón): cerca de un jugador que lo tiene, sus golpes se espacian (1 = como siempre).
+func attack_delay_scale() -> float:
+	for p in get_tree().get_nodes_in_group(&"player"):
+		var pl := p as Player
+		if pl and pl.brass and pl.brass.soothing(global_position):
+			return 1.0 / SkillTree.BRASS_QUIET_ATTACK
+	return 1.0
+
+
 ## Cuánto de su velocidad usa (desalentado, menos).
 func _speed_scale() -> float:
 	return 0.6 if is_disheartened() else 1.0
@@ -330,6 +339,21 @@ func yield_to(who: Player, xp_share: float) -> bool:
 func lose_track(time: float) -> void:
 	if not down and not is_tamed():
 		_lost_until = maxf(_lost_until, _world_time + time)
+
+
+## Te perdió de vista (Desvanecerse, Fantasma).
+func lost_track() -> bool:
+	return _world_time < _lost_until
+
+
+## Señuelo del cobre: va hacia `point` `time` s sin hacerle caso a nadie. No es una emoción: el cobre ajeno no lo frena.
+func lure_to(point: Vector3, time: float) -> bool:
+	if down or surrendered or is_tamed():
+		return false
+	_greed_until = _world_time + time
+	_greed_point = point
+	_emotion_replan = 0.0
+	return true
 
 
 ## Nube compartida: `time` s bajo la nube del jugador (inmune al cinc y al latón ajenos).
@@ -506,6 +530,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 	apply_allomantic_impulse(impulse + Vector3.UP * impulse.length() * 0.25)
 	if down:
 		return
+	if attacker is Player:
+		damage *= (attacker as Player).strike_bonus(self)  # golpe a traición (cobre), atium, bronce; antes de marcar el combate
 	if attacker:
 		mark_combat()
 		_soothed_until = -1.0  # un golpe rompe la calma
@@ -515,8 +541,6 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		damage *= 0.6  # Desaliento (latón)
 	if attacker != null and attacker.has_method(&"mark_bonus"):
 		damage *= attacker.mark_bonus(self)  # Marca del cazador (estaño)
-	if attacker is Player:
-		damage *= (attacker as Player).strike_bonus(self)  # golpe a traición (cobre), atium
 	_on_hit(attacker)
 	if damage > 0.0:
 		rig.flash()
@@ -648,6 +672,6 @@ func _emotion_move(v: Vector3) -> void:
 		plan_velocity(v)
 
 
-## Distancia a la que este NPC nota a `n`: `base` por lo que se esconda (Player.concealment: ropa, Sosiego, Silencio).
+## Distancia a la que este NPC nota a `n`: `base` por lo que se esconda (Player.concealment: ropa, Sosiego, Fantasma).
 static func sight(n: Node3D, base: float) -> float:
 	return base * (n.call(&"concealment") as float if n != null and n.has_method(&"concealment") else 1.0)

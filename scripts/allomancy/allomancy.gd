@@ -66,7 +66,7 @@ func _process(delta: float) -> void:
 			state[m] = State.OFF
 
 
-## Metales que alguien le apagó (bronce del jugador: Pulso perturbador, Contrapulso): metal -> ms hasta cuándo.
+## Metales que alguien le apagó (bronce del jugador: Cazar, Contrapulso): metal -> ms hasta cuándo.
 var _drained := {}
 
 

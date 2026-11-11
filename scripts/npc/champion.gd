@@ -227,7 +227,7 @@ func _next_attack(_d: float) -> void:
 	var blows: Array = FIST_BLOWS if is_disarmed() else KITS[kit]["blows"]
 	var total := _strike(blows[_combo_step % blows.size()])
 	_combo_step += 1
-	_next_blow = _world_time + total * 0.85 + randf_range(0.3, 0.9)
+	_next_blow = _world_time + (total * 0.85 + randf_range(0.3, 0.9)) * attack_delay_scale()
 
 
 func _roar() -> void:

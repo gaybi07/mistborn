@@ -199,7 +199,7 @@ func _next_attack(d: float) -> void:
 	_combo_step = (_combo_step + 1) % blows.size()
 	var total := _strike(blow)
 	var rest := randf_range(0.7, 1.4) if _combo_step == 0 else 0.0
-	_next_blow = _world_time + total * 0.85 + rest
+	_next_blow = _world_time + (total * 0.85 + rest) * attack_delay_scale()
 
 
 func _strike(blow: Dictionary) -> float:

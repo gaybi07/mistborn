@@ -1,20 +1,28 @@
 class_name AtiumPowers
 extends MetalPowers
-## Poderes del atium del jugador (L11): más preciso y más espectacular, no más barato (cada nivel cuesta 2 puntos).
-## Sombras del futuro (pasiva base: Atium), Esquiva perfecta (al esquivar con atium, cámara lenta y el siguiente golpe
-## es crítico), Golpe certero (más críticos y aturden), Monedas guiadas (una a cada enemigo), Leer la pelea (avisos de
-## los jefes más temprano, sombra más adelantada) y Momento eterno (el mundo casi se detiene).
+## Poderes del atium del jugador (L11, rehechos después de probarlos): más preciso y más espectacular, no más barato
+## (cada nivel cuesta 2 puntos). Sombras del futuro (unos segundos quemando atium: lo que hace el atium, ver Atium),
+## Esquiva perfecta (al esquivar con atium, cámara lenta y el siguiente golpe es crítico), Desarme (al esquivar, el
+## atacante pierde el arma), Monedas guiadas (una a cada enemigo; gastan atium), Leer la pelea (marca al que te va a
+## pegar, avisos de los jefes más temprano, sombra más adelantada) y Momento eterno (el mundo casi se detiene).
 ## La cámara lenta es solo fuera de red: con otros jugadores el atium tiene que funcionar en tiempo real (ver Atium).
 
-## Golpe crítico pendiente (Esquiva perfecta) y Momento eterno en marcha (ms del reloj).
+## Sombras del futuro, golpe crítico pendiente (Esquiva perfecta) y Momento eterno en marcha (ms del reloj).
+var _shadows_until := 0
 var _crit_until := 0
 var _eternal_until := 0
-var _was_eternal := false
+## Si el atium lo encendieron Sombras o Momento eterno (y hay que apagarlo al terminar).
+var _forced := false
+## Leer la pelea: la marca roja de cada enemigo que está por pegarte.
+var _marks := {}
 
 
 func _init() -> void:
 	metal = &"atium"
-	cooldowns = {&"atium_guided": SkillTree.ATIUM_GUIDED_COOLDOWN, &"atium_eternal": SkillTree.ATIUM_ETERNAL_COOLDOWN}
+	cooldowns = {
+		&"atium_shadows": SkillTree.ATIUM_SHADOWS_COOLDOWN, &"atium_guided": SkillTree.ATIUM_GUIDED_COOLDOWN,
+		&"atium_eternal": SkillTree.ATIUM_ETERNAL_COOLDOWN,
+	}
 
 
 func _ready() -> void:
@@ -22,30 +30,69 @@ func _ready() -> void:
 
 
 func active(id: StringName) -> bool:
-	return id == &"atium_eternal" and Time.get_ticks_msec() < _eternal_until
+	match id:
+		&"atium_shadows":
+			return Time.get_ticks_msec() < _shadows_until
+		&"atium_eternal":
+			return Time.get_ticks_msec() < _eternal_until
+	return false
 
 
 func _process(_delta: float) -> void:
 	# Leer la pelea: la sombra de cada enemigo se ve más adelante.
 	player.atium.shadow_lookahead = SkillTree.ATIUM_READ_LOOKAHEAD if passive(&"atium_read") else 0.6
-	var eternal := Time.get_ticks_msec() < _eternal_until
-	if eternal:
-		player.allomancy.set_state(&"atium", Allomancy.State.FLARE)  # gasta el atium muy rápido
-	elif _was_eternal:
-		player.allomancy.set_state(&"atium", Allomancy.State.OFF)
-	_was_eternal = eternal
+	# Sombras y Momento eterno queman el atium solo mientras duran (el eterno, avivado: lo gasta muy rápido).
+	var now := Time.get_ticks_msec()
+	var a := player.allomancy
+	if now < _eternal_until:
+		if not a.is_flaring(&"atium"):
+			a.set_state(&"atium", Allomancy.State.FLARE)
+		_forced = true
+	elif now < _shadows_until:
+		if not a.is_burning(&"atium") or a.is_flaring(&"atium"):
+			a.set_state(&"atium", Allomancy.State.BURN)
+		_forced = true
+	elif _forced:
+		a.set_state(&"atium", Allomancy.State.OFF)
+		_forced = false
+	_read_marks()
 
 
-## Golpe certero: más probabilidad de crítico con atium encendido (Metals.crit_chance).
-func crit_bonus() -> float:
-	return SkillTree.ATIUM_SURE_CRIT if passive(&"atium_sure") else 0.0
+## Leer la pelea: una marca roja sobre cada enemigo cercano que arrancó un golpe hacia vos.
+func _read_marks() -> void:
+	var on := {}
+	if passive(&"atium_read"):
+		for n in _near(player.global_position, SkillTree.ATIUM_READ_RANGE):
+			if n.team != player.team and not n.is_tamed() and _attacking_player(n):
+				on[n] = true
+				if not is_instance_valid(_marks.get(n)):
+					var label := Label3D.new()
+					label.text = "!"
+					label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+					label.no_depth_test = true
+					label.fixed_size = true
+					label.pixel_size = 0.002
+					label.font_size = 48
+					label.outline_size = 10
+					label.modulate = Color(1.0, 0.2, 0.15)
+					label.position = Vector3(0, n.head_y(0.7), 0)
+					n.add_child(label)
+					_marks[n] = label
+	for n in _marks.keys():
+		if not on.has(n):
+			if is_instance_valid(_marks[n]):
+				(_marks[n] as Node).queue_free()
+			_marks.erase(n)
 
 
-## Golpe certero: el crítico aturde (los jefes, menos).
-func crit_stun(npc: Npc) -> float:
-	if not passive(&"atium_sure"):
-		return 0.0
-	return SkillTree.ATIUM_SURE_STUN if npc.can_be_tamed() else SkillTree.ATIUM_SURE_STUN * 0.4
+## Arrancó un golpe (la animación de ataque, o el combo del koloss) y te está mirando.
+func _attacking_player(n: Npc) -> bool:
+	var swinging := n.rig._attack > 0.0 or (n is Koloss and n._world_time < (n as Koloss)._busy_until)
+	if not swinging:
+		return false
+	var to := player.global_position - n.global_position
+	to.y = 0.0
+	return to.length() > 0.01 and (-n.global_basis.z).dot(to.normalized()) > 0.5
 
 
 ## Leer la pelea: cuánto más largo es el aviso de un jefe antes de pegar (LordPowers.cast).
@@ -65,15 +112,24 @@ func strike_bonus(_npc: Npc) -> float:
 
 
 func _on_dodged() -> void:
-	if not passive(&"atium_perfect"):
-		return
-	_crit_until = Time.get_ticks_msec() + int(SkillTree.ATIUM_PERFECT_CRIT_WINDOW * 1000.0)
-	_slow(SkillTree.ATIUM_PERFECT_SLOW, SkillTree.ATIUM_PERFECT_TIME)
-	player.notice.emit("Esquiva perfecta")
+	if passive(&"atium_disarm"):
+		var foe := player.last_dodged as Npc
+		if foe and not foe.down and not foe.is_disarmed():
+			foe.disarm(SkillTree.ATIUM_DISARM_TIME * scale(&"atium_disarm"))
+			player.notice.emit("Desarme")
+	if passive(&"atium_perfect"):
+		_crit_until = Time.get_ticks_msec() + int(SkillTree.ATIUM_PERFECT_CRIT_WINDOW * 1000.0)
+		_slow(SkillTree.ATIUM_PERFECT_SLOW, SkillTree.ATIUM_PERFECT_TIME)
+		player.notice.emit("Esquiva perfecta")
 
 
 func _use(id: StringName) -> bool:
+	if player.allomancy.reserve[&"atium"] <= 0.0:
+		player.notice.emit("Sin atium")
+		return false
 	match id:
+		&"atium_shadows":
+			return _shadows()
 		&"atium_guided":
 			return _guided()
 		&"atium_eternal":
@@ -81,18 +137,28 @@ func _use(id: StringName) -> bool:
 	return false
 
 
-## Una moneda a cada enemigo distinto (hasta ATIUM_GUIDED_COUNT), que lo sigue hasta pegarle.
+func _shadows() -> bool:
+	_shadows_until = Time.get_ticks_msec() + int(SkillTree.ATIUM_SHADOWS_TIME * scale(&"atium_shadows") * 1000.0)
+	player.atium.pulse()
+	player.notice.emit("Sombras del futuro")
+	return true
+
+
+## Una moneda a cada enemigo distinto (hasta ATIUM_GUIDED_COUNT), que lo sigue hasta pegarle. Cada una gasta atium.
 func _guided() -> bool:
+	var cost := player.allomancy.max_reserve(&"atium") * SkillTree.ATIUM_GUIDED_COST
 	var foes: Array[Npc] = []
 	for n in _near(player.global_position, SkillTree.ATIUM_GUIDED_RANGE):
 		if n.team != player.team and not n.is_tamed() and not n.surrendered and not n is Citizen:
 			foes.append(n)
 	foes.sort_custom(func(a: Npc, b: Npc) -> bool:
 		return a.global_position.distance_to(player.global_position) < b.global_position.distance_to(player.global_position))
-	foes = foes.slice(0, mini(SkillTree.ATIUM_GUIDED_COUNT, player.coins_held))
+	var affordable := maxi(floori(player.allomancy.reserve[&"atium"] / cost), 1)
+	foes = foes.slice(0, mini(mini(SkillTree.ATIUM_GUIDED_COUNT, player.coins_held), affordable))
 	if foes.is_empty():
 		player.notice.emit("Sin enemigos cerca" if player.coins_held > 0 else "Sin monedas")
 		return false
+	player.allomancy.reserve[&"atium"] = maxf(player.allomancy.reserve[&"atium"] - cost * foes.size(), 0.0)
 	var start := player.chest_position() + player.aim_direction() * 0.6
 	for foe in foes:
 		var coin := player._spawn_coin(start) as Coin

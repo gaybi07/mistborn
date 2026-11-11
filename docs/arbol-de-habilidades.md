@@ -105,51 +105,52 @@ Desaliento → Rendición; Sosiego → Sosegar multitud; la Paz absoluta pide Re
 |---|---|
 | 1 | A · Calma: el NPC en la mira deja de atacarte y se olvida de vos 10 s; un golpe tuyo lo despierta. Recarga 12 s |
 | 4 | A · Desaliento: 10 s pegando un 40 % menos, más lento y sin bloquear ni esquivar. Recarga 15 s |
-| 8 | P · Sosiego: con latón encendido te notan desde la mitad de distancia (guardias, soldados de misión, koloss, espectros) |
+| 8 | P · Sosiego: con latón encendido te notan desde la mitad de distancia (guardias, soldados de misión, koloss, espectros); a 8 m los enemigos te pegan un 25 % menos seguido, y un guardia que provocaste se olvida en la mitad del tiempo |
 | 12 | A · Rendición: un enemigo con menos del 30 % de vida se rinde, suelta el arma y el botín, y te da la mitad de su experiencia. Recarga 20 s |
 | 16 | A · Sosegar multitud: cono de 10 m, todos calmos 6 s. Recarga 30 s |
 | 20 | A · Paz absoluta: en 15 m y 15 s nadie ataca a nadie; los jefes quedan desalentados. Recarga 60 s |
 
 ### Cobre
-Sigilo y defensa contra la alomancia (código: `CopperPowers`; los NPC te pierden con `Npc.lose_track` y te ven según
-`Player.concealment`). Rama: Nube → Silencio → Desvanecerse; Nube → Nube compartida → Mente cerrada; Fantasma pide
-Desvanecerse y Mente cerrada.
+Sigilo y defensa contra la alomancia (código: `CopperPowers`; los NPC te pierden con `Npc.lose_track`, van al señuelo
+con `Npc.lure_to` y te ven según `Player.concealment`). La nube de siempre (el bronce no te detecta, el cinc y el latón
+ajenos no te hacen nada) viene con quemar cobre, sin habilidad. Rama: Desvanecerse → Señuelo → Golpe a traición;
+Desvanecerse → Nube compartida → Mente cerrada; Fantasma pide Golpe a traición y Mente cerrada.
 
 | Nivel | Habilidad |
 |---|---|
-| 1 | P · Nube de cobre: lo de siempre; el bronce no te detecta y sos inmune al cinc y al latón ajenos |
-| 4 | P · Silencio: con cobre encendido te notan desde el 60 % de la distancia y el estaño de un Ojo de estaño no le sirve |
-| 8 | A · Desvanecerse: los que te tenían de objetivo (35 m) te pierden 4 s; tu próximo golpe hace +50 %. Recarga 20 s |
+| 1 | A · Desvanecerse: los que te tenían de objetivo (35 m) te pierden 4 s; tu próximo golpe hace +50 %. Recarga 20 s |
+| 4 | A · Señuelo: una nube falsa donde estás; 6 s los enemigos a 25 m van hacia ahí sin hacerte caso, y al que llega lo encandila 2 s. Recarga 18 s |
+| 8 | P · Golpe a traición: con cobre encendido, +50 % a quien no te ve (no estaba peleando, o te perdió de vista) |
 | 12 | A · Nube compartida: 15 s, tu domado y los aliados a 8 m quedan bajo tu nube, inmunes. Recarga 30 s |
 | 16 | P · Mente cerrada: aunque no quemes cobre, lo emocional ajeno te dura la mitad y el Aplacar del Lord te saca la mitad de aliento |
-| 20 | A · Fantasma: 10 s en que ningún NPC te ve; atacar lo termina con un crítico (doble de daño). Recarga 60 s |
+| 20 | A · Fantasma: 10 s en que ningún NPC te ve (ni el estaño de un Ojo de estaño); atacar lo termina con un crítico (doble de daño). Recarga 60 s |
 
 ### Bronce
-Leer al enemigo: qué quema, cuándo ataca y dónde se esconde (código: `BronzePowers`; apagar metales ajenos con
-`Allomancy.drain`). Rama: Pulsos → Leer metales → Anticipar; Pulsos → Pulso perturbador → Rastreo; Contrapulso pide
-Anticipar y Rastreo.
+Leer al enemigo: cuándo ataca y dónde se esconde (código: `BronzePowers`; apagar metales ajenos con
+`Allomancy.drain`). Quemar bronce ya hace sentir los pulsos y leer qué metales quema cada uno, de cerca. Rama: Pulso →
+Anticipar → Ritmo; Pulso → Cazar → Resonancia; Contrapulso pide Ritmo y Resonancia.
 
 | Nivel | Habilidad |
 |---|---|
-| 1 | P · Pulsos: lo de siempre; sentís a los alománticos que queman metales (no a los que tapa una nube de cobre) |
-| 4 | P · Leer metales: arriba de cada alomántico que sentís, qué metales quema |
-| 8 | P · Anticipar: el pulso brilla medio segundo antes de que use un poder |
-| 12 | A · Pulso perturbador: 8 s sin nubes de cobre a 15 m; los Humeadores no pueden quemar cobre. Recarga 25 s |
-| 16 | A · Rastreo: 20 s con los alománticos a 60 m en la brújula y el mapa. Recarga 40 s |
+| 1 | A · Pulso: una onda de 40 m; 6 s ves a los alománticos que queman metales a través de las paredes, con lo que queman (aunque no quemes bronce). Recarga 12 s |
+| 4 | P · Anticipar: el pulso brilla medio segundo antes de que use un poder; con el Lord, cuando empieza a preparar uno |
+| 8 | P · Ritmo: pegarle en el aviso de Anticipar (hasta 0,4 s después) es crítico |
+| 12 | A · Cazar: 20 s sin nubes de cobre a 15 m (los Humeadores no pueden quemar cobre) y los alománticos a 60 m en la brújula y el mapa. Recarga 40 s |
+| 16 | P · Resonancia: +25 % de daño a un alomántico que sentís quemar metales |
 | 20 | A · Contrapulso: les apaga todos los metales 4 s a los alománticos enemigos a 12 m (libertad respecto de los libros). Recarga 60 s |
 
 ### Atium (cada nivel cuesta 2 puntos)
 Más preciso y más espectacular, no más barato (código: `AtiumPowers`). La cámara lenta es solo jugando solo: con otros
-jugadores el atium funciona en tiempo real. Rama: Sombras → Esquiva perfecta → Golpe certero; Sombras → Monedas
-guiadas → Leer la pelea; Momento eterno pide Golpe certero y Leer la pelea.
+jugadores el atium funciona en tiempo real. Rama: Sombras → Esquiva perfecta → Desarme; Sombras → Monedas guiadas →
+Leer la pelea; Momento eterno pide Desarme y Leer la pelea.
 
 | Nivel | Habilidad |
 |---|---|
-| 1 | P · Sombras del futuro: lo de siempre; esquivás, tus monedas no fallan y tus golpes no se bloquean (45 % de crítico; 70 % avivando) |
+| 1 | A · Sombras del futuro: 5 s quemando atium (esquivás, tus monedas no fallan y tus golpes no se bloquean; 45 % de crítico, 70 % avivando); el atium se gasta solo mientras dura. Recarga 20 s |
 | 4 | P · Esquiva perfecta: cuando el atium te hace esquivar, el mundo se frena 1 s y tu próximo golpe (en 3 s) es crítico |
-| 8 | P · Golpe certero: +15 % de crítico y los críticos aturden 1 s (a los jefes, 0,4 s) |
-| 12 | A · Monedas guiadas: hasta 5 monedas, una a cada enemigo distinto a 25 m, que lo siguen. Recarga 15 s |
-| 16 | P · Leer la pelea: los jefes avisan sus ataques con el doble de tiempo; la sombra muestra dónde va a estar cada uno en 1 s |
+| 8 | P · Desarme: cuando el atium te hace esquivar, el que te atacó pierde el arma 4 s |
+| 12 | A · Monedas guiadas: hasta 5 monedas, una a cada enemigo distinto a 25 m, que lo siguen; cada una gasta una moneda y un 4 % del atium. Recarga 15 s |
+| 16 | P · Leer la pelea: el enemigo que te va a pegar (15 m) se marca en rojo; los jefes avisan sus ataques con el doble de tiempo; la sombra muestra dónde va a estar cada uno en 1 s |
 | 20 | A · Momento eterno: 6 s con el mundo al 15 %; cada golpe es crítico; aviva el atium todo el tiempo. Recarga 90 s |
 
 ## Habilidades combinadas (12 pares × 3 escalones)

@@ -132,7 +132,7 @@ func _can_perceive(n: Node3D) -> bool:
 		return true
 	var d := global_position.distance_to(n.global_position)
 	var sight := Art.sight_range()  # la niebla, la noche y el clima limitan la vista
-	if not (n.has_method(&"hides_from_tin") and n.hides_from_tin()):  # Silencio (cobre)
+	if not (n.has_method(&"hides_from_tin") and n.hides_from_tin()):  # Fantasma (cobre)
 		sight *= 1.0 + 1.4 * allomancy.strength(&"tin")
 	if n.has_method(&"concealment"):
 		sight *= n.concealment()  # capa de bruma y traje oscuro
@@ -520,7 +520,7 @@ func _melee(damage: float, knockback: float, reach: float, cooldown: float) -> v
 	if is_disarmed():
 		damage *= 0.3  # sin su arma pega poco
 	var pewter := allomancy.strength(&"pewter")
-	_melee_cd = cooldown / (1.0 + 0.5 * pewter)
+	_melee_cd = cooldown / (1.0 + 0.5 * pewter) * attack_delay_scale()
 	var to := _to_target()
 	rotation.y = atan2(-to.x, -to.z)
 	rig.play_attack(1, 0.55 / (1.0 + 0.4 * pewter))
