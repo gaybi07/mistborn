@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | L8 a L12 (ramas apiladas: latón, cobre, bronce, atium, sala de pruebas) | `lucho/l8-laton` → … → `lucho/l11-atium` → `lucho/l12-sala-pruebas` | 2026-11-11 |
+| Lucho | — | — | — |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -61,11 +61,11 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 ("Otros metales").
 
 - [x] ✅ **L7. Cinc.** (enardecer) — *verificada 2026-11-10, rama `lucho/l7-cinc` (borrada), merge `9ca9394`*
-- [ ] 🔄 **L8. Latón.** (aplacar) — *en curso: Lucho, rama `lucho/l8-laton`, desde 2026-11-11*
-- [ ] 🔄 **L9. Cobre.** (ocultarse) — *en curso: Lucho, rama `lucho/l9-cobre` (sale de la de L8), desde 2026-11-11*
-- [ ] 🔄 **L10. Bronce.** (detectar) — *en curso: Lucho, rama `lucho/l10-bronce` (sale de la de L9), desde 2026-11-11*
-- [ ] 🔄 **L11. Atium.** (ver el futuro) — *en curso: Lucho, rama `lucho/l11-atium` (sale de la de L10), desde 2026-11-11*
-- [ ] 🔄 **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén. Además (pedido de Lucho, 10/11), **la sala
+- [x] ✅ **L8. Latón.** (aplacar) — *verificada 2026-11-11, rama `lucho/l8-laton` (borrada), merge `2cb844b`*
+- [x] ✅ **L9. Cobre.** (ocultarse) — *verificada 2026-11-11, rama `lucho/l9-cobre` (borrada), merge `037c20e`*
+- [x] ✅ **L10. Bronce.** (detectar) — *verificada 2026-11-11, rama `lucho/l10-bronce` (borrada), merge `2951ed7`*
+- [x] ✅ **L11. Atium.** (ver el futuro) — *verificada 2026-11-11, rama `lucho/l11-atium` (borrada), merge `35390d3`*
+- [x] ✅ **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén. Además (pedido de Lucho, 10/11), **la sala
   de poderes pasa a ser una sala de pruebas de verdad** (hoy Ctrl+F8, `scripts/training/skill_room.gd`: piso pelado y
   todo al máximo):
   - un **menú interactivo** al entrar (y reabrible adentro) para elegir qué probar: "Probar Acero", "Probar Hierro",
@@ -78,7 +78,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   - ese metal y sus poderes al máximo y ya puestos en las ranuras, para probar sin pasar por K;
   - al salir, los puntos y las ranuras vuelven a como estaban (como hoy).
   Listo cuando desde la sala se puede elegir cada metal y probar todos sus poderes sin salir, y los dos `aim_check`
-  siguen pasando. — *en curso: Lucho, rama `lucho/l12-sala-pruebas` (sale de la de L11), desde 2026-11-11*
+  siguen pasando. — *verificada 2026-11-11, rama `lucho/l12-sala-pruebas` (borrada), merge `4f3a342`*
 
 ### 3. Feruquimia básica
 

@@ -2,6 +2,31 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-11 · L8-L12 · Latón, cobre, bronce, atium y sala de pruebas · Lucho
+- **Ramas:** `lucho/l8-laton` → `l9-cobre` → `l10-bronce` → `l11-atium` → `l12-sala-pruebas` (apiladas, borradas) ·
+  **Merges:** `2cb844b`, `037c20e`, `2951ed7`, `35390d3`, `4f3a342` · **Estado:** ✅ verificada (jugada por Lucho)
+- **Qué se hizo:** los poderes de los cuatro metales que faltaban, rediseñados para el juego de hoy (ver
+  `docs/arbol-de-habilidades.md`). Latón: Calma, Desaliento, Sosiego, Rendición (mitad de la experiencia), Sosegar
+  multitud, Paz absoluta. Cobre: Nube, Silencio, Desvanecerse, Nube compartida, Mente cerrada, Fantasma. Bronce:
+  Pulsos, Leer metales, Anticipar, Pulso perturbador, Rastreo, Contrapulso. Atium (2 puntos por nivel): Sombras,
+  Esquiva perfecta, Golpe certero, Monedas guiadas, Leer la pelea, Momento eterno (cámara lenta solo fuera de red).
+  Base común `MetalPowers` (el cinc pasó a usarla). Los NPC te ven según `Player.concealment` (ahora también guardias,
+  koloss, espectros y patrullas de misión). El árbol de K va en dos filas con cada rama hacia su lado. Se fueron
+  "Otros metales" y `direct_levels`. Sala de pruebas (Ctrl+F8): menú por metal (F10), escenario y NPC para sus
+  poderes, activas en las ranuras, Retroceso rearma.
+- **Archivos:** `scripts/allomancy/metal_powers.gd`, `brass_powers.gd`, `copper_powers.gd`, `bronze_powers.gd`,
+  `atium_powers.gd` (nuevos), `zinc_powers.gd`, `allomancy.gd` (`drain`), `metals.gd`; `scripts/npc/npc.gd`,
+  `guard.gd`, `koloss.gd`, `mist_wraith.gd`, `allomancer_npc.gd`, `champion.gd`, `lord_powers.gd` (puntuales);
+  `scripts/player/player.gd` (puntual); `scripts/story/missions/foso_mission.gd`, `contrabando_mission.gd`;
+  `scripts/ui/skill_tree_window.gd`, `skill_tree_canvas.gd`, `compass_bar.gd`, `city_map.gd`;
+  `scripts/progression/progression.gd`, `skill_tree.gd`; `scripts/training/skill_room.gd`.
+- **Cómo se probó:** pruebas sin pantalla por metal y una conjunta con NPC reales; la sala armando los nueve metales;
+  `aim_check`, `aim_pitch_check`, `progression_check`, `quest_check` y `tramo_check` pasan; Lucho lo jugó.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** 15 pedidos de animación para Gabi (tabla en TAREAS.md). Arreglado de paso: el alomántico
+  que agarraba una moneda que desaparecía tiraba error. Cambiar un punto en K dentro de la sala guarda "todo al
+  máximo" (viene de antes). Sigue L13 (diseño de feruquimia).
+
 ### 2026-11-10 · L7 · Cinc · Lucho
 - **Rama:** `lucho/l7-cinc` (borrada) · **Merge:** `9ca9394` · **Estado:** ✅ verificada (jugada por Lucho; la Ira,
   poco)
