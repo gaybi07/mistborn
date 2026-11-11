@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | — | — | — |
+| Lucho | L1. Datos | `lucho/l1-progresion-datos` | 2026-11-10 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -34,9 +34,10 @@ rama y merge).
 
 ### 1. Puntos en poderes (ver `docs/PLAN_PROGRESION.md`)
 
-- [ ] **L1. Datos.** `skill_levels`, puntos (3 al inicio, 100 en el nivel 100), nivel del metal calculado,
+- [ ] 🔄 **L1. Datos.** `skill_levels`, puntos (3 al inicio, 100 en el nivel 100), nivel del metal calculado,
   requisitos (todos los padres con 1 punto), inicio recomendado, guardado, `LAYOUTS` movido a `SkillTree`.
-  Rama `lucho/progresion-datos`. Listo cuando pasa `tools/anim_check/progression_check.gd`.
+  Listo cuando pasa `tools/anim_check/progression_check.gd`.
+  — *en curso: Lucho, rama `lucho/l1-progresion-datos`, desde 2026-11-10*
 - [ ] **L2. Poderes y metal.** Cada poder escala con sus puntos (`equiv_level`); el metal escala consumo y reserva
   con `METAL_SCALING`. Tooltips y textos. Listo cuando la Ráfaga 1 y 5 se ven distintas y el acero con 10 puntos
   dura más.
