@@ -2,6 +2,21 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · G28 · Casas modulares · Gabi
+- **Rama:** `gabi/g28-casas-modulares` (borrada) · **Merge:** `fffd775` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** `tools/blender/make_luthadel_houses.py` arma 48 casas combinando módulos con las texturas de G27:
+  24 de barrios buenos (piedra, ladrillo o entramado; torrecilla, torre lateral, mirador, balcón, frontón escalonado,
+  arcada o tienda, ala) y 24 skaa (angostas y remendadas; escalera exterior, cobertizo, ropa tendida, tienda
+  tapiada, piso corrido, pescante). Los barrios usan 9 de cada 10 casas de este kit (`CityPlan.DISTRICTS`, "kit").
+  El pueblo del Camino Sur también. La ruta de los tejados acepta techos más empinados.
+- **Archivos:** `assets/luthadel/casas/` (nuevo), `tools/blender/make_luthadel_houses.py` (nuevo),
+  `make_luthadel_kit.py`, `scripts/main.gd`, `scripts/world/city_plan.gd`, `model_kit.gd`, `south_village.gd`,
+  `scripts/story/missions/tejados_mission.gd`.
+- **Cómo se probó:** las 48 casas pasan `qa_check.py`; fotos de los barrios; el juego corre sin errores;
+  `quest_check.gd` y `tramo_check.gd` pasan. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** ronda 2 (FPS, techos de la persecución). La muralla, en G29.
+
 ### 2026-11-10 · G27 · Piezas propias de Luthadel y plazas góticas · Gabi
 - **Rama:** `gabi/g27-casas-plaza` (borrada) · **Merge:** `53ea3f6` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** piezas generadas por código en Blender (sin Meshy), para acercar el juego a las fotos de

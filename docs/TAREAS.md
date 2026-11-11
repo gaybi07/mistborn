@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G28. Casas modulares | `gabi/g28-casas-modulares` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -172,10 +172,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   caserón y torre góticos, fuentes, cadalso, puestos de lona, carreta; Plaza Central y Mercado rearmados; paleta de
   día gris con el horizonte rojo; hollín en las casas comunes.
   — *en develop 2026-11-10, rama `gabi/g27-casas-plaza` (borrada), merge `53ea3f6`; falta revisar (ronda 2)*
-- [ ] 🔄 **G28. Casas modulares** (generadas en Blender con las texturas de G27): módulos (cuerpos, pisos, techos,
-  torres, puertas, ventanas, miradores, chimeneas) que se combinan en unas 24 casas para los barrios buenos y otras 24
-  para los barrios skaa, parecidas entre sí pero distintas, y puestas en sus barrios en lugar de las de Quaternius.
-  — *en curso: Gabi, rama `gabi/g28-casas-modulares`, desde 2026-11-10*
+- [x] 🧪 **G28. Casas modulares** (generadas en Blender con las texturas de G27): 24 casas de barrios buenos y 24 skaa,
+  combinando módulos, puestas en sus barrios y en el pueblo del Camino Sur.
+  — *en develop 2026-11-10, rama `gabi/g28-casas-modulares` (borrada), merge `fffd775`; falta revisar (ronda 2)*
 - [ ] **G29. Muralla de Luthadel, rehecha** (pedido de Gabi, 10/11): hoy es una fila pareja de piezas de Quaternius
   con 3 puertas. Tiene que verse medieval e imperfecta:
   - altos y bajos: tramos de distinta altura, lienzos remendados, almenas rotas, contrafuertes, algún tramo más viejo;
@@ -259,6 +258,13 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] las casas comunes cambiaron de lugar en toda la ciudad (por los terrenos reservados): recorrer los barrios y
     ver que no haya casas sobre calles, NPC adentro de una casa o puestos de misión tapados;
   - [ ] los cajones de metal, monedas y frascos de la plaza siguen a mano; los FPS con las texturas nuevas.
+
+- [ ] **G28. Casas modulares** (barrios Noble, Mercantil, mercaderes, Plaza Central, Laderas y Distrito Skaa):
+  - [ ] que las casas se vean parecidas pero distintas, sin repetirse a la vista;
+  - [ ] que las skaa se lean pobres y las buenas, de gente con plata;
+  - [ ] nada flotando ni enterrado en las calles en pendiente; puertas que den a la calle;
+  - [ ] la persecución de los tejados con los techos nuevos, más empinados (¿se puede correr por ellos?);
+  - [ ] los FPS en los barrios densos (2411 casas, unos 900 triángulos cada una).
 
 ### Cuando Lucho suba la progresión nueva (L1-L6)
 
