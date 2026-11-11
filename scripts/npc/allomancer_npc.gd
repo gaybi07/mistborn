@@ -132,7 +132,8 @@ func _can_perceive(n: Node3D) -> bool:
 		return true
 	var d := global_position.distance_to(n.global_position)
 	var sight := Art.sight_range()  # la niebla, la noche y el clima limitan la vista
-	sight *= 1.0 + 1.4 * allomancy.strength(&"tin")
+	if not (n.has_method(&"hides_from_tin") and n.hides_from_tin()):  # Silencio (cobre)
+		sight *= 1.0 + 1.4 * allomancy.strength(&"tin")
 	if n.has_method(&"concealment"):
 		sight *= n.concealment()  # capa de bruma y traje oscuro
 	if d <= sight and _line_of_sight(n):
@@ -251,7 +252,7 @@ func _on_hit(attacker: Node3D) -> void:
 
 
 func _burns_copper() -> bool:
-	return allomancy.is_burning(&"copper")
+	return allomancy.is_burning(&"copper") or super()
 
 
 func _surrender() -> void:

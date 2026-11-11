@@ -7,7 +7,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 | Tema | Decisión |
 |---|---|
 | Techo | Jugador nivel 100; cada poder, nivel 5. El nivel de un metal es la suma de los puntos en sus poderes (ver `docs/PLAN_PROGRESION.md`) |
-| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, cobre, bronce) se suben directo; atium cuesta 2 por nivel |
+| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, bronce) se suben directo; atium cuesta 2 por nivel |
 | Elección | Para poner un punto en un poder, todos los poderes de los que nace (en su rama) tienen que tener al menos 1. No alcanza para maxear todo |
 | Reasignar | En cualquier momento, sin costo: "−" por poder (si ninguno que depende de él queda sin requisito) o "Devolver todos los puntos" |
 | XP | Combate y objetivos, más un bonus chico por usar cada metal con tope por minuto |
@@ -111,14 +111,18 @@ Desaliento → Rendición; Sosiego → Sosegar multitud; la Paz absoluta pide Re
 | 20 | A · Paz absoluta: en 15 m y 15 s nadie ataca a nadie; los jefes quedan desalentados. Recarga 60 s |
 
 ### Cobre
+Sigilo y defensa contra la alomancia (código: `CopperPowers`; los NPC te pierden con `Npc.lose_track` y te ven según
+`Player.concealment`). Rama: Nube → Silencio → Desvanecerse; Nube → Nube compartida → Mente cerrada; Fantasma pide
+Desvanecerse y Mente cerrada.
+
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Nube de cobre: oculta tus metales (ya existe) |
-| 4 | P · Nube ampliada |
-| 8 | P · Silencio: haces menos ruido |
-| 12 | A · Nube compartida: cubre también a aliados cercanos |
-| 16 | P · Mente cerrada: inmune a cinc y latón |
-| 20 | A · Fantasma: invisible a los sentidos alománticos |
+| 1 | P · Nube de cobre: lo de siempre; el bronce no te detecta y sos inmune al cinc y al latón ajenos |
+| 4 | P · Silencio: con cobre encendido te notan desde el 60 % de la distancia y el estaño de un Ojo de estaño no le sirve |
+| 8 | A · Desvanecerse: los que te tenían de objetivo (35 m) te pierden 4 s; tu próximo golpe hace +50 %. Recarga 20 s |
+| 12 | A · Nube compartida: 15 s, tu domado y los aliados a 8 m quedan bajo tu nube, inmunes. Recarga 30 s |
+| 16 | P · Mente cerrada: aunque no quemes cobre, lo emocional ajeno te dura la mitad y el Aplacar del Lord te saca la mitad de aliento |
+| 20 | A · Fantasma: 10 s en que ningún NPC te ve; atacar lo termina con un crítico (doble de daño). Recarga 60 s |
 
 ### Bronce
 | Nivel | Habilidad |

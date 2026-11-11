@@ -77,6 +77,13 @@ const SKILLS := [
 	{"id": &"brass_yield", "metal": &"brass", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Rendición"},
 	{"id": &"brass_crowd", "metal": &"brass", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Sosegar multitud"},
 	{"id": &"brass_peace", "metal": &"brass", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Paz absoluta"},
+	# Cobre (L9): sigilo y defensa contra la alomancia (ver CopperPowers).
+	{"id": &"copper_cloud", "metal": &"copper", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Nube de cobre"},
+	{"id": &"copper_silence", "metal": &"copper", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Silencio"},
+	{"id": &"copper_vanish", "metal": &"copper", "legacy_level": 8, "kind": Kind.ACTIVE, "name": "Desvanecerse"},
+	{"id": &"copper_shared", "metal": &"copper", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Nube compartida"},
+	{"id": &"copper_closed_mind", "metal": &"copper", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Mente cerrada"},
+	{"id": &"copper_ghost", "metal": &"copper", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Fantasma"},
 ]
 
 
@@ -139,6 +146,15 @@ const LAYOUTS := {
 			[&"brass_quiet", Vector2(80, 150), [&"root"]],
 			[&"brass_crowd", Vector2(230, 200), [&"brass_quiet"]],
 			[&"brass_peace", Vector2(380, 40), [&"brass_yield", &"brass_crowd"]],
+		],
+		# Cobre: arriba, desaparecer (silencio y desvanecerse); abajo, proteger (a los tuyos y tu mente).
+		&"copper": [
+			[&"copper_cloud", Vector2(75, 0), [&"root"]],
+			[&"copper_silence", Vector2(170, -150), [&"copper_cloud"]],
+			[&"copper_vanish", Vector2(320, -220), [&"copper_silence"]],
+			[&"copper_shared", Vector2(170, 150), [&"copper_cloud"]],
+			[&"copper_closed_mind", Vector2(320, 220), [&"copper_shared"]],
+			[&"copper_ghost", Vector2(400, 0), [&"copper_vanish", &"copper_closed_mind"]],
 		],
 	},
 	&"feruchemy": {},
@@ -382,6 +398,20 @@ const BRASS_CROWD_COOLDOWN := 30.0
 const BRASS_PEACE_TIME := 15.0
 const BRASS_PEACE_RADIUS := 15.0
 const BRASS_PEACE_COOLDOWN := 60.0
+## Cobre (L9): multiplicadores, duraciones y recargas (s), radios (m), en nivel 1.
+const COPPER_SILENCE := 0.6  # te ven desde el 60 % de la distancia
+const COPPER_VANISH_TIME := 4.0
+const COPPER_VANISH_RADIUS := 35.0
+const COPPER_VANISH_COOLDOWN := 20.0
+const COPPER_AMBUSH := 1.5  # el golpe a traición
+const COPPER_AMBUSH_GRACE := 2.0  # después de los 4 s, todavía vale
+const COPPER_SHARED_TIME := 15.0
+const COPPER_SHARED_RADIUS := 8.0
+const COPPER_SHARED_COOLDOWN := 30.0
+const COPPER_CLOSED_MIND := 0.5
+const COPPER_GHOST_TIME := 10.0
+const COPPER_GHOST_COOLDOWN := 60.0
+const COPPER_GHOST_STRIKE := 2.0  # crítico
 const SLAM_COOLDOWN := 12.0
 const SLAM_RADIUS := 6.0
 const FURY_TIME := 8.0
@@ -438,6 +468,12 @@ const DESCRIPTIONS := {
 	&"brass_yield": "Un toque apuntando a un enemigo con menos del 30 % de vida: se rinde. Suelta el arma y su botín, y te da la mitad de su experiencia sin morir. Los jefes no se rinden.\nRecarga: 20 s.",
 	&"brass_crowd": "Un toque: todos los que tenés delante, hasta 10 m, se calman 6 s. Sirve para escapar o cortar una pelea grande.\nRecarga: 30 s.",
 	&"brass_peace": "Un toque: en 15 m y durante 15 s nadie ataca a nadie, ni los koloss. Los jefes solo bajan el ritmo (quedan desalentados). Si golpeás a alguno, despierta solo ese.\nRecarga: 60 s.",
+	&"copper_cloud": "Pasiva: lo que hace el cobre desde el principio. Mientras lo quemás, el bronce no te detecta y el cinc y el latón ajenos no te hacen nada.",
+	&"copper_silence": "Pasiva: con cobre encendido hacés menos ruido. Te notan desde el 60 % de la distancia, y el estaño de un Ojo de estaño enemigo no le sirve para encontrarte.",
+	&"copper_vanish": "Un toque: los que te tenían de objetivo (hasta 35 m) te pierden 4 s y se quedan buscando. Tu próximo golpe es a traición: +50 % de daño.\nRecarga: 20 s.",
+	&"copper_shared": "Un toque: durante 15 s tu domado y los aliados a 8 m quedan bajo tu nube, inmunes al cinc y al latón ajenos.\nRecarga: 30 s.",
+	&"copper_closed_mind": "Pasiva, aunque no quemes cobre: lo que te hagan Aplacadores y Encendedores te dura la mitad, y el Aplacar del Lord Legislador te saca la mitad de aliento.",
+	&"copper_ghost": "Un toque: 10 s en que ningún NPC te ve; pasás entre guardias y koloss. Atacar lo termina, y ese golpe es un crítico (doble de daño).\nRecarga: 60 s.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }
 

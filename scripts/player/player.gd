@@ -275,6 +275,7 @@ var emotions: Emotions
 ## Poderes de cinc, latón, cobre, bronce y atium (ver MetalPowers): Player solo los despacha.
 var zinc: ZincPowers
 var brass: BrassPowers
+var copper: CopperPowers
 var metal_powers: Array[MetalPowers] = []
 var _roll_time := 0.0
 var _roll_cd := 0.0
@@ -371,7 +372,8 @@ func _ready() -> void:
 	add_child(emotions)
 	zinc = ZincPowers.new()
 	brass = BrassPowers.new()
-	for mp: MetalPowers in [zinc, brass]:
+	copper = CopperPowers.new()
+	for mp: MetalPowers in [zinc, brass, copper]:
 		mp.player = self
 		metal_powers.append(mp)
 		add_child(mp)
@@ -1083,7 +1085,7 @@ func _metal_key_up(key: Key) -> void:
 func apply_emotion(metal: StringName, _strength: float, _source: Node3D) -> bool:
 	if dead or allomancy.is_burning(&"copper") or is_clear_minded():
 		return false
-	var until := Time.get_ticks_msec() + 2000
+	var until := Time.get_ticks_msec() + int(2000.0 * emotion_resist())  # Mente cerrada (cobre): la mitad
 	if metal == &"zinc":
 		_rioted_ms = until
 	else:
@@ -4090,3 +4092,24 @@ func metal_power(skill: StringName) -> MetalPowers:
 		if mp.has(skill):
 			return mp
 	return null
+
+
+## Multiplicador de tu golpe a `npc` (golpe a traición del cobre, crítico del atium): lo dicen los poderes de metal.
+func strike_bonus(npc: Npc) -> float:
+	var m := 1.0
+	for mp in metal_powers:
+		m *= mp.strike_bonus(npc)
+	return m
+
+
+## Cuánto te dura el cinc o el latón de un enemigo o del Lord (Mente cerrada del cobre). 1 = entero.
+func emotion_resist() -> float:
+	var r := 1.0
+	for mp in metal_powers:
+		r *= mp.emotion_resist()
+	return r
+
+
+## Silencio (cobre): el estaño de un Ojo de estaño enemigo no te encuentra mejor.
+func hides_from_tin() -> bool:
+	return copper.passive(&"copper_silence")
