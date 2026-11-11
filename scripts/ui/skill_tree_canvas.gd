@@ -1,15 +1,14 @@
 class_name SkillTreeCanvas
 extends Control
 ## Vista de árbol del árbol de habilidades (K): cada metal es una rama que nace de su hexágono, con sus habilidades repartidas
-## en ramificaciones, y debajo los metales todavía sin habilidades. Se mueve arrastrando con el clic izquierdo, se acerca con la
+## en ramificaciones (en dos filas, cada rama hacia su lado). Se mueve arrastrando con el clic izquierdo, se acerca con la
 ## rueda y los detalles de cada habilidad salen al pasar el ratón (tooltip). Clic en una habilidad le pone un punto y clic
-## derecho se lo saca (cada una muestra sus puntos con pips); clic en un metal sin habilidades le sube un nivel.
+## derecho se lo saca (cada una muestra sus puntos con pips).
 
 signal skill_hovered(id: StringName)
 signal skill_clicked(id: StringName)
 ## Clic (raise = true) o clic derecho (false) sobre una habilidad: poner o sacar un punto (lo hace SkillTreeWindow).
 signal skill_point(id: StringName, raise: bool)
-signal metal_clicked(metal: StringName)
 
 const BG := Color(0.035, 0.04, 0.055)
 const GOLD := Color(0.78, 0.66, 1.0)  # elegido, teclas y realces: el violeta de los menús (HudKit.PICK, más claro)
@@ -210,8 +209,6 @@ func _click(hit: Dictionary) -> void:
 	if hit["kind"] == "skill":
 		skill_clicked.emit(hit["id"])
 		skill_point.emit(hit["id"], true)
-	else:
-		metal_clicked.emit(hit["id"])
 
 
 ## Lo que hay bajo el ratón: una habilidad o un metal ({} si nada).
@@ -251,7 +248,6 @@ func _make_custom_tooltip(for_text: String) -> Object:
 
 func _metal_card(metal: StringName) -> Control:
 	var lvl := Progression.metal_level(metal)
-	var cap := Progression.metal_cap(metal)
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.045, 0.05, 0.07, 0.98)
@@ -264,20 +260,8 @@ func _metal_card(metal: StringName) -> Control:
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
 	box.add_child(_card_label(String(Allomancy.METALS[metal]["label"]), 20, GOLD))
-	if not Progression.is_direct_metal(metal):
-		box.add_child(_card_label(("Nivel %d" % lvl) if lvl > 0 else "Sin aprender", 14, DIM))
-		box.add_child(_card_label("Suma de los puntos en sus poderes: con más nivel, gasta menos y dura más.", 14, GOOD))
-		return panel
-	box.add_child(_card_label(("Nivel %d / %d" % [lvl, cap]) if lvl > 0 else "Sin aprender", 14, DIM))
-	var cost := Progression.point_cost(metal)
-	var hint := ""
-	if lvl >= cap:
-		hint = "Nivel máximo"
-	elif Progression.can_raise(metal):
-		hint = "Clic: %s (%d punto%s)" % ["subir nivel" if lvl > 0 else "aprender", cost, "" if cost == 1 else "s"]
-	else:
-		hint = "Te faltan puntos de alomancia (%d)" % cost
-	box.add_child(_card_label(hint, 14, GOOD if Progression.can_raise(metal) else LOCKED))
+	box.add_child(_card_label(("Nivel %d" % lvl) if lvl > 0 else "Sin aprender", 14, DIM))
+	box.add_child(_card_label("Suma de los puntos en sus poderes: con más nivel, gasta menos y dura más.", 14, GOOD))
 	return panel
 
 
