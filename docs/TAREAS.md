@@ -65,7 +65,20 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **L9. Cobre.** (ocultarse)
 - [ ] **L10. Bronce.** (detectar)
 - [ ] **L11. Atium.** (ver el futuro)
-- [ ] **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén.
+- [ ] **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén. Además (pedido de Lucho, 10/11), **la sala
+  de poderes pasa a ser una sala de pruebas de verdad** (hoy Ctrl+F8, `scripts/training/skill_room.gd`: piso pelado y
+  todo al máximo):
+  - un **menú interactivo** al entrar (y reabrible adentro) para elegir qué probar: "Probar Acero", "Probar Hierro",
+    "Probar Peltre", "Probar Estaño", "Probar Cinc", "Probar Latón", "Probar Cobre", "Probar Bronce", "Probar Atium";
+  - al elegir un metal, **el escenario se arma para sus poderes**: lo que cada uno necesita para usarse y verse. Por
+    ejemplo, metales sueltos, farolas y rejas para acero y hierro; muñecos y paredes para golpes y onda de choque en
+    peltre; NPC detrás de paredes para el estaño; y para cinc y latón, **NPC de cada tipo** (ciudadanos, guardias,
+    koloss, alománticos, uno con cobre) para provocar, asustar, domar o calmar;
+  - **spawnea los NPC** que hacen falta, con un botón para volver a armar la prueba (reaparecen los que cayeron);
+  - ese metal y sus poderes al máximo y ya puestos en las ranuras, para probar sin pasar por K;
+  - al salir, los puntos y las ranuras vuelven a como estaban (como hoy).
+  Listo cuando desde la sala se puede elegir cada metal y probar todos sus poderes sin salir, y los dos `aim_check`
+  siguen pasando.
 
 ### 3. Feruquimia básica
 
