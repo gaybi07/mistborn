@@ -2,6 +2,18 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-10 · L6 · Lugar para la feruquimia · Lucho
+- **Rama:** `lucho/l6-feruquimia-lugar` (borrada) · **Merge:** `cbd106e` · **Estado:** ✅ verificada (jugada por Lucho)
+- **Qué se hizo:** `SkillTree.skills_of(metal, tree)` filtra por árbol; sin árbol suma los dos, así el nivel del metal
+  cuenta alomancia y feruquimia. En K, pestaña Alomancia | Feruquimia (en Feruquimia, aviso de "próximamente" hasta que
+  tenga poderes); los puntos libres son los mismos. `SkillTree.test_skills` para poderes de prueba.
+- **Archivos:** `scripts/progression/skill_tree.gd`, `scripts/ui/skill_tree_window.gd`, `skill_tree_canvas.gd`,
+  `tools/anim_check/progression_check.gd`.
+- **Cómo se probó:** `progression_check` (un punto en feruquimia de hierro sube el hierro, gasta de los mismos puntos
+  y se guarda); la pestaña sin pantalla; el juego corre sin errores; Lucho la jugó.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** sigue L7 (cinc). Los poderes de feruquimia, en L13-L15.
+
 ### 2026-11-10 · L1-L5 · Puntos en poderes (datos, poderes y metal, K lista, K árbol, trucos) · Lucho
 - **Ramas:** `lucho/l1-progresion-datos` → `l2-poderes-metal` → `l3-ventana-lista` → `l4-ventana-arbol` →
   `l5-trucos-sala` (apiladas, borradas) · **Merges:** `a176d5c`, `bc25a1b`, `c4a011c`, `f5136dc`, `9b8f46b` ·
