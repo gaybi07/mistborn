@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G24. Campamento koloss con modelos propios | `gabi/g24-campamento-koloss` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -161,10 +161,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   Quaternius, mansión noble propia, muralla de pueblo, cultivos de ceniza para los campos, espantapájaros, secaderos,
   bebederos y **animales para los corrales** (vacas, ovejas, cerdos, gallinas, caballos: hoy los corrales están
   vacíos). Listo cuando reemplazan a los de `scripts/world/south_village.gd`.
-- [ ] 🔄 **G24. Modelos propios del campamento koloss** (los pasa Gabi; hoy: conos, cercas y rocas): tiendas de cuero y
-  hueso, estacas afiladas para la empalizada, huesos y calaveras de verdad, estantes de carne, jaulas, y carros para
-  traer koloss (el "Cart" de Quaternius es un carrito de mercado, por eso hoy hay pilas de cajones).
-  — *en curso: Gabi, rama `gabi/g24-campamento-koloss`, desde 2026-11-10*
+- [x] 🧪 **G24. Modelos propios del campamento koloss** (los pasó Gabi, 13 de Meshy): torre, refugio, trono, jaula,
+  tambor, efigies, tótem, barricada, cajón, barril y tres espadones, ya en el campamento.
+  — *en develop 2026-11-10, rama `gabi/g24-campamento-koloss` (borrada), merge `cd31c50`; falta revisar (ronda 2)*
 - [ ] **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
   skaa caminando y trabajando, nobles paseando con su séquito (mayordomo, doncella, guardia), mercaderes en los
   puestos, y lo mismo en las Aldeas del Camino Sur (300 casas: tiene que verse lleno). Medir los FPS con la gente
@@ -247,6 +246,9 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   - [ ] nada flotando ni enterrado (casas en pendiente, cercas, pozo); los caminos sin casas encima;
   - [ ] los FPS adentro del pueblo y mirándolo de lejos (300 casas, con colisión).
 
+- [ ] **G24. Campamento koloss con los modelos de Meshy**: el trono, los tambores y los tótems con brasas en el centro;
+  refugios alrededor de las fogatas; barricadas como empalizada; que nada flote ni se hunda (los tambores están
+  acostados, como vinieron); los FPS adentro (unos 160 modelos de 1200 a 4900 triángulos).
 - [ ] **G7. Campamento koloss** (saliendo por la Puerta Este, unos 300 m al noreste, al norte del camino):
   - [ ] que se lea como campamento koloss: tiendas en corros, fogatas, hoguera del centro, huesos, carga apilada;
   - [ ] la empalizada rota a tramos y la entrada desde el camino (el camino pasa por el borde sur, sin cerca encima);

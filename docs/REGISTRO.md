@@ -35,6 +35,19 @@ Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arrib
 - **Pendiente o pedidos:** G22 (taller, Gabi): el paso "gastar un punto" hoy se da por hecho solo. En red, los
   poderes de los otros jugadores se siguen calculando por nivel de metal hasta L19. Sigue L6.
 
+### 2026-11-10 · G24 · Campamento koloss con modelos propios · Gabi
+- **Rama:** `gabi/g24-campamento-koloss` (borrada) · **Merge:** `cd31c50` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** los 13 modelos de Meshy que pasó Gabi, convertidos a tamaño real y alivianados (de hasta 15000 a
+  entre 1200 y 4900 triángulos) con `tools/blender/meshy_props_to_glb.py`, en `assets/koloss/campamento/`. El
+  campamento (`koloss_camp.gd`) los usa: empalizada de barricadas con tramos caídos, refugios en corros alrededor de las
+  fogatas, trono de huesos frente a la hoguera con tambores, tótems con brasas y jaulas, efigies en la entrada, torres
+  en el borde, carga de cajones, barriles y jaulas en la entrada, espadones tirados.
+- **Archivos:** `assets/koloss/campamento/` y `tools/blender/meshy_props_to_glb.py` (nuevos), `scripts/world/koloss_camp.gd`.
+- **Cómo se probó:** fotos (desde arriba, en diagonal, la entrada, el trono, los refugios); el juego corre sin errores;
+  `quest_check.gd` pasa. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** ronda 2 (FPS, tambores acostados); carros y huesos propios, si se quieren (GENERAR.md).
+
 ### 2026-11-10 · G9 · Spook · Gabi
 - **Rama:** `gabi/g9-spook` (borrada) · **Merge:** `ba9a003` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** el modelo de Meshy ("Blindfolded Wanderer", riggeado con Mixamo, con Walking y Running) en

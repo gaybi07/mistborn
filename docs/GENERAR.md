@@ -81,13 +81,9 @@ aparte. Si conseguís alguno, pasámelo y veo cómo encajarlo.
 - Espantapájaros, secaderos, bebederos
 - Pozo rústico
 
-**Campamento koloss (G24)** — hoy son conos, cercas y rocas:
-- Tiendas de cuero y hueso
-- Estacas afiladas para la empalizada
-- Huesos y calaveras
-- Estantes de carne
-- Jaulas
-- Carros para traer koloss (el "Cart" de Quaternius es un carrito de mercado)
+**Campamento koloss (G24)** — ✅ llegaron 13 modelos (torre, refugio, trono, jaula, tambor, efigies, tótem,
+barricada, cajón, barril y tres espadones). Falta, si se quiere: carros para traer koloss (hoy hay pilas de cajones),
+huesos y calaveras sueltos (hoy son rocas tintadas) y estantes de carne.
 
 **Carretas (G26):**
 - Carreta de carga: `Wooden cargo wagon with four spoked wheels, plank sides, canvas cover, medieval, no horse`
