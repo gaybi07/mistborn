@@ -67,6 +67,7 @@ func soldier(xz: Vector2, health := 60.0, hostile := true) -> Champion:
 	add_child(s)
 	s.max_health = health
 	s.health = health
+	s.xp_reward = 35  # una patrulla, no un koloss (Champion hereda los 220 del koloss)
 	if hostile:
 		provoke(s)
 	_foes.append(s)

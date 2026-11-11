@@ -16,6 +16,8 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	_dir = args[0] if args.size() > 0 else ""
 	# --- Datos, sin escena
+	# El taller da experiencia y se guarda en la progresión real: se restaura al salir.
+	var prog := FileAccess.get_file_as_bytes("user://progression.cfg")
 	QuestLog.reset()
 	_ok(QuestLog.startable() == ["tejados"] and QuestLog.offers().is_empty(), "al empezar solo está la de los tejados, y nadie ofrece nada")
 	_ok(QuestLog.giver_of("t_volador") == "clubs", "la de Spook (sin modelo) la da Clubs")
@@ -91,6 +93,8 @@ func _initialize() -> void:
 	_ok(SaveSlots.exists(SLOT), "terminar una misión guarda la partida")
 	SaveSlots.erase(SLOT)
 	print("FALLAS ", _fails)
+	if not prog.is_empty():
+		FileAccess.open("user://progression.cfg", FileAccess.WRITE).store_buffer(prog)
 	quit(1 if _fails > 0 else 0)
 
 

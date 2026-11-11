@@ -52,7 +52,7 @@ func _setup() -> void:
 	run_speed = 3.8
 	accel = 8.0
 	decision_lead = 0.2  # menos que lo que tarda en replanear (0,25 s): si no, nunca arranca
-	xp_reward = int(90 * _grow)
+	xp_reward = int(40 * _grow)  # G22: con la curva nueva de Lucho, 90 subía un nivel cada dos espectros
 	loot_coins = Vector2i(0, 2)
 	loot_vial_chance = 0.1
 	_next_lunge = randf_range(0.5, 1.5)

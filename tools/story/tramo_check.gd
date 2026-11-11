@@ -67,6 +67,7 @@ func _initialize() -> void:
 	await _go(Story.PLACES["taller"]["at"])
 	_ok(Dialogues.entry("clubs") == "taller_explica", "en el taller, Clubs explica")
 	Dialogues.run(Dialogues.LINES["clubs"]["nodes"]["taller_explica"]["options"][0]["do"])
+	_ok(Progression.points_free() >= 1, "Clubs te deja un punto libre para gastar (hay %d)" % Progression.points_free())
 	_ok(QuestLog.step_text("el_taller") == "Gastar un punto en el árbol (K)", "después, gastar un punto")
 	QuestLog.outcome["el_taller_spent"] = -1  # como si hubiera gastado uno (sin tocar la progresión guardada)
 	await create_timer(0.6).timeout

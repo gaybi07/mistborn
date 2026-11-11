@@ -79,8 +79,8 @@ func _process(delta: float) -> void:
 			if Dialogues.LINES.has("narra_" + id) and not busy:
 				DialogueBox.open(get_tree(), "narra_" + id)
 			continue
-		if step.has("spend"):  # el primer punto del árbol (K); sin puntos libres no hay nada que gastar
-			if Progression.points_spent() > int(QuestLog.outcome.get(id + "_spent", 0)) or Progression.points_free() == 0:
+		if step.has("spend"):  # el primer punto del árbol (K): termina al gastarlo (QuestLog.advance te dio uno libre)
+			if Progression.points_spent() > int(QuestLog.outcome.get(id + "_spent", 0)):
 				QuestLog.finish(id, (QuestLog.quest(id)["ends"] as Dictionary).keys()[0])
 			continue
 		if step.has("talk") or step.has("read") or step.has("scene"):

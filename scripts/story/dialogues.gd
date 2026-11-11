@@ -136,7 +136,7 @@ const LINES := {
 			[{}, "suelto"],
 		],
 		"nodes": {
-			"taller_explica": {"text": "Así que vos sos lo que Sazed encontró en la bruma. Te lo digo una vez: quemás metales. El acero empuja, el hierro tira, el peltre te hace fuerte, el estaño te afila los sentidos. Elegí por dónde empezar: apretá K y gastá tu primer punto.",
+			"taller_explica": {"text": "Así que vos sos lo que Sazed encontró en la bruma. Te lo digo una vez: quemás metales. Ya empujás con acero, tirás con hierro y sabés lanzar una moneda; eso te sacó del foso. Hay más: el peltre te hace fuerte, el estaño te afila los sentidos. Practicá conmigo un rato y después apretá K: elegí qué aprender con tu punto nuevo.",
 				"options": [{"text": "Entendido.", "do": [["learn", "Sos alomántico: quemás metales. Clubs y su banda te enseñan."], ["advance", "el_taller"]]}]},
 			"taller_punto": {"text": "¿Todavía no elegiste? Apretá K. No te voy a esperar toda la noche.", "options": [{"text": "Ya va."}]},
 			"sig_ofrece": {"text": "Si no querés que te encuentren, vení conmigo. El barrio skaa de noche es la mejor escuela: cruzalo sin que un buscador te huela.",
