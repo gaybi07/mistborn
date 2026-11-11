@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | L1, L2 y L3 (ramas apiladas: se mergean juntas) | `lucho/l1-progresion-datos` → `lucho/l2-poderes-metal` → `lucho/l3-ventana-lista` | 2026-11-10 |
+| Lucho | L1 a L5 (ramas apiladas: se mergean juntas) | `lucho/l1-progresion-datos` → `lucho/l2-poderes-metal` → `lucho/l3-ventana-lista` → `lucho/l4-ventana-arbol` → `lucho/l5-trucos-sala` | 2026-11-10 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -43,7 +43,8 @@ rama y merge).
   dura más. — *en curso: Lucho, rama `lucho/l2-poderes-metal` (sale de la de L1), desde 2026-11-10*
 - [ ] 🔄 **L3. Ventana K, lista.** "+" y "−" por poder, `0/5`, motivo cuando no se puede, nivel del metal calculado.
   — *en curso: Lucho, rama `lucho/l3-ventana-lista` (sale de la de L2), desde 2026-11-10*
-- [ ] **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
+- [ ] 🔄 **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
+  — *en curso: Lucho, rama `lucho/l4-ventana-arbol` (sale de la de L3), desde 2026-11-10*
 - [ ] **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
   `aim_check` y `aim_pitch_check`.
 - [ ] **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
