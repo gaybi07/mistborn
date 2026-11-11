@@ -72,7 +72,7 @@ var _rage_foe: Npc = null
 var _rage_until := -1.0
 var _next_emotion_strike := 0.0
 var _emotion_replan := 0.0
-## A quién va la experiencia de lo que mate mientras dura (Furia: la mitad; domado: toda).
+## A quién va la experiencia de lo que mate mientras dura (Ira del cinc: la mitad; domado: toda).
 var _xp_to: Node3D = null
 var _xp_share := 0.0
 var _xp_until := -1.0
@@ -197,7 +197,7 @@ func feels_emotions() -> bool:
 	return not down and not surrendered and not _burns_copper()
 
 
-## Furia: enardecido `time` s; si mata a alguien en ese tiempo, `share` de la experiencia va a `who`.
+## Ira (cinc): enardecido `time` s; si mata a alguien en ese tiempo, `share` de la experiencia va a `who`.
 func riot_for(time: float, who: Node3D, share: float) -> bool:
 	if not feels_emotions():
 		return false

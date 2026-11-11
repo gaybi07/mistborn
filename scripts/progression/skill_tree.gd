@@ -64,7 +64,7 @@ const SKILLS := [
 	{"id": &"tin_clear_mind", "metal": &"tin", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Mente despejada"},
 	{"id": &"tin_extreme", "metal": &"tin", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Sentidos extremos"},
 	# Cinc (L7): cada poder enciende una emoción en los NPC (ver ZincPowers y los estados de Npc).
-	{"id": &"zinc_fury", "metal": &"zinc", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Furia"},
+	{"id": &"zinc_fury", "metal": &"zinc", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Ira"},
 	{"id": &"zinc_panic", "metal": &"zinc", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Pánico"},
 	{"id": &"zinc_greed", "metal": &"zinc", "legacy_level": 8, "kind": Kind.ACTIVE, "name": "Avaricia"},
 	{"id": &"zinc_tame", "metal": &"zinc", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Domar"},
@@ -114,7 +114,7 @@ const LAYOUTS := {
 			[&"pewter_slam", Vector2(345, 130), [&"pewter_strike"]],
 			[&"pewter_fury", Vector2(355, 255), [&"pewter_charge", &"pewter_slam"]],
 		],
-		# Cinc: arriba la ira (Furia y su contagio); abajo, llevar a la gente (miedo, codicia y lealtad). Las dos
+		# Cinc: arriba la ira (Ira y su contagio); abajo, llevar a la gente (miedo, codicia y lealtad). Las dos
 		# ramas se juntan en la Tormenta.
 		&"zinc": [
 			[&"zinc_fury", Vector2(75, -65), [&"root"]],
@@ -399,7 +399,7 @@ const DESCRIPTIONS := {
 	&"zinc_panic": "Un toque apuntando a un NPC: suelta la guardia y huye de vos 8 s. Si es un guardia, abandona su puesto. Los que están cerca y lo ven huir se asustan con la mitad.\nRecarga: 20 s.",
 	&"zinc_greed": "Un toque: lanzás una moneda adonde apuntás y los NPC a 12 m de ella van a buscarla, sin hacerte caso, durante 6 s. Los guardias dejan su puesto. Sirve de señuelo y combina con el acero.\nCuesta una moneda. Recarga: 18 s.",
 	&"zinc_tame": "Un toque apuntando a un NPC común: te sigue y pelea por vos 45 s. Los fuertes duran menos y los jefes no se dejan. Mientras está domado, toda la experiencia de lo que mate es tuya.\nSolo uno a la vez: domar a otro suelta al anterior.\nRecarga: 40 s.",
-	&"zinc_contagion": "Pasiva: la Furia y el Pánico que pongas en un NPC se pasan a los que están a 6 m, con la mitad de duración. La ira pelea en cadena y el miedo se vuelve una huida en masa.",
+	&"zinc_contagion": "Pasiva: la Ira y el Pánico que pongas en un NPC se pasan a los que están a 6 m, con la mitad de duración. La ira pelea en cadena y el miedo se vuelve una huida en masa.",
 	&"zinc_storm": "Un toque: a cada NPC a 15 m le das la emoción que mejor le encaja durante 20 s. Ira a los guardias, koloss y alománticos, que se atacan entre ellos (y te llevás el 50 % de la experiencia de esas muertes); pánico a los ciudadanos; y lealtad al más débil que pelee, que pasa a pelear por vos.\nRecarga: 60 s.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }

@@ -84,16 +84,16 @@ A = activa (ocupa ranura). P = pasiva (automática).
 
 ### Cinc
 Cada poder enciende una emoción en los NPC (código: `ZincPowers` y los estados de `Npc`). Quien quema cobre lo
-resiste; los jefes (`Champion`) no se dejan domar. Rama: Furia → Contagio emocional; Pánico → Avaricia → Domar; la
+resiste; los jefes (`Champion`) no se dejan domar. Rama: Ira → Contagio emocional; Pánico → Avaricia → Domar; la
 Tormenta pide Contagio y Domar. Cada nivel de un poder alarga su duración un 15 %.
 
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Furia (ira): enardece al NPC en la mira 10 s; ataca más seguido, recibe +25 % de daño y no retrocede. Si mata a otro NPC mientras dura, te llevás el 50 % de la experiencia. Recarga 12 s |
+| 1 | A · Ira: enardece al NPC en la mira 10 s; ataca más seguido, recibe +25 % de daño y no retrocede. Si mata a otro NPC mientras dura, te llevás el 50 % de la experiencia. Recarga 12 s |
 | 4 | A · Pánico (miedo): el NPC en la mira suelta la guardia y huye 8 s (un guardia abandona su puesto); los que están a 8 m y lo ven huir se asustan la mitad. Recarga 20 s |
 | 8 | A · Avaricia (codicia): lanzás una moneda adonde apuntás y los NPC a 12 m van a buscarla 6 s, sin hacerte caso. Cuesta una moneda. Recarga 18 s |
 | 12 | A · Domar (lealtad): un NPC común te sigue y pelea por vos 45 s (los de más de 100 de vida, un 45 % de eso; los jefes no se dejan). Toda la experiencia de lo que mate es tuya. Uno a la vez. Recarga 40 s |
-| 16 | P · Contagio emocional: la Furia y el Pánico se pasan a los que están a 6 m, con la mitad de duración |
+| 16 | P · Contagio emocional: la Ira y el Pánico se pasan a los que están a 6 m, con la mitad de duración |
 | 20 | A · Tormenta de emociones: en 15 m, 20 s: ira a los que pelean (se atacan entre ellos y te llevás el 50 % de la experiencia de esas muertes), pánico a los ciudadanos y lealtad al más débil de los que pelean. Recarga 60 s |
 
 ### Latón

@@ -1,6 +1,6 @@
 class_name ZincPowers
 extends Node
-## Poderes del cinc del jugador (L7, ver docs/arbol-de-habilidades.md): Furia, Pánico, Avaricia, Domar y Tormenta de
+## Poderes del cinc del jugador (L7, ver docs/arbol-de-habilidades.md): Ira, Pánico, Avaricia, Domar y Tormenta de
 ## emociones, cada uno un toque con recarga, y Contagio emocional (pasiva). Lo que siente cada NPC lo lleva Npc
 ## (riot_for, panic_for, greed_for, tame_for, rage_at); acá se elige a quién y se cuentan las recargas.
 
@@ -10,7 +10,7 @@ const COOLDOWNS := {
 	&"zinc_greed": SkillTree.ZINC_GREED_COOLDOWN, &"zinc_tame": SkillTree.ZINC_TAME_COOLDOWN,
 	&"zinc_storm": SkillTree.ZINC_STORM_COOLDOWN,
 }
-const NAMES := {&"zinc_fury": "Furia", &"zinc_panic": "Pánico", &"zinc_greed": "Avaricia", &"zinc_tame": "Domar",
+const NAMES := {&"zinc_fury": "Ira", &"zinc_panic": "Pánico", &"zinc_greed": "Avaricia", &"zinc_tame": "Domar",
 		&"zinc_storm": "Tormenta de emociones"}
 const COLOR := Color(0.85, 0.35, 0.3, 0.2)
 
@@ -80,7 +80,7 @@ func _fury() -> bool:
 		return false
 	_spread(npc, func(n: Npc) -> void: n.riot_for(time * 0.5, player, SkillTree.ZINC_FURY_XP))
 	_fx(npc, "hunter_mark")
-	player.notice.emit("Furia")
+	player.notice.emit("Ira")
 	return true
 
 
