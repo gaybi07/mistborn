@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G22. Adaptar a la progresión nueva | `gabi/g22-progresion-nueva` | 2026-11-10 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -48,8 +48,7 @@ rama y merge).
   `aim_check` y `aim_pitch_check`. — *verificada 2026-11-10, rama `lucho/l5-trucos-sala` (borrada), merge `9b8f46b`*
 - [x] ✅ **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
   compartidos. — *verificada 2026-11-10, rama `lucho/l6-feruquimia-lugar` (borrada), merge `cbd106e`*
-- ⚠️ **Al cerrar L1-L6, avisar a Gabi:** la misión del taller (G5) usa la progresión vieja para "gastar el primer
-  punto"; se adapta en G22.
+- ✅ Lo que dependía de L1-L5 del lado de Gabi ya se adaptó en G22 (taller, Clubs, moneda, experiencia).
   **Aviso a Gabi (2026-11-10):** L1-L6 ya están en develop (L6 solo agrega la pestaña de feruquimia y no cambia nada
   para G22), que ya se puede hacer. Hoy, con los 3 puntos del inicio ya gastados, el paso del taller se da por hecho solo.
   Para gastar un punto: `Progression.raise_skill(id)` / `can_raise_skill(id)`; los puntos libres siguen en
@@ -185,21 +184,10 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   (seis tramos de distinta altura y estado, tres torres y un portón con dos torres) y 12 puertas: las tres de la
   historia y nueve con nombre de metal, cada una con camino corto, dos guardias y calle hacia adentro.
   — *en develop 2026-11-10, rama `gabi/g29-muralla` (borrada), merge `3a02a7b`; falta revisar (ronda 2)*
-- [ ] 🔄 **G22. Adaptar lo que depende de la progresión de Lucho** — *en curso: Gabi, rama `gabi/g22-progresion-nueva`, desde 2026-11-10 (L1-L5 ya están)*. Hoy, con la progresión vieja:
-  - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
-    `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
-  - si no hay puntos libres, hoy el paso se da por hecho solo: con los 3 puntos del inicio eso ya no pasa;
-  - lo que dice Clubs en `Dialogues.LINES["clubs"]["taller_explica"]` sobre los metales;
-  - correr `tools/story/tramo_check.gd` (la parte del taller simula el gasto con `outcome["el_taller_spent"]`).
-  Listo cuando la misión del taller termina gastando un punto de verdad en la K nueva.
-
-## Ronda de revisión
-
-Lo que entró a develop sin que nadie lo jugara. Se juega todo junto, se anota acá lo que no anda, se arregla, y recién
-ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
-
-### Ronda 1 (abierta desde 2026-11-10)
-
+- [x] 🧪 **G22. Adaptar lo que depende de la progresión de Lucho** (L1-L5): el taller da un punto libre y termina al
+  gastarlo, Clubs habla de lo que ya sabés, la moneda de combate viene lista, y los enemigos de las misiones dan
+  menos experiencia (patrulla 35, espectro 40).
+  — *en develop 2026-11-10, rama `gabi/g22-progresion-nueva` (borrada), merge `04527b5`; falta revisar (ronda 2)*
 - [ ] **G2. Foso de ceniza** (oeste de la ciudad, al sudoeste de la Puerta Oeste):
   - [ ] bajar las rampas caminando hasta el fondo, y saltar de terraza en terraza;
   - [ ] que la forma irregular, los picos, los espolones y las lomas se vean bien de cerca y de lejos;
@@ -267,6 +255,9 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] la persecución de los tejados con los techos nuevos, más empinados (¿se puede correr por ellos?);
   - [ ] los FPS en los barrios densos (2411 casas, unos 900 triángulos cada una).
 
+- [ ] **G22. Taller con la progresión nueva** (partida nueva): Clubs te explica, te sube a nivel 4 con un punto libre,
+  y la misión termina recién al gastarlo en la K; la moneda de combate lista en el clic derecho desde el principio;
+  ¿cuántos niveles se suben en el Acto 1 con la experiencia nueva? (unos 6, según la cuenta).
 - [ ] **G29. Muralla** (rodear la ciudad por afuera y entrar por varias puertas):
   - [ ] que se vea medieval e imperfecta: altos y bajos, almenas rotas, remiendos, contrafuertes, torres variadas;
   - [ ] las 12 puertas en el mapa con su nombre; cruzar caminando por cada portón y por la del Cinc y la del Latón,
@@ -276,20 +267,19 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] los árboles y troncos de afuera cambiaron de lugar (los caminos nuevos usan la misma semilla): que no tapen
     nada; los FPS mirando la muralla de lejos.
 
-### Cuando Lucho suba la progresión nueva (L1-L6)
+### Lo que dependía de la progresión de Lucho (hecho en G22)
 
-Lo que hay que actualizar de este lado (G22) y volver a probar:
-- [ ] taller (G5): el paso "Gastar un punto en el árbol (K)" pasa a puntos por poder y elegir estilo
-  (`QuestLog.STEPS["el_taller"]`, `QuestTracker`, `Progression.points_spent()` / `points_free()`);
-- [ ] lo que explica Clubs de los metales (`Dialogues.LINES["clubs"]["taller_explica"]`);
-- [ ] maestros (G4): las misiones de Ham, Breeze, Clubs y Spook enseñan poderes; ver si conviene que terminen
-  dando o sugiriendo un punto en su estilo;
-- [ ] dificultad de las misiones (G5): vida y cantidad de la patrulla, el capataz y los espectros, contra un jugador
-  con 3 puntos al inicio en vez de la progresión de hoy;
-- [ ] experiencia que dan los enemigos de las misiones (`xp_reward` de Champion y MistWraith) contra la curva nueva;
-- [ ] moneda de combate (G8): que una partida nueva la tenga lista en el clic derecho sin gastar nada (el inicio
-  recomendado de `PLAN_PROGRESION.md` le da uno de los 3 puntos); hoy pide un punto en acero;
-- [ ] correr `tools/story/quest_check.gd` y `tools/story/tramo_check.gd`.
+L1-L5 ya están en develop. Lo de este lado quedó así (revisar en la ronda 2):
+- [x] taller (G5): Clubs te entrena hasta tener un punto libre y la misión termina al gastarlo en la K
+  (`QuestLog.advance`, `QuestTracker`); `tools/story/taller_check.gd` lo prueba con una partida nueva;
+- [x] lo que explica Clubs: lo que ya sabés (acero, hierro, moneda) y lo que falta (peltre, estaño);
+- [x] moneda de combate (G8): una partida nueva la trae lista en el clic derecho (`START_SKILLS` de L1);
+- [x] experiencia de los enemigos de las misiones: patrulla 35 (antes heredaba los 220 del koloss), espectro 40;
+- [x] `quest_check.gd` y `tramo_check.gd` pasan, y ya no tocan la progresión guardada;
+- [ ] maestros (G4): ¿conviene que las misiones de Ham, Breeze y Clubs terminen sugiriendo un punto en su estilo?
+  Quedó como estaba: decidirlo al jugar;
+- [ ] dificultad de las misiones (G5) contra un jugador que arranca con 3 puntos: juzgarla al jugar la ronda;
+- [ ] cuando Lucho cierre L6 (feruquimia): ver si el taller o Clubs tienen que nombrarla.
 
 ## Pedidos de animación
 

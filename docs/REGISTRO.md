@@ -35,6 +35,20 @@ Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arrib
 - **Pendiente o pedidos:** G22 (taller, Gabi): el paso "gastar un punto" hoy se da por hecho solo. En red, los
   poderes de los otros jugadores se siguen calculando por nivel de metal hasta L19. Sigue L6.
 
+### 2026-11-10 · G22 · Adaptar a la progresión nueva · Gabi
+- **Rama:** `gabi/g22-progresion-nueva` (borrada) · **Merge:** `04527b5` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** con L1-L5 de Lucho, una partida nueva arranca con los 3 puntos puestos y ninguno libre: la misión
+  del taller se daba por hecha sola. Ahora, al llegar al paso de gastar un punto, Clubs te entrena hasta tener uno
+  libre (nivel 4 en una partida nueva) y la misión termina al gastarlo. Clubs habla de lo que ya sabés. La moneda
+  de combate ya viene lista (L1). Los enemigos de las misiones dan menos experiencia: patrulla 35 (heredaba 220 del
+  koloss), espectro 40 (antes 90).
+- **Archivos:** `scripts/story/` (quest_log, quest_tracker, dialogues, mission), `scripts/npc/mist_wraith.gd`,
+  `tools/story/taller_check.gd` (nuevo), `quest_check.gd`, `tramo_check.gd`.
+- **Cómo se probó:** `taller_check.gd` (partida nueva, en un archivo aparte), `quest_check.gd`, `tramo_check.gd`; el
+  juego corre sin errores; la progresión guardada del jugador quedó intacta. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** decidir al jugar si los maestros sugieren un punto; la dificultad; ver L6 cuando llegue.
+
 ### 2026-11-10 · G29 · Muralla rehecha · Gabi
 - **Rama:** `gabi/g29-muralla` (borrada) · **Merge:** `3a02a7b` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** `tools/blender/make_luthadel_wall.py` genera seis tramos de 12 m (alto, bajo, con almenas rotas,
