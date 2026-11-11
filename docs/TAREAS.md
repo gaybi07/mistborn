@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G24. Campamento koloss con modelos propios | `gabi/g24-campamento-koloss` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -161,9 +161,10 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   Quaternius, mansión noble propia, muralla de pueblo, cultivos de ceniza para los campos, espantapájaros, secaderos,
   bebederos y **animales para los corrales** (vacas, ovejas, cerdos, gallinas, caballos: hoy los corrales están
   vacíos). Listo cuando reemplazan a los de `scripts/world/south_village.gd`.
-- [ ] **G24. Modelos propios del campamento koloss** (los pasa Gabi; hoy: conos, cercas y rocas): tiendas de cuero y
+- [ ] 🔄 **G24. Modelos propios del campamento koloss** (los pasa Gabi; hoy: conos, cercas y rocas): tiendas de cuero y
   hueso, estacas afiladas para la empalizada, huesos y calaveras de verdad, estantes de carne, jaulas, y carros para
   traer koloss (el "Cart" de Quaternius es un carrito de mercado, por eso hoy hay pilas de cajones).
+  — *en curso: Gabi, rama `gabi/g24-campamento-koloss`, desde 2026-11-10*
 - [ ] **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
   skaa caminando y trabajando, nobles paseando con su séquito (mayordomo, doncella, guardia), mercaderes en los
   puestos, y lo mismo en las Aldeas del Camino Sur (300 casas: tiene que verse lleno). Medir los FPS con la gente
