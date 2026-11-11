@@ -60,6 +60,24 @@ var surrendered := false
 var _stun_until := -1.0
 ## Desarmado con hierro: hasta _disarmed_until pega mucho menos.
 var _disarmed_until := -1.0
+## Poderes del cinc del jugador (L7, ver ZincPowers): pánico (huye), codicia (va a una moneda), lealtad (domado: sigue
+## a su dueño y pelea por él) e ira contra otro NPC (Tormenta). Mientras dura alguno, manda sobre _think.
+var _panic_until := -1.0
+var _panic_from := Vector3.ZERO
+var _greed_until := -1.0
+var _greed_point := Vector3.ZERO
+var _tame_until := -1.0
+var tamed_by: Node3D = null
+var _rage_foe: Npc = null
+var _rage_until := -1.0
+var _next_emotion_strike := 0.0
+var _emotion_replan := 0.0
+## A quién va la experiencia de lo que mate mientras dura (Ira del cinc: la mitad; domado: toda).
+var _xp_to: Node3D = null
+var _xp_share := 0.0
+var _xp_until := -1.0
+const EMOTION_REACH := 2.2
+const EMOTION_DAMAGE := 12.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -155,7 +173,7 @@ func apply_emotion(metal: StringName, strength: float, _source: Node3D) -> bool:
 	if down or surrendered or _burns_copper():
 		return false
 	if metal == &"zinc":
-		_rioted_until = _world_time + 2.0
+		_rioted_until = maxf(_rioted_until, _world_time + 2.0)  # no acorta una Furia más larga
 		_soothed_until = -1.0
 		if strength > 1.0:
 			_frenzy_until = _world_time + 2.0
@@ -170,6 +188,164 @@ func apply_emotion(metal: StringName, strength: float, _source: Node3D) -> bool:
 
 func _burns_copper() -> bool:
 	return false
+
+
+# ---------------------------------------------------------------- Cinc (L7)
+
+## Si le hacen efecto los poderes del cinc: en pie, sin rendirse y sin cobre.
+func feels_emotions() -> bool:
+	return not down and not surrendered and not _burns_copper()
+
+
+## Ira (cinc): enardecido `time` s; si mata a alguien en ese tiempo, `share` de la experiencia va a `who`.
+func riot_for(time: float, who: Node3D, share: float) -> bool:
+	if not feels_emotions():
+		return false
+	_rioted_until = maxf(_rioted_until, _world_time + time)
+	_soothed_until = -1.0
+	_share_xp(who, share, time)
+	return true
+
+
+## Pánico: huye de `from` durante `time` s (y suelta la guardia).
+func panic_for(time: float, from: Vector3) -> bool:
+	if not feels_emotions():
+		return false
+	_panic_until = maxf(_panic_until, _world_time + time)
+	_panic_from = from
+	_emotion_replan = 0.0
+	_tame_until = -1.0
+	return true
+
+
+## Avaricia: va a buscar la moneda de `point` durante `time` s.
+func greed_for(time: float, point: Vector3) -> bool:
+	if not feels_emotions():
+		return false
+	_greed_until = _world_time + time
+	_greed_point = point
+	_emotion_replan = 0.0
+	return true
+
+
+## Si se deja domar (los jefes no: ver Champion).
+func can_be_tamed() -> bool:
+	return true
+
+
+## Domar: sigue a `who` y pelea por él `time` s (los fuertes, menos); toda la experiencia de lo que mate es suya.
+func tame_for(time: float, who: Node3D) -> bool:
+	if not feels_emotions() or not can_be_tamed():
+		return false
+	if max_health > 100.0:
+		time *= SkillTree.ZINC_TAME_STRONG
+	_tame_until = _world_time + time
+	tamed_by = who
+	_emotion_replan = 0.0
+	_panic_until = -1.0
+	_greed_until = -1.0
+	_share_xp(who, 1.0, time)
+	return true
+
+
+func untame() -> void:
+	_tame_until = -1.0
+	tamed_by = null
+	_xp_until = -1.0
+
+
+func is_tamed() -> bool:
+	return _world_time < _tame_until and is_instance_valid(tamed_by)
+
+
+## Tormenta: pelea contra `foe` durante `time` s.
+func rage_at(foe: Npc, time: float) -> void:
+	_rage_foe = foe
+	_rage_until = _world_time + time
+	_emotion_replan = 0.0
+
+
+## Quién se lleva experiencia si este NPC mata a alguien ahora (null = nadie).
+func xp_receiver() -> Node3D:
+	return _xp_to if _world_time < _xp_until and is_instance_valid(_xp_to) else null
+
+
+func _share_xp(who: Node3D, share: float, time: float) -> void:
+	if who == null:
+		return
+	_xp_to = who
+	_xp_share = maxf(share, _xp_share if xp_receiver() != null else 0.0)
+	_xp_until = maxf(_xp_until, _world_time + time)
+
+
+## Lo que manda el cinc en vez de _think. Devuelve false si no hay ninguna emoción en marcha.
+func _emotion_think(delta: float) -> bool:
+	if _panic_until > 0.0 and _world_time >= _panic_until:
+		_panic_until = -1.0
+		rig.panic = 0.0  # se le pasó el susto (el ciudadano maneja el suyo aparte)
+	if _world_time < _panic_until:
+		var away := global_position - _panic_from
+		away.y = 0.0
+		_emotion_move((away.normalized() if away.length() > 0.1 else -global_basis.z) * run_speed)
+		face_point = null
+		rig.panic = 1.0
+		return true
+	if is_tamed():
+		var foe := _tame_foe()
+		if foe:
+			_emotion_fight(foe, delta)
+		else:
+			var to := tamed_by.global_position - global_position
+			to.y = 0.0
+			face_point = tamed_by.global_position
+			_emotion_move(to.normalized() * run_speed if to.length() > 3.0 else Vector3.ZERO)
+		return true
+	if _world_time < _greed_until:
+		var to := _greed_point - global_position
+		to.y = 0.0
+		face_point = _greed_point
+		_emotion_move(to.normalized() * run_speed if to.length() > 1.0 else Vector3.ZERO)
+		return true
+	if _world_time < _rage_until and is_instance_valid(_rage_foe) and not _rage_foe.down:
+		_emotion_fight(_rage_foe, delta)
+		return true
+	return false
+
+
+## Domado: el enemigo más cercano a su dueño que esté peleando (koloss, espectros, alománticos o quien esté en combate).
+func _tame_foe() -> Npc:
+	var best: Npc = null
+	var best_d := 14.0
+	for n in get_tree().get_nodes_in_group(&"npc"):
+		var npc := n as Npc
+		if npc == null or npc == self or npc.down or npc.is_tamed():
+			continue
+		var hostile := npc.in_combat() or npc.is_in_group(&"koloss") or npc.is_in_group(&"wraith") or npc.is_in_group(&"allomancer")
+		var d := npc.global_position.distance_to(tamed_by.global_position)
+		if hostile and d < best_d:
+			best = npc
+			best_d = d
+	return best
+
+
+## Va hacia `foe` y le pega cuando lo tiene a tiro (el golpe llega en el impacto de la animación, como el guardia).
+func _emotion_fight(foe: Npc, _delta: float) -> void:
+	face_point = foe.global_position
+	var to := foe.global_position - global_position
+	to.y = 0.0
+	_emotion_move(to.normalized() * run_speed * (1.3 if is_rioted() else 1.0) if to.length() > EMOTION_REACH * 0.8 else Vector3.ZERO)
+	if to.length() > EMOTION_REACH or _world_time < _next_emotion_strike:
+		return
+	_next_emotion_strike = _world_time + (0.9 if is_rioted() else 1.4)
+	rig.play_attack(1, 0.6)
+	get_tree().create_timer(rig.impact_delay(), false).timeout.connect(func() -> void:
+		if down or is_stunned() or not is_instance_valid(foe) or foe.down:
+			return
+		var hit := foe.global_position - global_position
+		hit.y = 0.0
+		if hit.length() <= EMOTION_REACH + 0.5:
+			Sfx.play("slash", foe.global_position + Vector3(0, 1.2, 0))
+			foe.take_hit(hit.normalized() * 5.0, EMOTION_DAMAGE, self))
 
 
 func _surrender() -> void:
@@ -288,6 +464,9 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		_desired = Vector3.ZERO
 		if attacker is Player:
 			_drop_loot_common(attacker)
+		elif attacker is Npc and not _looted and (attacker as Npc).xp_receiver() != null:
+			_looted = true  # lo mató un NPC enardecido o domado por el jugador: le toca su parte
+			(attacker as Npc).xp_receiver().call(&"grant_xp", roundi(xp_reward * (attacker as Npc)._xp_share))
 
 
 func random_point_near_home() -> Vector3:
@@ -306,7 +485,7 @@ func _physics_process(delta: float) -> void:
 	if down or is_stunned():
 		_desired = Vector3.ZERO
 		_switch_at = INF
-	else:
+	elif not _emotion_think(delta):
 		_think(delta)
 	if rig is ModelRig:
 		rig.down = down
@@ -388,3 +567,11 @@ func _drop_loot_common(player: Player) -> void:
 			pickup.item_id = id
 			scene.add_child(pickup)
 			pickup.global_position = global_position + Vector3(0, 0.1, 0)
+
+
+## Como plan_velocity, pero espaciada más que su tiempo de reacción (decision_lead): llamarla antes de que llegue
+## la orden anterior la posterga para siempre.
+func _emotion_move(v: Vector3) -> void:
+	if _world_time >= _emotion_replan:
+		_emotion_replan = _world_time + decision_lead + 0.2
+		plan_velocity(v)

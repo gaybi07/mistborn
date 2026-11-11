@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | — | — | — |
+| Lucho | L7. Cinc | `lucho/l7-cinc` | 2026-11-10 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -60,7 +60,7 @@ Cada uno: diseño de su rama en `docs/arbol-de-habilidades.md` (partiendo de lo 
 en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, ese metal deja de subirse directo
 ("Otros metales").
 
-- [ ] **L7. Cinc.** (enardecer)
+- [ ] 🔄 **L7. Cinc.** (enardecer) — *en curso: Lucho, rama `lucho/l7-cinc`, desde 2026-11-10*
 - [ ] **L8. Latón.** (aplacar)
 - [ ] **L9. Cobre.** (ocultarse)
 - [ ] **L10. Bronce.** (detectar)
@@ -308,4 +308,8 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 
 | Poder | Clip provisorio | Qué tiene que verse | Hecho |
 |---|---|---|---|
-| | | | |
+| Ira (cinc, `zinc_fury`) | `hunter_mark` (señalar) | Señala al NPC con el brazo tenso y el puño cerrado, como azuzándolo; corto (~1 s) | |
+| Pánico (cinc, `zinc_panic`) | `field` | Gesto brusco de espantar hacia adelante, como para asustar | |
+| Avaricia (cinc, `zinc_greed`) | `play_throw` (tirar moneda) | Lanza una moneda en parábola hacia donde apunta, de costado y despreocupado | |
+| Domar (cinc, `zinc_tame`) | `burn_focus` | Mano extendida hacia el NPC, palma abierta, invitándolo a seguirlo | |
+| Tormenta de emociones (cinc, `zinc_storm`) | `fury` (rugido) | Abre los brazos y libera una onda en todas direcciones; más grande que Ira | |

@@ -151,6 +151,10 @@ func _role() -> String:
 	return "champion:" + kit
 
 
+func can_be_tamed() -> bool:
+	return false  # jefe: el Domar del cinc no le hace efecto
+
+
 func _setup() -> void:
 	axes = true  # sin la guardia del espadón
 	super()

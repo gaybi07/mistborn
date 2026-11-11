@@ -272,6 +272,7 @@ var _was_flaring_pewter := false
 var _soothed_ms := 0
 var _rioted_ms := 0
 var emotions: Emotions
+var zinc: ZincPowers
 var _roll_time := 0.0
 var _roll_cd := 0.0
 var _roll_dir := Vector3.ZERO
@@ -365,6 +366,9 @@ func _ready() -> void:
 	emotions = Emotions.new()
 	emotions.player = self
 	add_child(emotions)
+	zinc = ZincPowers.new()
+	zinc.player = self
+	add_child(zinc)
 	_guide = JumpGuide.new()
 	add_child(_guide)
 
@@ -1311,6 +1315,8 @@ func _skill_press(skill: StringName) -> void:
 			_timed_skill(&"tin", start_clear_mind, int(SkillTree.CLEAR_TIME * 1000.0))
 		&"tin_extreme":
 			_timed_skill(&"tin", start_extreme, int(SkillTree.EXTREME_TIME * 1000.0))
+		&"zinc_fury", &"zinc_panic", &"zinc_greed", &"zinc_tame", &"zinc_storm":
+			_timed_skill(&"zinc", zinc.use.bind(skill), SKILL_TAP_BURN_MS)
 
 
 func _skill_release(skill: StringName) -> void:
@@ -2911,7 +2917,7 @@ func skill_cooldown(skill: StringName) -> float:
 			return clampf(float(_clear_ready_ms - now) / (SkillTree.CLEAR_COOLDOWN * 1000.0), 0.0, 1.0)
 		&"tin_extreme":
 			return clampf(float(_extreme_ready_ms - now) / (SkillTree.EXTREME_COOLDOWN * 1000.0), 0.0, 1.0)
-	return 0.0
+	return zinc.cooldown(skill) if zinc.has(skill) else 0.0
 
 
 ## Si la habilidad está haciendo algo ahora (agarre sostenido, escudo o campo en marcha), para el HUD.
@@ -2939,7 +2945,7 @@ func skill_active(skill: StringName) -> bool:
 			return marked_npc() != null
 		&"pewter_charge":
 			return _charge_t > 0.0
-	return false
+	return zinc.active(skill)
 
 
 ## Aro sutil en la mira: en el aire, cuando lo que apuntas es algo fijo (suelo, pared, farola) que está al alcance para
