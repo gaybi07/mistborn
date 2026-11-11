@@ -41,7 +41,8 @@ rama y merge).
 - [ ] 🔄 **L2. Poderes y metal.** Cada poder escala con sus puntos (`equiv_level`); el metal escala consumo y reserva
   con `METAL_SCALING`. Tooltips y textos. Listo cuando la Ráfaga 1 y 5 se ven distintas y el acero con 10 puntos
   dura más. — *en curso: Lucho, rama `lucho/l2-poderes-metal` (sale de la de L1), desde 2026-11-10*
-- [ ] **L3. Ventana K, lista.** "+" y "−" por poder, `0/5`, motivo cuando no se puede, nivel del metal calculado.
+- [ ] 🔄 **L3. Ventana K, lista.** "+" y "−" por poder, `0/5`, motivo cuando no se puede, nivel del metal calculado.
+  — *en curso: Lucho, rama `lucho/l3-ventana-lista` (sale de la de L2), desde 2026-11-10*
 - [ ] **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
 - [ ] **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
   `aim_check` y `aim_pitch_check`.
