@@ -2,11 +2,13 @@ class_name SkillTreeCanvas
 extends Control
 ## Vista de árbol del árbol de habilidades (K): cada metal es una rama que nace de su hexágono, con sus habilidades repartidas
 ## en ramificaciones, y debajo los metales todavía sin habilidades. Se mueve arrastrando con el clic izquierdo, se acerca con la
-## rueda y los detalles de cada habilidad salen al pasar el ratón (tooltip). Clic en una habilidad la elige; clic en un metal le
-## sube un nivel si hay puntos.
+## rueda y los detalles de cada habilidad salen al pasar el ratón (tooltip). Clic en una habilidad le pone un punto y clic
+## derecho se lo saca (cada una muestra sus puntos con pips); clic en un metal sin habilidades le sube un nivel.
 
 signal skill_hovered(id: StringName)
 signal skill_clicked(id: StringName)
+## Clic (raise = true) o clic derecho (false) sobre una habilidad: poner o sacar un punto (lo hace SkillTreeWindow).
+signal skill_point(id: StringName, raise: bool)
 signal metal_clicked(metal: StringName)
 
 const BG := Color(0.035, 0.04, 0.055)
@@ -72,7 +74,7 @@ func _build() -> void:
 			for parent: StringName in entry[2]:
 				from.append(positions[parent])
 			positions[entry[0]] = root + (entry[1] as Vector2)
-			_nodes.append({"id": entry[0], "metal": metal, "pos": positions[entry[0]], "from": from})
+			_nodes.append({"id": entry[0], "metal": metal, "pos": positions[entry[0]], "from": from, "parents": entry[2]})
 		# Habilidades nuevas que todavía no tienen lugar en el diseño: cuelgan de la raíz, en una columna.
 		var extra := 0
 		for s: Dictionary in skills:
@@ -81,7 +83,7 @@ func _build() -> void:
 				extra += 1
 				positions[s["id"]] = spot
 				var origin: Array[Vector2] = [root]
-				_nodes.append({"id": s["id"], "metal": metal, "pos": spot, "from": origin})
+				_nodes.append({"id": s["id"], "metal": metal, "pos": spot, "from": origin, "parents": [&"root"]})
 	_design.x = maxf(MIN_DESIGN.x, COLUMN_X + COLUMN_STEP * (column - 1) + 520.0)
 	for i in locked.size():
 		var x := COLUMN_X + i * (_design.x - 2.0 * COLUMN_X) / maxf(locked.size() - 1.0, 1.0)
@@ -134,6 +136,11 @@ func _gui_input(event: InputEvent) -> void:
 						_click(_press_hit)
 					_pressing = false
 					_dragging = false
+			MOUSE_BUTTON_RIGHT:
+				if event.pressed:
+					var hit := _hit_at(event.position)
+					if hit.get("kind") == "skill":
+						skill_point.emit(hit["id"], false)
 			MOUSE_BUTTON_WHEEL_UP:
 				if event.pressed:
 					_zoom_at(event.position, 1.1)
@@ -185,6 +192,7 @@ func _set_hover(hit: Dictionary) -> void:
 func _click(hit: Dictionary) -> void:
 	if hit["kind"] == "skill":
 		skill_clicked.emit(hit["id"])
+		skill_point.emit(hit["id"], true)
 	else:
 		metal_clicked.emit(hit["id"])
 
@@ -239,6 +247,10 @@ func _metal_card(metal: StringName) -> Control:
 	box.add_theme_constant_override("separation", 6)
 	panel.add_child(box)
 	box.add_child(_card_label(String(Allomancy.METALS[metal]["label"]), 20, GOLD))
+	if not Progression.is_direct_metal(metal):
+		box.add_child(_card_label(("Nivel %d" % lvl) if lvl > 0 else "Sin aprender", 14, DIM))
+		box.add_child(_card_label("Suma de los puntos en sus poderes: con más nivel, gasta menos y dura más.", 14, GOOD))
+		return panel
 	box.add_child(_card_label(("Nivel %d / %d" % [lvl, cap]) if lvl > 0 else "Sin aprender", 14, DIM))
 	var cost := Progression.point_cost(metal)
 	var hint := ""
@@ -281,7 +293,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(14.0, size.y - 12.0), "Ctrl: las resaltadas se pueden poner en una ranura (las pasivas no)  ·  ratón sobre una + tecla de la ranura",
 				HORIZONTAL_ALIGNMENT_LEFT, size.x - 28.0, 13, ASSIGN)
 	else:
-		draw_string(font, Vector2(14.0, size.y - 12.0), "Arrastrar: mover el árbol  ·  Rueda: zoom  ·  Pasa el ratón por una habilidad para ver sus detalles  ·  Ctrl + tecla de una ranura: ponerla ahí",
+		draw_string(font, Vector2(14.0, size.y - 12.0), "Clic: poner un punto  ·  Clic derecho: sacarlo  ·  Arrastrar: mover  ·  Rueda: zoom  ·  Ctrl + tecla de una ranura: ponerla ahí",
 				HORIZONTAL_ALIGNMENT_LEFT, size.x - 28.0, 13, Color(0.6, 0.62, 0.68, 0.8))
 
 
@@ -289,18 +301,25 @@ func _unlocked(n: Dictionary) -> bool:
 	return SkillTree.is_unlocked(n["id"])
 
 
+## Cada línea se enciende cuando su padre tiene al menos un punto (o nace de la raíz), y brilla del todo cuando el hijo
+## también lo tiene.
 func _draw_link(n: Dictionary) -> void:
 	var color: Color = Allomancy.METALS[n["metal"]]["color"]
 	var b := _to_screen(n["pos"])
-	for origin: Vector2 in n["from"]:
-		var a := _to_screen(origin)
+	var froms: Array = n["from"]
+	for i in froms.size():
+		var a := _to_screen(froms[i])
+		var parent: StringName = n["parents"][i]
+		var open := parent == &"root" or Progression.skill_level(parent) >= 1
 		if _unlocked(n):
 			draw_line(a, b, Color(color, 0.14), 7.0 * _zoom, true)
 			draw_line(a, b, Color(color, 0.75), 2.0 * _zoom, true)
+		elif open:
+			draw_line(a, b, Color(color, 0.4), 1.5 * _zoom, true)
 		else:
 			draw_line(a, b, Color(GRAY, 0.4), 1.5 * _zoom, true)
 		for t in [0.33, 0.66]:
-			draw_circle(a.lerp(b, t), 3.0 * _zoom, Color(color, 0.8) if _unlocked(n) else Color(GRAY, 0.5))
+			draw_circle(a.lerp(b, t), 3.0 * _zoom, Color(color, 0.8) if open else Color(GRAY, 0.5))
 
 
 func _hex_points(c: Vector2, r: float) -> PackedVector2Array:
@@ -351,7 +370,7 @@ func _draw_root(font: Font, r: Dictionary) -> void:
 			GOLD_SOFT if learned else Color(0.55, 0.57, 0.62))
 	if learned and bool(r["has_skills"]):
 		var small := clampi(roundi(13.0 * _zoom), 9, 24)
-		draw_string(font, Vector2(plate.position.x, plate.end.y + 16.0 * _zoom), "Nivel %d / %d" % [lvl, Progression.metal_cap(metal)],
+		draw_string(font, Vector2(plate.position.x, plate.end.y + 16.0 * _zoom), "Nivel %d" % lvl,
 				HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, small, Color(tint.lightened(0.3), 0.9))
 
 
@@ -380,7 +399,18 @@ func _draw_skill(font: Font, n: Dictionary) -> void:
 		draw_line(b + Vector2(-1.0, 2.5) * _zoom, b + Vector2(3.5, -2.5) * _zoom, Color(GOOD, 0.95), 1.6, true)
 	else:
 		draw_colored_polygon(_hex_points(c, rad), Color(0.03, 0.035, 0.05, 0.6))
-		_padlock(c + Vector2(rad * 0.7, rad * 0.7), 0.7 * _zoom)
+		if not SkillTree.requirements_met(id):
+			_padlock(c + Vector2(rad * 0.7, rad * 0.7), 0.7 * _zoom)  # falta el poder previo; sin candado, solo faltan puntos
+	# Pips: un punto por nivel, llenos los que tiene.
+	var top := SkillTree.max_level(id)
+	var lvl := Progression.skill_level(id)
+	var step := 9.0 * _zoom
+	for k in top:
+		var p := c + Vector2((k - (top - 1) * 0.5) * step, rad + 8.0 * _zoom)
+		if k < lvl:
+			draw_circle(p, 3.0 * _zoom, color.lightened(0.25))
+		else:
+			draw_arc(p, 3.0 * _zoom, 0.0, TAU, 10, Color(GRAY, 0.8), 1.0, true)
 	var dimmed := assign_mode and not assignable
 	if dimmed:
 		draw_colored_polygon(_hex_points(c, rad * 1.05), Color(BG, 0.72))  # pasiva o bloqueada: no va en una ranura
