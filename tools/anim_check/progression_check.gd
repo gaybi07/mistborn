@@ -47,11 +47,10 @@ func _check_points() -> void:
 	_expect(Progression.skill_level(&"steel_coin_burst") == SkillTree.max_level(&"steel_coin_burst"), "la Ráfaga topa en su máximo")
 	Progression.level = 1
 	_expect(not Progression.can_raise_skill(&"pewter_endurance"), "sin puntos libres no se sube nada")
-	_expect(not Progression.can_raise(&"steel"), "el acero no se sube directo")
 	Progression.reset()
 	Progression.level = 10
 	_expect(Progression.raise_skill(&"atium_shadows") and Progression.points_free() == 5, "cada nivel de atium cuesta 2")
-	_expect(Progression.metal_level(&"atium") == 1 and not Progression.can_raise(&"atium"), "el atium suma su nivel y ya no se sube directo")
+	_expect(Progression.metal_level(&"atium") == 1, "el atium suma su nivel")
 
 
 func _check_requirements() -> void:
@@ -93,13 +92,11 @@ func _check_save() -> void:
 	Progression.raise_skill(&"zinc_fury")
 	Progression.save()
 	var skills := Progression.skill_levels.duplicate()
-	var direct := Progression.direct_levels.duplicate()
 	Progression.reset()
 	Progression._loaded = false
 	Progression.load_progress()
 	_expect(Progression.level == 12, "guardar y cargar: nivel")
 	_expect(Progression.skill_levels == skills, "guardar y cargar: poderes (%s vs %s)" % [Progression.skill_levels, skills])
-	_expect(Progression.direct_levels == direct, "guardar y cargar: metales directos")
 
 
 func _write(text: String) -> void:
@@ -120,6 +117,8 @@ func _check_bad_files() -> void:
 	_expect(Progression.skill_level(&"steel_light_push") == 5 and not Progression.skill_levels.has(&"no_existe"), "acota al máximo y descarta ids desconocidos")
 	_write("[jugador]\nnivel=30\n[metales]\nsteel=12\npewter=8\n[ranuras]\nversion=4\n")
 	_expect(Progression.level == 30 and Progression.skill_levels == Progression.START_SKILLS, "archivo viejo: nivel sí, metales no")
+	for m in Allomancy.METALS:
+		_expect(not SkillTree.skills_of(m).is_empty(), "%s tiene poderes (ya no hay metales directos)" % m)
 
 
 func _check_formulas() -> void:

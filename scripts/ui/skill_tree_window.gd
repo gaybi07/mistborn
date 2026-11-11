@@ -1,7 +1,7 @@
 class_name SkillTreeWindow
 extends CanvasLayer
 ## Árbol de habilidades (tecla K): una columna por metal con sus habilidades (cada una con "−  n/5  +"), un panel con el detalle de
-## la que elijas (qué hace, cómo mejora, ponerla en una ranura o cambiarle la tecla) y la lista de los demás metales. Arriba
+## la que elijas (qué hace, cómo mejora, ponerla en una ranura o cambiarle la tecla). Arriba
 ## van el nivel, la experiencia y los puntos libres de alomancia; abajo, las ranuras. Los puntos se pueden reasignar en
 ## cualquier momento. Mientras está abierto el juego sigue, pero el ratón es para la ventana.
 
@@ -42,7 +42,6 @@ var _xp_label: Label
 var _points_label: Label
 var _columns: HBoxContainer
 var _detail: VBoxContainer
-var _others: VBoxContainer
 var _slots_row: HBoxContainer
 var _side_col: VBoxContainer
 var _detail_width := DETAIL_WIDTH
@@ -105,9 +104,6 @@ func _ready() -> void:
 		_selected = id
 		_refresh())
 	_canvas.skill_point.connect(_change_point)
-	_canvas.metal_clicked.connect(func(metal: StringName) -> void:
-		if Progression.raise_metal(metal):
-			_refresh())
 	col.add_child(_canvas)
 	_soon = Label.new()
 	_soon.text = "Feruquimia: próximamente.\nCualquier personaje va a poder guardar atributos en mentes de metal. Usa los mismos puntos que la alomancia, y sus poderes también suben el nivel de cada metal."
@@ -145,11 +141,6 @@ func _ready() -> void:
 	_detail = VBoxContainer.new()
 	_detail.add_theme_constant_override("separation", 8)
 	detail_panel.add_child(_detail)
-	var others_panel := _panel(Color(0.06, 0.07, 0.09), Color(0.3, 0.3, 0.34), 14)
-	side_col.add_child(others_panel)
-	_others = VBoxContainer.new()
-	_others.add_theme_constant_override("separation", 6)
-	others_panel.add_child(_others)
 
 	col.add_child(HSeparator.new())
 	col.add_child(_build_footer())
@@ -299,12 +290,8 @@ func _refresh() -> void:
 	if SkillTree.find(_selected).is_empty():
 		_selected = &"steel_light_push"
 	_clear(_columns)
-	_clear(_others)
-	_others.add_child(_heading("Otros metales"))
 	for metal: StringName in Allomancy.METALS:
-		if SkillTree.skills_of(metal).is_empty():  # sin poderes en ningún árbol: se sube directo
-			_others.add_child(_other_metal_row(metal))
-		elif not SkillTree.skills_of(metal, &"allomancy").is_empty():
+		if not SkillTree.skills_of(metal, &"allomancy").is_empty():
 			_columns.add_child(_column(metal))
 	_refresh_detail()
 	_refresh_slots()
@@ -487,23 +474,6 @@ func _skill_buttons(id: StringName) -> Control:
 	return box
 
 
-## shortcut: "+" de los metales sin poderes (Otros metales); se va con L12.
-func _raise_button(metal: StringName) -> Button:
-	var lvl := Progression.metal_level(metal)
-	var cost := Progression.point_cost(metal)
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	if lvl >= Progression.metal_cap(metal):
-		b.text = "Nivel máximo"
-	else:
-		b.text = "%s  (%d pt%s)" % ["Aprender" if lvl == 0 else "Subir nivel", cost, "" if cost == 1 else "s"]
-	b.disabled = not Progression.can_raise(metal)
-	b.pressed.connect(func() -> void:
-		if Progression.raise_metal(metal):
-			_refresh())
-	return b
-
-
 func _skill_row(s: Dictionary, lvl: int, color: Color, up: bool, down: bool) -> Control:
 	var id: StringName = s["id"]
 	var unlocked := SkillTree.is_unlocked(s["id"])
@@ -676,33 +646,6 @@ func _refresh_detail() -> void:
 				_refresh_slots())
 			buttons.add_child(rebind)
 			_detail.add_child(buttons)
-
-
-func _other_metal_row(metal: StringName) -> Control:
-	var color: Color = Allomancy.METALS[metal]["color"]
-	var lvl := Progression.metal_level(metal)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var icon := SkillHex.new(13.0, 30.0)
-	icon.metal = metal
-	icon.locked = lvl <= 0
-	row.add_child(icon)
-	var name_l := Label.new()
-	name_l.text = Allomancy.METALS[metal]["label"]
-	name_l.add_theme_color_override("font_color", color.lightened(0.2) if lvl > 0 else DIM)
-	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(name_l)
-	var lvl_l := Label.new()
-	lvl_l.text = ("Nivel %d" % lvl) if lvl > 0 else "Bloqueado"
-	lvl_l.modulate = DIM
-	lvl_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(lvl_l)
-	var raise := _raise_button(metal)
-	raise.text = "+" if lvl > 0 else "Aprender"
-	raise.tooltip_text = "%d punto%s de alomancia" % [Progression.point_cost(metal), "" if Progression.point_cost(metal) == 1 else "s"]
-	row.add_child(raise)
-	return row
 
 
 # ---------------------------------------------------------------- Piezas

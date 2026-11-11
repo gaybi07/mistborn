@@ -10,6 +10,7 @@ extends Node
 func _ready() -> void:
 	Art.player_model = "vin"
 	var room: TrainingRoom = load("res://scenes/skill_room.tscn").instantiate()
+	room.set(&"open_menu", false)  # la sala no abre su menú: la prueba usa al jugador ya
 	add_child(room)
 	var tree := get_tree()
 	for i in 30: await tree.physics_frame
