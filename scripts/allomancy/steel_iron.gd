@@ -200,17 +200,25 @@ func _grip_input(g: Grip, just: bool) -> bool:
 	return g.input_just if just else g.input_held
 
 
-## La fuerza del empuje y del tirón crece con el nivel de su metal (+3 % por nivel) y con sus hitos de nivel.
+## Poder (en la escala de SkillTree.equiv_level) que manda en este agarre: la Moneda de combate si es su empuje; si no,
+## Empuje básico o Tirón básico.
+func _grip_power(g: Grip) -> int:
+	if g.target != null and g.target == auto_push:
+		return player.power_level(&"steel_combat_coin")
+	return player.power_level(&"steel_light_push" if g.metal == &"steel" else &"iron_pull")
+
+
+## La fuerza del empuje y del tirón crece con el nivel de su poder (+3 % por nivel equivalente).
 func level_boost(g: Grip) -> float:
-	var boost := 1.0 + 0.03 * maxi(player.metal_level(g.metal) - 1, 0)
-	return boost
+	return 1.0 + 0.03 * maxi(_grip_power(g) - 1, 0)
 
 
 ## Poder de este agarre: hasta qué masa (kg) mueves tú lo que empujas o tiras en vez de que te mueva a ti.
-## Con tu peso al nivel 1; sube con el nivel de su metal (ver SkillTree.power_mass) y te deja mover cosas más pesadas que
-## tú. Lo que pesa más que este poder, o no se mueve (farolas, rejas), te empuja o te acerca a ti (ver Metals.push_pull).
+## Con tu peso al nivel 1; sube con el nivel de Empuje básico o Tirón básico (ver SkillTree.power_mass) y te deja mover
+## cosas más pesadas que tú. Lo que pesa más que este poder, o no se mueve (farolas, rejas), te empuja o te acerca a ti
+## (ver Metals.push_pull).
 func power_mass(g: Grip) -> float:
-	return SkillTree.power_mass(player.metal_level(g.metal), player.body_mass)
+	return SkillTree.power_mass(player.power_level(&"steel_light_push" if g.metal == &"steel" else &"iron_pull"), player.body_mass)
 
 
 func _update_grip(g: Grip, strength: float, origin: Vector3) -> void:

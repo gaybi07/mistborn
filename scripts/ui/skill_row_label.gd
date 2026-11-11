@@ -1,7 +1,7 @@
 class_name SkillRowLabel
 extends Label
 ## Nombre de una habilidad en el árbol (K). Al pasar el ratón muestra una tarjeta con su nombre, tipo, qué hace,
-## los números con el nivel actual de su metal y, si falta, en qué nivel se desbloquea.
+## los números con su nivel y el siguiente y, si falta, qué poder necesita antes.
 
 const GOLD := Color(0.95, 0.8, 0.35)
 const TEXT := Color(0.86, 0.88, 0.92)
@@ -11,7 +11,7 @@ const LOCKED := Color(1.0, 0.65, 0.35)
 const WIDTH := 380.0
 
 var skill_id: StringName = &""
-var metal_level := 0
+var skill_level := 0
 
 
 func _ready() -> void:
@@ -24,7 +24,7 @@ func _make_custom_tooltip(_for_text: String) -> Object:
 	var s := SkillTree.find(skill_id)
 	if s.is_empty():
 		return null
-	var parts := SkillTree.tooltip_parts(skill_id, metal_level)
+	var parts := SkillTree.tooltip_parts(skill_id, skill_level)
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.045, 0.05, 0.07, 0.98)
@@ -48,7 +48,7 @@ func _make_custom_tooltip(_for_text: String) -> Object:
 	if skill_id in SkillTree.FIXED_KEY:
 		kind = "Clic derecho"
 	box.add_child(_label(String(s["name"]), 20, GOLD))
-	box.add_child(_label("%s  ·  %s  ·  desde el nivel %d" % [kind, Allomancy.METALS[metal]["label"], int(s["level"])], 13, DIM))
+	box.add_child(_label("%s  ·  %s  ·  nivel %d/%d" % [kind, Allomancy.METALS[metal]["label"], skill_level, SkillTree.max_level(skill_id)], 13, DIM))
 	box.add_child(HSeparator.new())
 
 	var body := String(parts.get("body", ""))
