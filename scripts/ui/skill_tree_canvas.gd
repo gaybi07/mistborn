@@ -22,10 +22,17 @@ const DIM := Color(0.6, 0.62, 0.68)
 const ASSIGN := Color(0.55, 0.85, 1.0)
 ## Tamaño (px, sin zoom) del lienzo donde se reparten los metales.
 const MIN_DESIGN := Vector2(1900.0, 900.0)
-const ROOT_Y := 330.0
-const COLUMN_X := 150.0
-const COLUMN_STEP := 600.0
-const LOCKED_Y := 790.0
+## Celda de cada metal (px, sin zoom): los metales van en dos filas, la mitad arriba y la mitad abajo.
+const CELL := Vector2(600.0, 600.0)
+const CELL_MARGIN := 60.0
+const LOCKED_ROW := 160.0
+## Hasta dónde llega una rama desde su raíz (en LAYOUTS, x de 0 a ~400).
+const BRANCH_REACH := 400.0
+## Hacia dónde sale la rama de cada metal (grados; 0 = derecha, -90 = arriba): cada árbol con su forma.
+const BRANCH_ANGLE := {
+	&"steel": 0.0, &"iron": -90.0, &"pewter": 180.0, &"atium": 90.0, &"zinc": -45.0,
+	&"copper": 135.0, &"bronze": -135.0, &"tin": 45.0, &"brass": -30.0,
+}
 const ROOT_RADIUS := 38.0
 const SKILL_RADIUS := 23.0
 const LOCKED_RADIUS := 27.0
@@ -58,44 +65,54 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	var column := 0
+	var metals: Array[StringName] = []
 	var locked: Array[StringName] = []
 	for metal: StringName in Allomancy.METALS:
-		var skills := SkillTree.skills_of(metal, &"allomancy")
-		if skills.is_empty():
-			locked.append(metal)
-			continue
-		var root := Vector2(COLUMN_X + COLUMN_STEP * column, ROOT_Y)
-		column += 1
-		_roots.append({"metal": metal, "pos": root, "radius": ROOT_RADIUS, "has_skills": true})
+		(locked if SkillTree.skills_of(metal, &"allomancy").is_empty() else metals).append(metal)
+	# Dos filas: la mitad arriba y la otra mitad abajo, cada metal en su celda.
+	var per_row := ceili(metals.size() / 2.0)
+	for i in metals.size():
+		var metal := metals[i]
+		var row := i / per_row
+		var in_row := per_row if row == 0 else metals.size() - per_row
+		var col := i % per_row + (per_row - in_row) * 0.5  # la fila de abajo, centrada
+		var center := Vector2(CELL_MARGIN + CELL.x * (col + 0.5), CELL_MARGIN + CELL.y * (row + 0.5))
+		# Cada rama sale hacia su lado (BRANCH_ANGLE): la raíz se corre al lado opuesto para que entre en su celda.
+		var angle := deg_to_rad(float(BRANCH_ANGLE.get(metal, 0.0)))
+		var root := center - Vector2(BRANCH_REACH * 0.5, 0.0).rotated(angle)
+		_roots.append({"metal": metal, "pos": root, "radius": ROOT_RADIUS, "has_skills": true, "angle": angle})
 		var positions := {&"root": root}
 		for entry: Array in SkillTree.LAYOUTS[&"allomancy"].get(metal, []):
 			var from: Array[Vector2] = []
 			for parent: StringName in entry[2]:
 				from.append(positions[parent])
-			positions[entry[0]] = root + (entry[1] as Vector2)
+			positions[entry[0]] = root + (entry[1] as Vector2).rotated(angle)
 			_nodes.append({"id": entry[0], "metal": metal, "pos": positions[entry[0]], "from": from, "parents": entry[2]})
 		# Habilidades nuevas que todavía no tienen lugar en el diseño: cuelgan de la raíz, en una columna.
 		var extra := 0
-		for s: Dictionary in skills:
+		for s: Dictionary in SkillTree.skills_of(metal, &"allomancy"):
 			if not positions.has(s["id"]):
-				var spot := root + Vector2(110.0, 150.0 + 90.0 * extra)
+				var spot := root + Vector2(110.0, 150.0 + 90.0 * extra).rotated(angle)
 				extra += 1
 				positions[s["id"]] = spot
 				var origin: Array[Vector2] = [root]
 				_nodes.append({"id": s["id"], "metal": metal, "pos": spot, "from": origin, "parents": [&"root"]})
-	_design.x = maxf(MIN_DESIGN.x, COLUMN_X + COLUMN_STEP * (column - 1) + 520.0)
-	for i in locked.size():
-		var x := COLUMN_X + i * (_design.x - 2.0 * COLUMN_X) / maxf(locked.size() - 1.0, 1.0)
-		_roots.append({"metal": locked[i], "pos": Vector2(x, LOCKED_Y), "radius": LOCKED_RADIUS, "has_skills": false})
+	var rows := 2 if metals.size() > per_row else 1
+	_design = Vector2(maxf(MIN_DESIGN.x, CELL_MARGIN * 2.0 + CELL.x * per_row), CELL_MARGIN * 2.0 + CELL.y * rows)
+	# Metales sin habilidades (si queda alguno): en una fila abajo de todo.
+	if not locked.is_empty():
+		_design.y += LOCKED_ROW
+		for i in locked.size():
+			var x := CELL_MARGIN + i * (_design.x - 2.0 * CELL_MARGIN) / maxf(locked.size() - 1.0, 1.0)
+			_roots.append({"metal": locked[i], "pos": Vector2(x, _design.y - LOCKED_ROW * 0.5), "radius": LOCKED_RADIUS, "has_skills": false})
 	# Fondo: puntos sueltos unidos con líneas muy tenues, como una constelación.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
-	for i in 90:
+	for i in 140:
 		_stars.append(Vector2(rng.randf() * _design.x, rng.randf() * _design.y))
 	for i in _stars.size():
 		for j in range(i + 1, _stars.size()):
-			if _stars[i].distance_to(_stars[j]) < 150.0 and _star_links.size() < 140:
+			if _stars[i].distance_to(_stars[j]) < 150.0 and _star_links.size() < 200:
 				_star_links.append(Vector2i(i, j))
 
 
@@ -363,14 +380,19 @@ func _draw_root(font: Font, r: Dictionary) -> void:
 	var size_px := clampi(roundi((22.0 if bool(r["has_skills"]) else 16.0) * _zoom), 11, 40)
 	var label := String(Allomancy.METALS[metal]["label"]).to_upper()
 	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px)
-	var plate := Rect2(c + Vector2(-text_size.x * 0.5 - 14.0 * _zoom, rad + 10.0 * _zoom), text_size + Vector2(28.0, 10.0) * _zoom)
+	var plate_size := text_size + Vector2(28.0, 10.0) * _zoom
+	# La placa va del lado opuesto a la rama (si no, tapa el primer poder).
+	var away := -Vector2.RIGHT.rotated(float(r.get("angle", -PI / 2.0)))
+	var reach := rad + 12.0 * _zoom + absf(away.x) * plate_size.x * 0.5 + absf(away.y) * plate_size.y * 0.5
+	var plate := Rect2(c + away * reach - plate_size * 0.5, plate_size)
 	draw_rect(plate, Color(0.06, 0.07, 0.09, 0.95))
 	draw_rect(plate, Color(tint, 0.7 if learned else 0.35), false, 1.5)
 	draw_string(font, plate.position + Vector2(14.0 * _zoom, text_size.y * 0.85 + 4.0 * _zoom), label, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px,
 			GOLD_SOFT if learned else Color(0.55, 0.57, 0.62))
 	if learned and bool(r["has_skills"]):
 		var small := clampi(roundi(13.0 * _zoom), 9, 24)
-		draw_string(font, Vector2(plate.position.x, plate.end.y + 16.0 * _zoom), "Nivel %d" % lvl,
+		var level_y := plate.position.y - 6.0 * _zoom if away.y < -0.3 else plate.end.y + 16.0 * _zoom  # del lado de afuera
+		draw_string(font, Vector2(plate.position.x, level_y), "Nivel %d" % lvl,
 				HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, small, Color(tint.lightened(0.3), 0.9))
 
 
