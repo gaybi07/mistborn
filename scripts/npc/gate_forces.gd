@@ -22,6 +22,7 @@ const PEOPLE := [
 	["Obligador", Vector2(-11.3, -8.2), 0.0], ["Obligador", Vector2(4.3, -13.3), 0.0],
 	["Terrisano", Vector2(-57, 176), 5.0], ["Clubs", Vector2(-63, 177), 3.0], ["Ham", Vector2(-53, 173), 5.0],
 	["Breeze", Vector2(-60, 172), 4.0], ["Dockson", Vector2(-67, 174), 4.0], ["Tindwyl", Vector2(-50, 177), 4.0],
+	["Spook", Vector2(-46, 171), 3.0],
 	["Elend", Vector2(-217, -238), 6.0], ["Straff", Vector2(-205, -241), 4.0],
 	["Cett", Vector2(-110, -70), 0.0], ["Jastes", Vector2(290, -10), 6.0],
 	["NinoSkaa", Vector2(-100, 330), 22.0], ["NinaSkaa", Vector2(-92, 324), 22.0],

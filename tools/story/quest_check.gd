@@ -20,7 +20,7 @@ func _initialize() -> void:
 	var prog := FileAccess.get_file_as_bytes("user://progression.cfg")
 	QuestLog.reset()
 	_ok(QuestLog.startable() == ["tejados"] and QuestLog.offers().is_empty(), "al empezar solo está la de los tejados, y nadie ofrece nada")
-	_ok(QuestLog.giver_of("t_volador") == "clubs", "la de Spook (sin modelo) la da Clubs")
+	_ok(QuestLog.giver_of("t_volador") == "spook", "la pista la da Spook (G9)")
 	# --- En la ciudad
 	Art.player_model = "vin"
 	SaveSlots.current = SLOT
@@ -67,8 +67,8 @@ func _initialize() -> void:
 	# La banda.
 	var givers := QuestLog.offers().map(func(o: Dictionary) -> String: return o["giver"])
 	givers.sort()
-	_ok(givers == ["breeze", "clubs", "clubs", "dockson", "ham", "tesa", "tindwyl"], "la banda ofrece las suyas: %s" % [givers])
-	for npc in ["clubs", "ham", "breeze", "tesa", "dockson", "tindwyl"]:
+	_ok(givers == ["breeze", "clubs", "dockson", "ham", "spook", "tesa", "tindwyl"], "la banda ofrece las suyas: %s" % [givers])
+	for npc in ["clubs", "spook", "ham", "breeze", "tesa", "dockson", "tindwyl"]:
 		var e := Dialogues.entry(npc)
 		_ok(e.ends_with("ofrece"), "%s ofrece (%s)" % [npc, e])
 	_shot("4_mapa_ofertas")

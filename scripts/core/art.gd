@@ -273,6 +273,7 @@ const CIVILIANS := {
 	"Ham": {"height": 1.9, "pace": 1.05, "idle": "Alert"},
 	"Breeze": {"height": 1.75, "pace": 0.8, "idle": "Idle_6"},
 	"Dockson": {"height": 1.72, "pace": 0.95, "idle": "Idle_11"},
+	"Spook": {"height": 1.7, "pace": 1.15, "idle": "Alert"},  # P6: el de los ojos vendados (quema estaño)
 	"Jastes": {"height": 1.72, "pace": 1.05, "idle": "Alert"},
 	"Elend": {"height": 1.8, "pace": 1.0, "idle": "Idle_12"},
 	"Straff": {"height": 1.85, "pace": 0.8, "idle": "Idle_11"},
