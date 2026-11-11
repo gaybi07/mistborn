@@ -64,7 +64,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] 🔄 **L8. Latón.** (aplacar) — *en curso: Lucho, rama `lucho/l8-laton`, desde 2026-11-11*
 - [ ] 🔄 **L9. Cobre.** (ocultarse) — *en curso: Lucho, rama `lucho/l9-cobre` (sale de la de L8), desde 2026-11-11*
 - [ ] 🔄 **L10. Bronce.** (detectar) — *en curso: Lucho, rama `lucho/l10-bronce` (sale de la de L9), desde 2026-11-11*
-- [ ] **L11. Atium.** (ver el futuro)
+- [ ] 🔄 **L11. Atium.** (ver el futuro) — *en curso: Lucho, rama `lucho/l11-atium` (sale de la de L10), desde 2026-11-11*
 - [ ] **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén. Además (pedido de Lucho, 10/11), **la sala
   de poderes pasa a ser una sala de pruebas de verdad** (hoy Ctrl+F8, `scripts/training/skill_room.gd`: piso pelado y
   todo al máximo):
