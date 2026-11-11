@@ -12,6 +12,8 @@ static var _shapes := {}  # "ruta|escala" -> ConcavePolygonShape3D
 
 
 static func path(name: String) -> String:
+	if name.ends_with(".gltf") or name.ends_with(".glb"):
+		return name  # ya es una ruta completa (las piezas propias de assets/luthadel son .gltf)
 	return (name if name.begins_with("res://") else ROOT + name) + ".glb"
 
 

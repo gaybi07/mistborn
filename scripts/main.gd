@@ -496,7 +496,8 @@ func _add_prop(name: String, pos: Vector3, yaw: float, scale: float) -> void:
 
 ## Modelo al lote; mientras se generan las casas, además queda guardado para la próxima vez.
 func _house_model(path: String, pos: Vector3, yaw: float, scale: float, tint: Color, collide := true) -> void:
-	tint = Color(tint.r * SOOT.r, tint.g * SOOT.g, tint.b * SOOT.b)
+	if not path.contains("/luthadel/"):
+		tint = Color(tint.r * SOOT.r, tint.g * SOOT.g, tint.b * SOOT.b)
 	_batch.add(path, pos, yaw, scale, tint, collide)
 	if not _rec.is_empty():
 		_rec["models"].append([path, pos, yaw, scale, tint, collide])
@@ -676,7 +677,18 @@ func _row(a: Vector2, b: Vector2, half: float, main_street: bool) -> int:
 
 
 ## Elige modelo y escala del barrio (por peso).
+## Casas modulares propias (G28): 24 por tipo ("buena" o "skaa"), generadas con tools/blender/make_luthadel_houses.py.
+const KIT_HOUSES := 24
+var _kit_smallest := {}
+
+
+static func kit_house(kind: String, i: int) -> String:
+	return "res://assets/luthadel/casas/Casa%s%02d.gltf" % ["B" if kind == "buena" else "S", i + 1]
+
+
 func _pick(d: Dictionary) -> Array:
+	if d.has("kit") and _rng.randf() < 0.9:
+		return [kit_house(d["kit"], _rng.randi() % KIT_HOUSES), float(d.get("kit_scale", 1.0))]
 	var houses: Array = d["houses"]
 	var total := 0
 	for h in houses:
@@ -692,6 +704,18 @@ func _pick(d: Dictionary) -> Array:
 
 ## La casa más pequeña del barrio (para encajar en huecos).
 func _smallest(d: Dictionary) -> Array:
+	if d.has("kit"):
+		var kind: String = d["kit"]
+		if not _kit_smallest.has(kind):
+			var small := ""
+			var small_area := INF
+			for i in KIT_HOUSES:
+				var b := ModelKit.aabb(kit_house(kind, i))
+				if b.size.x * b.size.z < small_area:
+					small_area = b.size.x * b.size.z
+					small = kit_house(kind, i)
+			_kit_smallest[kind] = small
+		return [_kit_smallest[kind], float(d.get("kit_scale", 1.0))]
 	var best: Array = []
 	var best_area := INF
 	for h in d["houses"]:
@@ -717,6 +741,8 @@ func _try_house(p: Vector2, yaw: float, d: Dictionary, spec: Array = []) -> bool
 		return false
 	_stamp_rect(p, yaw, rect)
 	var tint: Color = d["tint"] * _rng.randf_range(0.88, 1.08)
+	if model.contains("/luthadel/"):  # ya vienen con su textura y su hollín: solo un poco más clara o más oscura
+		tint = Color.WHITE * clampf(0.5 + tint.v * 0.62, 0.78, 1.0)
 	tint.a = 1.0
 	_house_model(model, Vector3(p.x, 0, p.y), yaw, scale, tint)
 	# Aserraderos: pila de troncos al costado.

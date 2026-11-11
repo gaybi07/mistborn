@@ -191,11 +191,10 @@ func _house(p: Vector2, street: Vector2) -> void:
 	_houses.append(p)
 	var to := street - p
 	var roll := _r.randf()
-	# La mitad, casas propias de Luthadel (G27, a escala real); el resto, de Quaternius.
-	var own := _r.randf()
-	if own < 0.5:
-		var mine: String = ["CasaConventillo", "CasaTienda", "CasaPiedra"][int(own * 6.0)]
-		_batch.add("res://assets/luthadel/%s.gltf" % mine, Vector3(p.x, 0, p.y), atan2(to.x, to.y) + _r.randf_range(-0.08, 0.08), _r.randf_range(0.82, 0.95))
+	# Tres de cada cuatro, casas modulares propias (G28): de las buenas adentro de la muralla, skaa en los arrabales.
+	if _r.randf() < 0.75:
+		var mine := "Casa%s%02d" % ["B" if inside_wall(p) else "S", _r.randi() % 24 + 1]
+		_batch.add("res://assets/luthadel/casas/%s.gltf" % mine, Vector3(p.x, 0, p.y), atan2(to.x, to.y) + _r.randf_range(-0.08, 0.08), _r.randf_range(0.85, 0.98))
 		return
 	var model := "buildings/House_1"
 	if roll < 0.3:
