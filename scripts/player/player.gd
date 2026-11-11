@@ -278,6 +278,7 @@ var brass: BrassPowers
 var copper: CopperPowers
 var bronze: BronzePowers
 var bronze_sense: BronzeSense
+var atium_powers: AtiumPowers
 var metal_powers: Array[MetalPowers] = []
 var _roll_time := 0.0
 var _roll_cd := 0.0
@@ -376,7 +377,8 @@ func _ready() -> void:
 	brass = BrassPowers.new()
 	copper = CopperPowers.new()
 	bronze = BronzePowers.new()
-	for mp: MetalPowers in [zinc, brass, copper, bronze]:
+	atium_powers = AtiumPowers.new()
+	for mp: MetalPowers in [zinc, brass, copper, bronze, atium_powers]:
 		mp.player = self
 		metal_powers.append(mp)
 		add_child(mp)
@@ -2596,7 +2598,7 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		var crit := randf() < Metals.crit_chance(self, npc) or npc.is_stunned() or behind
 		npc.take_hit(to.normalized() * knockback * (1.5 if crit else 1.0), damage * (Metals.CRIT_MULT if crit else 1.0), self)
 		if crit:
-			npc.stun(0.0, global_position)  # el crítico lo saca del aturdimiento y lo tira para atrás
+			npc.stun(atium_powers.crit_stun(npc), global_position)  # lo tira para atrás (Golpe certero del atium: lo deja aturdido)
 			Fx.popup(get_tree().current_scene, npc.global_position + Vector3(0, npc.head_y() + 0.5, 0), "¡Crítico!", Color(1.0, 0.85, 0.35), 1.5)
 			# Se nota más que un golpe común: todo se congela un poco más y el golpeado brilla.
 			npc.rig.flash(Color(1.0, 0.9, 0.55))
@@ -4116,3 +4118,8 @@ func emotion_resist() -> float:
 ## Silencio (cobre): el estaño de un Ojo de estaño enemigo no te encuentra mejor.
 func hides_from_tin() -> bool:
 	return copper.passive(&"copper_silence")
+
+
+## Golpe certero (atium): cuánto suma a la probabilidad de crítico (Metals.crit_chance).
+func crit_bonus() -> float:
+	return atium_powers.crit_bonus()

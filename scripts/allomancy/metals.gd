@@ -96,6 +96,8 @@ const CRIT_MULT := 2.0
 static func crit_chance(attacker: Node, defender: Node) -> float:
 	# Foco (estaño): más probabilidad de crítico mientras dura.
 	var bonus := 0.25 if attacker.has_method(&"is_focused") and attacker.is_focused() else 0.0
+	if attacker.has_method(&"crit_bonus"):
+		bonus += attacker.crit_bonus()  # Golpe certero (atium)
 	if not atium_edge(attacker, defender):
 		return 0.05 + bonus
 	var a: Allomancy = attacker.get(&"allomancy")

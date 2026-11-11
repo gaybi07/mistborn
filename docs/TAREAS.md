@@ -64,7 +64,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] 🔄 **L8. Latón.** (aplacar) — *en curso: Lucho, rama `lucho/l8-laton`, desde 2026-11-11*
 - [ ] 🔄 **L9. Cobre.** (ocultarse) — *en curso: Lucho, rama `lucho/l9-cobre` (sale de la de L8), desde 2026-11-11*
 - [ ] 🔄 **L10. Bronce.** (detectar) — *en curso: Lucho, rama `lucho/l10-bronce` (sale de la de L9), desde 2026-11-11*
-- [ ] **L11. Atium.** (ver el futuro)
+- [ ] 🔄 **L11. Atium.** (ver el futuro) — *en curso: Lucho, rama `lucho/l11-atium` (sale de la de L10), desde 2026-11-11*
 - [ ] **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén. Además (pedido de Lucho, 10/11), **la sala
   de poderes pasa a ser una sala de pruebas de verdad** (hoy Ctrl+F8, `scripts/training/skill_room.gd`: piso pelado y
   todo al máximo):
@@ -337,3 +337,5 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Pulso perturbador (bronce, `bronze_disrupt`) | `field` | Golpe seco de las dos palmas hacia afuera, como rompiendo algo invisible | |
 | Rastreo (bronce, `bronze_track`) | `extreme_senses` | Ojos cerrados, cabeza que gira despacio escuchando | |
 | Contrapulso (bronce, `bronze_counter`) | `mass_yank` | Junta las manos y suelta una onda hacia todos lados | |
+| Monedas guiadas (atium, `atium_guided`) | `coin_wave` | Abanico de monedas lanzado sin mirar, cada una hacia un lado distinto | |
+| Momento eterno (atium, `atium_eternal`) | `burn_focus` | Inspira hondo y abre los ojos de golpe; el cuerpo se tensa listo para moverse | |

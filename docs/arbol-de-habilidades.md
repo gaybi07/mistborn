@@ -7,7 +7,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 | Tema | Decisión |
 |---|---|
 | Techo | Jugador nivel 100; cada poder, nivel 5. El nivel de un metal es la suma de los puntos en sus poderes (ver `docs/PLAN_PROGRESION.md`) |
-| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium) se suben directo; atium cuesta 2 por nivel |
+| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Todos los metales tienen poderes; los del atium cuestan 2 puntos por nivel |
 | Elección | Para poner un punto en un poder, todos los poderes de los que nace (en su rama) tienen que tener al menos 1. No alcanza para maxear todo |
 | Reasignar | En cualquier momento, sin costo: "−" por poder (si ninguno que depende de él queda sin requisito) o "Devolver todos los puntos" |
 | XP | Combate y objetivos, más un bonus chico por usar cada metal con tope por minuto |
@@ -138,12 +138,19 @@ Anticipar y Rastreo.
 | 16 | A · Rastreo: 20 s con los alománticos a 60 m en la brújula y el mapa. Recarga 40 s |
 | 20 | A · Contrapulso: les apaga todos los metales 4 s a los alománticos enemigos a 12 m (libertad respecto de los libros). Recarga 60 s |
 
-### Atium (máximo nivel 10, 2 puntos por nivel)
+### Atium (cada nivel cuesta 2 puntos)
+Más preciso y más espectacular, no más barato (código: `AtiumPowers`). La cámara lenta es solo jugando solo: con otros
+jugadores el atium funciona en tiempo real. Rama: Sombras → Esquiva perfecta → Golpe certero; Sombras → Monedas
+guiadas → Leer la pelea; Momento eterno pide Golpe certero y Leer la pelea.
+
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Premonición breve (ya existe) |
-| 5 | A · Esquiva perfecta |
-| 10 | A · Monedas guiadas (ya existe el guiado) mejoradas |
+| 1 | P · Sombras del futuro: lo de siempre; esquivás, tus monedas no fallan y tus golpes no se bloquean (45 % de crítico; 70 % avivando) |
+| 4 | P · Esquiva perfecta: cuando el atium te hace esquivar, el mundo se frena 1 s y tu próximo golpe (en 3 s) es crítico |
+| 8 | P · Golpe certero: +15 % de crítico y los críticos aturden 1 s (a los jefes, 0,4 s) |
+| 12 | A · Monedas guiadas: hasta 5 monedas, una a cada enemigo distinto a 25 m, que lo siguen. Recarga 15 s |
+| 16 | P · Leer la pelea: los jefes avisan sus ataques con el doble de tiempo; la sombra muestra dónde va a estar cada uno en 1 s |
+| 20 | A · Momento eterno: 6 s con el mundo al 15 %; cada golpe es crítico; aviva el atium todo el tiempo. Recarga 90 s |
 
 ## Habilidades combinadas (12 pares × 3 escalones)
 

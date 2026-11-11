@@ -136,6 +136,11 @@ func try_use(d: float) -> bool:
 
 
 func cast(p: Dictionary) -> void:
+	# Leer la pelea (atium del jugador): el aviso dura más.
+	var reader: Node = lord._player
+	if reader and reader.get(&"atium_powers"):
+		p = p.duplicate()
+		p["warn"] = float(p["warn"]) * reader.atium_powers.warn_scale()
 	lord._power_ready[p["name"]] = lord._world_time + p["cooldown"]
 	lord._next_power = lord._world_time + Champion.KITS[lord.kit]["power_gap"] * GAP_BY_PHASE[phase()]
 	lord._announce(p["name"])
