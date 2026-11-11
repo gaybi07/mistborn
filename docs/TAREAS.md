@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G9. Spook | `gabi/g9-spook` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -136,7 +136,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 
 ### 3. Modelos (los generás en Meshy; yo los integro)
 
-- [ ] **G9. P6.** Spook.
+- [ ] 🔄 **G9. P6.** Spook.
+  — *en curso: Gabi, rama `gabi/g9-spook`, desde 2026-11-10*
 - [ ] **G10. P13 y P14.** Violento y Lanzamonedas.
 - [ ] **G11. P18 y P19.** Inquisidor y Yomen.
 - [ ] **G12. P25.** Nena skaa con textura.
