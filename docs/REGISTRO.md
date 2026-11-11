@@ -214,7 +214,7 @@ Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arrib
   La plaza sale oscura en la foto del mapa. Toca `hud.gd`, `pause_menu.gd` y `city_map.gd` (interfaz, cerca de Lucho).
 
 ### 2026-11-09 · G0 · Base para repartir las tareas · Gabi
-- **Rama:** `escenarios-y-jugabilidad` (anterior a este sistema; sigue existiendo) · **Commit:** `d9bba6a`, develop
+- **Rama:** `escenarios-y-jugabilidad` (anterior a este sistema; borrada el 2026-11-10, ya estaba toda en develop) · **Commit:** `d9bba6a`, develop
   avanzado sin merge
 - **Qué se hizo:** capa de la bruma de Vin hecha en Blender, plan de progresión por poderes
   (`docs/PLAN_PROGRESION.md`), tareas de cada uno (`docs/TAREAS.md`) y skills de Blender del proyecto.
