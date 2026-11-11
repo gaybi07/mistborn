@@ -584,7 +584,7 @@ func _apply_grips(delta: float) -> void:
 	var push_target: Node3D = null
 	var pull_target: Node3D = null
 	for g in _grips.duplicate():
-		var t: Node3D = g["target"]
+		var t: Node3D = g["target"] if is_instance_valid(g["target"]) else null  # la moneda que agarraba pudo desaparecer
 		# Si el objetivo deja de llevar metal (el jugador soltó su bolsa), se pierde el agarre.
 		if down or _world_time > g["until"] or not is_instance_valid(t) or not t.is_inside_tree() \
 				or not t.is_in_group(&"metal"):

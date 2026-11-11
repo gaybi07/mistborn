@@ -66,7 +66,22 @@ func _process(delta: float) -> void:
 			state[m] = State.OFF
 
 
+## Metales que alguien le apagó (bronce del jugador: Pulso perturbador, Contrapulso): metal -> ms hasta cuándo.
+var _drained := {}
+
+
+## No deja quemar `metals` durante `seconds` (los apaga ya).
+func drain(metals: Array, seconds: float) -> void:
+	var until := Time.get_ticks_msec() + int(seconds * 1000.0)
+	for m: StringName in metals:
+		_drained[m] = until
+		if state.get(m, State.OFF) != State.OFF:
+			state[m] = State.OFF
+
+
 func is_learned(metal: StringName) -> bool:
+	if Time.get_ticks_msec() < int(_drained.get(metal, 0)):
+		return false
 	return not can_burn.is_valid() or can_burn.call(metal)
 
 

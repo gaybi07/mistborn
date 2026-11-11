@@ -276,6 +276,8 @@ var emotions: Emotions
 var zinc: ZincPowers
 var brass: BrassPowers
 var copper: CopperPowers
+var bronze: BronzePowers
+var bronze_sense: BronzeSense
 var metal_powers: Array[MetalPowers] = []
 var _roll_time := 0.0
 var _roll_cd := 0.0
@@ -364,16 +366,17 @@ func _ready() -> void:
 	var aura := PewterAura.new()
 	aura.holder = self
 	add_child(aura)
-	var bronze := BronzeSense.new()
-	bronze.holder = self
-	add_child(bronze)
+	bronze_sense = BronzeSense.new()
+	bronze_sense.holder = self
+	add_child(bronze_sense)
 	emotions = Emotions.new()
 	emotions.player = self
 	add_child(emotions)
 	zinc = ZincPowers.new()
 	brass = BrassPowers.new()
 	copper = CopperPowers.new()
-	for mp: MetalPowers in [zinc, brass, copper]:
+	bronze = BronzePowers.new()
+	for mp: MetalPowers in [zinc, brass, copper, bronze]:
 		mp.player = self
 		metal_powers.append(mp)
 		add_child(mp)

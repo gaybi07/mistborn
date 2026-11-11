@@ -334,3 +334,6 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Desvanecerse (cobre, `copper_vanish`) | `burn_focus` | Se encoge y se envuelve en humo, como fundiéndose con la bruma | |
 | Nube compartida (cobre, `copper_shared`) | `field` | Abre los brazos como cubriendo a alguien al lado | |
 | Fantasma (cobre, `copper_ghost`) | `burn_focus` | Cierra los ojos y baja los hombros; quieto, casi transparente | |
+| Pulso perturbador (bronce, `bronze_disrupt`) | `field` | Golpe seco de las dos palmas hacia afuera, como rompiendo algo invisible | |
+| Rastreo (bronce, `bronze_track`) | `extreme_senses` | Ojos cerrados, cabeza que gira despacio escuchando | |
+| Contrapulso (bronce, `bronze_counter`) | `mass_yank` | Junta las manos y suelta una onda hacia todos lados | |

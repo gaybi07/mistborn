@@ -7,7 +7,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 | Tema | Decisión |
 |---|---|
 | Techo | Jugador nivel 100; cada poder, nivel 5. El nivel de un metal es la suma de los puntos en sus poderes (ver `docs/PLAN_PROGRESION.md`) |
-| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, bronce) se suben directo; atium cuesta 2 por nivel |
+| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium) se suben directo; atium cuesta 2 por nivel |
 | Elección | Para poner un punto en un poder, todos los poderes de los que nace (en su rama) tienen que tener al menos 1. No alcanza para maxear todo |
 | Reasignar | En cualquier momento, sin costo: "−" por poder (si ninguno que depende de él queda sin requisito) o "Devolver todos los puntos" |
 | XP | Combate y objetivos, más un bonus chico por usar cada metal con tope por minuto |
@@ -125,14 +125,18 @@ Desvanecerse y Mente cerrada.
 | 20 | A · Fantasma: 10 s en que ningún NPC te ve; atacar lo termina con un crítico (doble de daño). Recarga 60 s |
 
 ### Bronce
+Leer al enemigo: qué quema, cuándo ataca y dónde se esconde (código: `BronzePowers`; apagar metales ajenos con
+`Allomancy.drain`). Rama: Pulsos → Leer metales → Anticipar; Pulsos → Pulso perturbador → Rastreo; Contrapulso pide
+Anticipar y Rastreo.
+
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Detectar pulsos (ya existe) |
-| 4 | P · Distinguir qué metal quema cada uno |
-| 8 | P · Rastreo: indica la dirección de la fuente |
-| 12 | P · Descifrar: intensidad y objetivo del metal que quema el otro |
-| 16 | A · Pulso perturbador: rompe la nube de cobre cercana |
-| 20 | A · Visión de la ciudad: muestra a todos los alomantes en el mapa |
+| 1 | P · Pulsos: lo de siempre; sentís a los alománticos que queman metales (no a los que tapa una nube de cobre) |
+| 4 | P · Leer metales: arriba de cada alomántico que sentís, qué metales quema |
+| 8 | P · Anticipar: el pulso brilla medio segundo antes de que use un poder |
+| 12 | A · Pulso perturbador: 8 s sin nubes de cobre a 15 m; los Humeadores no pueden quemar cobre. Recarga 25 s |
+| 16 | A · Rastreo: 20 s con los alománticos a 60 m en la brújula y el mapa. Recarga 40 s |
+| 20 | A · Contrapulso: les apaga todos los metales 4 s a los alománticos enemigos a 12 m (libertad respecto de los libros). Recarga 60 s |
 
 ### Atium (máximo nivel 10, 2 puntos por nivel)
 | Nivel | Habilidad |
