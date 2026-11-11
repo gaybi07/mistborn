@@ -46,8 +46,7 @@ var _canvas: SkillTreeCanvas
 ## Ctrl apretado: se resaltan las habilidades que se pueden poner en una ranura y se apagan las demás.
 var _assign_mode := false
 ## Vista de árbol (true) o de lista (false).
-## shortcut: arranca en la lista porque los puntos por poder todavía solo se ponen ahí; vuelve a true con L4 (pips en el árbol).
-var _tree_mode := false
+var _tree_mode := true
 var _selected: StringName = &"steel_light_push"
 ## Habilidad bajo el ratón: Ctrl + tecla pone esa; si no hay ninguna, la elegida.
 var _hovered: StringName = &""
@@ -96,6 +95,7 @@ func _ready() -> void:
 	_canvas.skill_clicked.connect(func(id: StringName) -> void:
 		_selected = id
 		_refresh())
+	_canvas.skill_point.connect(_change_point)
 	_canvas.metal_clicked.connect(func(metal: StringName) -> void:
 		if Progression.raise_metal(metal):
 			_refresh())
@@ -416,6 +416,18 @@ func _lower_reason(id: StringName) -> String:
 	return "" if Progression.can_lower_skill(id) else "No se puede bajar"
 
 
+## Pone (raise) o saca un punto del poder; si no se puede, dice por qué abajo.
+func _change_point(id: StringName, raise: bool) -> void:
+	var why := _raise_reason(id) if raise else _lower_reason(id)
+	if why != "":
+		_say("%s: %s" % [SkillTree.find(id)["name"], why], LOCKED)
+		return
+	var changed := Progression.raise_skill(id) if raise else Progression.lower_skill(id)
+	if changed:
+		_selected = id
+		_refresh()
+
+
 ## "−  2/5  +" de un poder: cada botón, apagado con el motivo en el tooltip.
 func _skill_buttons(id: StringName) -> Control:
 	var box := HBoxContainer.new()
@@ -430,11 +442,7 @@ func _skill_buttons(id: StringName) -> Control:
 		var why := _raise_reason(id) if raise else _lower_reason(id)
 		b.disabled = why != ""
 		b.tooltip_text = why if why != "" else ("Poner un punto" if raise else "Devolver un punto")
-		b.pressed.connect(func() -> void:
-			_selected = id
-			var changed := Progression.raise_skill(id) if raise else Progression.lower_skill(id)
-			if changed:
-				_refresh())
+		b.pressed.connect(_change_point.bind(id, raise))
 		if raise:
 			var count := Label.new()
 			count.text = "%d/%d" % [lvl, SkillTree.max_level(id)]
