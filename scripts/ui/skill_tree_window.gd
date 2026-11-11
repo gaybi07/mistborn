@@ -28,6 +28,7 @@ const METAL_TAGLINE := {
 	&"zinc": "Enciende emociones",
 	&"brass": "Apaga emociones",
 	&"copper": "Oculta y protege",
+	&"bronze": "Lee al enemigo",
 }
 
 var player: Player

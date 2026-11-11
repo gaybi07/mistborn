@@ -84,6 +84,13 @@ const SKILLS := [
 	{"id": &"copper_shared", "metal": &"copper", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Nube compartida"},
 	{"id": &"copper_closed_mind", "metal": &"copper", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Mente cerrada"},
 	{"id": &"copper_ghost", "metal": &"copper", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Fantasma"},
+	# Bronce (L10): leer al enemigo (ver BronzePowers).
+	{"id": &"bronze_pulses", "metal": &"bronze", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Pulsos"},
+	{"id": &"bronze_read", "metal": &"bronze", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Leer metales"},
+	{"id": &"bronze_foresee", "metal": &"bronze", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Anticipar"},
+	{"id": &"bronze_disrupt", "metal": &"bronze", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Pulso perturbador"},
+	{"id": &"bronze_track", "metal": &"bronze", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Rastreo"},
+	{"id": &"bronze_counter", "metal": &"bronze", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Contrapulso"},
 ]
 
 
@@ -155,6 +162,15 @@ const LAYOUTS := {
 			[&"copper_shared", Vector2(170, 150), [&"copper_cloud"]],
 			[&"copper_closed_mind", Vector2(320, 220), [&"copper_shared"]],
 			[&"copper_ghost", Vector2(400, 0), [&"copper_vanish", &"copper_closed_mind"]],
+		],
+		# Bronce: arriba, leer al que tenés enfrente (qué quema, cuándo ataca); abajo, encontrar a los que se esconden.
+		&"bronze": [
+			[&"bronze_pulses", Vector2(75, 0), [&"root"]],
+			[&"bronze_read", Vector2(170, -150), [&"bronze_pulses"]],
+			[&"bronze_foresee", Vector2(320, -220), [&"bronze_read"]],
+			[&"bronze_disrupt", Vector2(170, 150), [&"bronze_pulses"]],
+			[&"bronze_track", Vector2(320, 220), [&"bronze_disrupt"]],
+			[&"bronze_counter", Vector2(400, 0), [&"bronze_foresee", &"bronze_track"]],
 		],
 	},
 	&"feruchemy": {},
@@ -412,6 +428,16 @@ const COPPER_CLOSED_MIND := 0.5
 const COPPER_GHOST_TIME := 10.0
 const COPPER_GHOST_COOLDOWN := 60.0
 const COPPER_GHOST_STRIKE := 2.0  # crítico
+## Bronce (L10): duraciones y recargas (s), radios (m), en nivel 1.
+const BRONZE_DISRUPT_TIME := 8.0
+const BRONZE_DISRUPT_RADIUS := 15.0
+const BRONZE_DISRUPT_COOLDOWN := 25.0
+const BRONZE_TRACK_TIME := 20.0
+const BRONZE_TRACK_RANGE := 60.0
+const BRONZE_TRACK_COOLDOWN := 40.0
+const BRONZE_COUNTER_TIME := 4.0
+const BRONZE_COUNTER_RADIUS := 12.0
+const BRONZE_COUNTER_COOLDOWN := 60.0
 const SLAM_COOLDOWN := 12.0
 const SLAM_RADIUS := 6.0
 const FURY_TIME := 8.0
@@ -474,6 +500,12 @@ const DESCRIPTIONS := {
 	&"copper_shared": "Un toque: durante 15 s tu domado y los aliados a 8 m quedan bajo tu nube, inmunes al cinc y al latón ajenos.\nRecarga: 30 s.",
 	&"copper_closed_mind": "Pasiva, aunque no quemes cobre: lo que te hagan Aplacadores y Encendedores te dura la mitad, y el Aplacar del Lord Legislador te saca la mitad de aliento.",
 	&"copper_ghost": "Un toque: 10 s en que ningún NPC te ve; pasás entre guardias y koloss. Atacar lo termina, y ese golpe es un crítico (doble de daño).\nRecarga: 60 s.",
+	&"bronze_pulses": "Pasiva: lo que hace el bronce desde el principio. Mientras lo quemás, sentís a los alománticos que queman metales: ondas del color de su metal, a través de las paredes. A los que están en una nube de cobre no los sentís.",
+	&"bronze_read": "Pasiva: con bronce encendido, arriba de cada alomántico que sentís aparece qué metales quema (sabés si es Lanzamonedas, Aplacador, Humeador…).",
+	&"bronze_foresee": "Pasiva: con bronce encendido, el pulso de un alomántico brilla medio segundo antes de que use un poder. Tiempo justo para esquivar o hacer parry.",
+	&"bronze_disrupt": "Un toque: rompe las nubes de cobre a 15 m durante 8 s. Los Humeadores no pueden quemar cobre y ves a los que tapaban.\nRecarga: 25 s.",
+	&"bronze_track": "Un toque: durante 20 s, todos los alománticos a 60 m aparecen en la brújula y en el mapa.\nRecarga: 40 s.",
+	&"bronze_counter": "Un toque: una onda que les apaga todos los metales durante 4 s a los alománticos enemigos a 12 m. Se quedan sin poderes y trastabillan.\nRecarga: 60 s.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }
 

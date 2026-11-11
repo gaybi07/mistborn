@@ -63,7 +63,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [x] ✅ **L7. Cinc.** (enardecer) — *verificada 2026-11-10, rama `lucho/l7-cinc` (borrada), merge `9ca9394`*
 - [ ] 🔄 **L8. Latón.** (aplacar) — *en curso: Lucho, rama `lucho/l8-laton`, desde 2026-11-11*
 - [ ] 🔄 **L9. Cobre.** (ocultarse) — *en curso: Lucho, rama `lucho/l9-cobre` (sale de la de L8), desde 2026-11-11*
-- [ ] **L10. Bronce.** (detectar)
+- [ ] 🔄 **L10. Bronce.** (detectar) — *en curso: Lucho, rama `lucho/l10-bronce` (sale de la de L9), desde 2026-11-11*
 - [ ] **L11. Atium.** (ver el futuro)
 - [ ] **L12. Sacar "Otros metales"** y `direct_levels` cuando L7-L11 estén. Además (pedido de Lucho, 10/11), **la sala
   de poderes pasa a ser una sala de pruebas de verdad** (hoy Ctrl+F8, `scripts/training/skill_room.gd`: piso pelado y
@@ -334,3 +334,6 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Desvanecerse (cobre, `copper_vanish`) | `burn_focus` | Se encoge y se envuelve en humo, como fundiéndose con la bruma | |
 | Nube compartida (cobre, `copper_shared`) | `field` | Abre los brazos como cubriendo a alguien al lado | |
 | Fantasma (cobre, `copper_ghost`) | `burn_focus` | Cierra los ojos y baja los hombros; quieto, casi transparente | |
+| Pulso perturbador (bronce, `bronze_disrupt`) | `field` | Golpe seco de las dos palmas hacia afuera, como rompiendo algo invisible | |
+| Rastreo (bronce, `bronze_track`) | `extreme_senses` | Ojos cerrados, cabeza que gira despacio escuchando | |
+| Contrapulso (bronce, `bronze_counter`) | `mass_yank` | Junta las manos y suelta una onda hacia todos lados | |
