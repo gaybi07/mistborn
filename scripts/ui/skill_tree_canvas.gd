@@ -29,46 +29,6 @@ const SKILL_RADIUS := 23.0
 const LOCKED_RADIUS := 27.0
 const ZOOM_MIN := 0.45
 const ZOOM_MAX := 1.7
-## Diseño de la rama de cada metal: [habilidad, posición respecto a la raíz, de quién(es) nace]. Cada rama agrupa lo que va
-## junto (ataque con ataque, defensa con defensa) y cada metal tiene su propia forma. Los padres van antes que los hijos.
-const LAYOUTS := {
-	# Acero: un brazo de ataque a distancia con monedas (arriba) y otro de defensa (abajo).
-	&"steel": [
-		[&"steel_light_push", Vector2(75, -60), [&"root"]],
-		[&"steel_combat_coin", Vector2(140, -175), [&"steel_light_push"]],
-		[&"steel_coin_burst", Vector2(290, -235), [&"steel_combat_coin"]],
-		[&"steel_spear", Vector2(345, -95), [&"steel_coin_burst"]],
-		[&"steel_coin_shield", Vector2(75, 145), [&"root"]],
-		[&"steel_magnetic_field", Vector2(255, 220), [&"steel_coin_shield"]],
-	],
-	# Hierro: tirar de lo que sea. Arriba, sobre los enemigos; en medio, sobre las monedas; abajo, para moverte tú.
-	&"iron": [
-		[&"iron_pull", Vector2(75, -65), [&"root"]],
-		[&"iron_drag", Vector2(170, -185), [&"iron_pull"]],
-		[&"iron_disarm", Vector2(335, -240), [&"iron_drag"]],
-		[&"iron_mass_yank", Vector2(350, -115), [&"iron_drag"]],
-		[&"iron_coin_magnet", Vector2(255, 10), [&"iron_pull"]],
-		[&"iron_hook", Vector2(80, 150), [&"root"]],
-	],
-	# Peltre: la defensa arriba (aguantar y sobrevivir) y la ofensa abajo, que acaba en Furia.
-	# Estaño: el oído (arriba) llega a los sentidos extremos; el foco lleva a marcar; y abajo, mantener la cabeza fría.
-	&"tin": [
-		[&"tin_senses", Vector2(75, -65), [&"root"]],
-		[&"tin_ear", Vector2(185, -190), [&"tin_senses"]],
-		[&"tin_extreme", Vector2(340, -240), [&"tin_ear"]],
-		[&"tin_focus", Vector2(255, -10), [&"tin_senses"]],
-		[&"tin_mark", Vector2(345, 105), [&"tin_focus"]],
-		[&"tin_clear_mind", Vector2(80, 150), [&"root"]],
-	],
-	&"pewter": [
-		[&"pewter_endurance", Vector2(75, -100), [&"root"]],
-		[&"pewter_last_stand", Vector2(250, -195), [&"pewter_endurance"]],
-		[&"pewter_strike", Vector2(110, 95), [&"root"]],
-		[&"pewter_charge", Vector2(190, 215), [&"pewter_strike"]],
-		[&"pewter_slam", Vector2(345, 130), [&"pewter_strike"]],
-		[&"pewter_fury", Vector2(355, 255), [&"pewter_charge", &"pewter_slam"]],
-	],
-}
 
 ## Tamaño (px, sin zoom) del lienzo; crece con la cantidad de ramas.
 var _design := MIN_DESIGN
@@ -107,7 +67,7 @@ func _build() -> void:
 		column += 1
 		_roots.append({"metal": metal, "pos": root, "radius": ROOT_RADIUS, "has_skills": true})
 		var positions := {&"root": root}
-		for entry: Array in LAYOUTS.get(metal, []):
+		for entry: Array in SkillTree.LAYOUTS[&"allomancy"].get(metal, []):
 			var from: Array[Vector2] = []
 			for parent: StringName in entry[2]:
 				from.append(positions[parent])

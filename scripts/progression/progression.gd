@@ -1,13 +1,19 @@
 class_name Progression
-## Progreso del jugador: nivel, experiencia y nivel de cada metal. Cada nivel de jugador da un punto de
-## alomancia; subir un nivel de metal cuesta puntos (atium, el doble y con tope más bajo). Se puede reasignar
-## todo fuera de combate. Se guarda en user://progression.cfg (ver docs/arbol-de-habilidades.md).
+## Progreso del jugador: nivel, experiencia y puntos en cada poder (ver docs/PLAN_PROGRESION.md). Lo único que se
+## guarda es el nivel de cada poder; el nivel de un metal es la suma de los puntos en sus poderes. Hay
+## maxi(nivel, START_POINTS) puntos: 3 en los niveles 1-3 y uno más por nivel hasta 100. Se reasigna gratis.
+## Se guarda en user://progression.cfg.
 
-const PATH := "user://progression.cfg"
+## var y no const: progression_check la apunta a otro archivo para no pisar la partida.
+static var save_path := "user://progression.cfg"
 const MAX_LEVEL := 100
+const START_POINTS := 3
+## Inicio recomendado (los 3 puntos del comienzo): Empuje y Tirón básicos y la Moneda de combate.
+const START_SKILLS := {&"steel_light_push": 1, &"iron_pull": 1, &"steel_combat_coin": 1}
+## shortcut: tope y costo de los metales que se suben directo (sin poderes todavía) y de la validación de red;
+## se van con L12 (direct_levels) y L19 (red).
 const MAX_METAL_LEVEL := 20
 const MAX_ATIUM_LEVEL := 10
-## Metales que se tienen en nivel 1 sin gastar puntos.
 const FREE_METALS: Array[StringName] = [&"steel", &"iron"]
 
 ## Ranuras de habilidades activas: cada una tiene una tecla (reasignable) y la habilidad que el jugador puso.
@@ -26,8 +32,11 @@ static var coin_key := DEFAULT_COIN_KEY
 ## Habilidad de cada ranura (&"" = vacía) y su tecla.
 static var slot_skills: Array[StringName] = []
 static var slot_keys: Array[int] = []
-## Nivel de cada metal (0 = todavía no aprendido).
-static var metal_levels: Dictionary = {}
+## Nivel de cada poder (id -> 0..SkillTree.max_level). Falta = 0.
+static var skill_levels: Dictionary = {}
+## shortcut: niveles de los metales sin poderes (atium, cinc, cobre, bronce, latón), subidos directo como antes;
+## se borra con L12, cuando todos tengan poderes.
+static var direct_levels: Dictionary = {}
 static var _loaded := false
 ## Sube cada vez que el progreso cambia (los clientes lo usan para reenviarlo al servidor).
 static var revision := 0
@@ -37,14 +46,17 @@ static func _static_init() -> void:
 	reset()
 
 
-## Vuelve al inicio: jugador 1 con acero y hierro en nivel 1.
+## Vuelve al inicio: jugador 1 con el inicio recomendado.
 static func reset() -> void:
 	level = 1
 	xp = 0
-	metal_levels.clear()
-	for m: StringName in Allomancy.METALS:
-		metal_levels[m] = 1 if m in FREE_METALS else 0
+	_start_skills()
 	reset_slots()
+
+
+static func _start_skills() -> void:
+	skill_levels = START_SKILLS.duplicate()
+	direct_levels.clear()
 
 
 ## Ranuras y teclas por defecto: Empuje básico en Q, Tirón básico en E y la moneda de combate en el clic derecho.
@@ -107,29 +119,48 @@ static func rebind_coin(code: int) -> bool:
 	return true
 
 
+static func skill_level(id: StringName) -> int:
+	return int(skill_levels.get(id, 0))
+
+
+## Suma de los puntos en los poderes de ese metal (de los dos árboles) más su nivel directo. 0 = no aprendido.
 static func metal_level(metal: StringName) -> int:
-	return int(metal_levels.get(metal, 0))
+	return metal_level_of(skill_levels, direct_levels, metal)
+
+
+## Lo mismo para cualquier juego de niveles (sirve también para lo que manda un cliente en red).
+static func metal_level_of(levels: Dictionary, direct: Dictionary, metal: StringName) -> int:
+	var total := int(direct.get(metal, 0))
+	for s: Dictionary in SkillTree.skills_of(metal):
+		total += int(levels.get(s["id"], 0))
+	return total
+
+
+## Metal que todavía no tiene poderes: se sube directo con "+".
+static func is_direct_metal(metal: StringName) -> bool:
+	return Allomancy.METALS.has(metal) and SkillTree.skills_of(metal).is_empty()
 
 
 static func metal_cap(metal: StringName) -> int:
 	return MAX_ATIUM_LEVEL if metal == &"atium" else MAX_METAL_LEVEL
 
 
-## Puntos que cuesta cada nivel de ese metal.
+## Puntos que cuesta cada nivel directo de ese metal.
 static func point_cost(metal: StringName) -> int:
 	return 2 if metal == &"atium" else 1
 
 
-## Un punto por cada nivel de jugador por encima del 1.
+## 3 puntos en los niveles 1-3, después uno por nivel (100 en el 100).
 static func points_total() -> int:
-	return level - 1
+	return maxi(level, START_POINTS)
 
 
 static func points_spent() -> int:
 	var spent := 0
-	for m: StringName in metal_levels:
-		var free := 1 if m in FREE_METALS else 0
-		spent += maxi(metal_level(m) - free, 0) * point_cost(m)
+	for id: StringName in skill_levels:
+		spent += skill_level(id) * SkillTree.skill_cost(id)
+	for m: StringName in direct_levels:
+		spent += int(direct_levels[m]) * point_cost(m)
 	return spent
 
 
@@ -159,24 +190,81 @@ static func add_xp(amount: int) -> int:
 	return gained
 
 
+static func can_raise_skill(id: StringName) -> bool:
+	return not SkillTree.find(id).is_empty() and skill_level(id) < SkillTree.max_level(id) \
+			and points_free() >= SkillTree.skill_cost(id) and SkillTree.requirements_met(id)
+
+
+static func raise_skill(id: StringName) -> bool:
+	if not can_raise_skill(id):
+		return false
+	skill_levels[id] = skill_level(id) + 1
+	save()
+	return true
+
+
+## Costo de devolver un punto. Hoy es gratis; es la única costura para cobrar más adelante.
+static func refund_cost() -> int:
+	return 0
+
+
+## Poder que quedaría sin su requisito si se baja un punto de `id` (&"" = ninguno, se puede bajar).
+static func lower_blocker(id: StringName) -> StringName:
+	if skill_level(id) <= 0:
+		return &""
+	skill_levels[id] = skill_level(id) - 1
+	var blocker := &""
+	for other: StringName in skill_levels:
+		if skill_level(other) > 0 and not SkillTree.requirements_met(other):
+			blocker = other
+			break
+	skill_levels[id] = skill_level(id) + 1
+	return blocker
+
+
+static func can_lower_skill(id: StringName) -> bool:
+	return skill_level(id) > 0 and lower_blocker(id) == &"" and points_free() + SkillTree.skill_cost(id) >= refund_cost()
+
+
+static func lower_skill(id: StringName) -> bool:
+	if not can_lower_skill(id):
+		return false
+	skill_levels[id] = skill_level(id) - 1
+	if skill_level(id) == 0:
+		skill_levels.erase(id)
+	prune_slots()
+	save()
+	return true
+
+
+## shortcut: "+" de los metales sin poderes (ver direct_levels).
 static func can_raise(metal: StringName) -> bool:
-	return metal_levels.has(metal) and metal_level(metal) < metal_cap(metal) and points_free() >= point_cost(metal)
+	return is_direct_metal(metal) and metal_level(metal) < metal_cap(metal) and points_free() >= point_cost(metal)
 
 
 static func raise_metal(metal: StringName) -> bool:
 	if not can_raise(metal):
 		return false
-	metal_levels[metal] = metal_level(metal) + 1
+	direct_levels[metal] = int(direct_levels.get(metal, 0)) + 1
 	save()
 	return true
 
 
-## Devuelve todos los puntos. Acero y hierro quedan en 1; las ranuras con habilidades perdidas se vacían.
+## Devuelve todos los puntos y deja el inicio recomendado; las ranuras con habilidades perdidas se vacían.
 static func respec() -> void:
-	for m: StringName in metal_levels:
-		metal_levels[m] = 1 if m in FREE_METALS else 0
+	_start_skills()
 	prune_slots()
 	save()
+
+
+## Si los niveles cargados son posibles: cada poder con sus requisitos y sin gastar más puntos de los que hay.
+static func is_valid() -> bool:
+	if points_free() < 0:
+		return false
+	for id: StringName in skill_levels:
+		if skill_level(id) > 0 and not SkillTree.requirements_met(id):
+			return false
+	return true
 
 
 ## Vacía las ranuras cuya habilidad ya no está desbloqueada.
@@ -247,20 +335,31 @@ static func load_progress() -> void:
 		return
 	_loaded = true
 	var cfg := ConfigFile.new()
-	if cfg.load(PATH) != OK:
+	if cfg.load(save_path) != OK:
 		return
 	level = clampi(int(cfg.get_value("jugador", "nivel", level)), 1, MAX_LEVEL)
 	xp = maxi(int(cfg.get_value("jugador", "xp", xp)), 0)
-	for m: StringName in metal_levels:
-		var saved := clampi(int(cfg.get_value("metales", String(m), metal_levels[m])), 0, metal_cap(m))
-		metal_levels[m] = maxi(saved, 1 if m in FREE_METALS else 0)
-	# Un archivo editado a mano no puede dar más niveles de los que pagan los puntos.
-	if points_free() < 0:
-		respec()
+	# Antes de la versión 5 los puntos iban en metales ([metales]): se ignoran y queda el inicio recomendado.
+	if int(cfg.get_value("ranuras", "version", 1)) >= 5:
+		skill_levels.clear()
+		direct_levels.clear()
+		for key: String in (cfg.get_section_keys("poderes") if cfg.has_section("poderes") else PackedStringArray()):
+			var id := StringName(key)
+			var lvl := clampi(int(cfg.get_value("poderes", key)), 0, SkillTree.max_level(id))
+			if not SkillTree.find(id).is_empty() and lvl > 0:
+				skill_levels[id] = lvl
+		for key: String in (cfg.get_section_keys("metales_directos") if cfg.has_section("metales_directos") else PackedStringArray()):
+			var m := StringName(key)
+			var lvl := clampi(int(cfg.get_value("metales_directos", key)), 0, metal_cap(m))
+			if is_direct_metal(m) and lvl > 0:
+				direct_levels[m] = lvl
 	for i in SLOT_COUNT:
 		slot_skills[i] = StringName(cfg.get_value("ranuras", "habilidad_%d" % i, ""))
 		slot_keys[i] = int(cfg.get_value("ranuras", "tecla_%d" % i, DEFAULT_SLOT_KEYS[i]))
 	coin_key = int(cfg.get_value("ranuras", "tecla_moneda", DEFAULT_COIN_KEY))
+	# Un archivo editado a mano no puede dar más de lo que pagan los puntos ni saltear requisitos.
+	if not is_valid():
+		_start_skills()
 	prune_slots()
 	# Guardados anteriores: Empuje básico y Tirón básico pasan a venir puestos en Q y E (se mueve lo que hubiera ahí).
 	# La ranura que tenía la R ahora es la 5 (si no la cambiaste).
@@ -289,11 +388,13 @@ static func save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("jugador", "nivel", level)
 	cfg.set_value("jugador", "xp", xp)
-	for m: StringName in metal_levels:
-		cfg.set_value("metales", String(m), metal_levels[m])
+	for id: StringName in skill_levels:
+		cfg.set_value("poderes", String(id), skill_level(id))
+	for m: StringName in direct_levels:
+		cfg.set_value("metales_directos", String(m), int(direct_levels[m]))
 	for i in SLOT_COUNT:
 		cfg.set_value("ranuras", "habilidad_%d" % i, String(slot_skills[i]))
 		cfg.set_value("ranuras", "tecla_%d" % i, slot_keys[i])
 	cfg.set_value("ranuras", "tecla_moneda", coin_key)
-	cfg.set_value("ranuras", "version", 4)
-	cfg.save(PATH)
+	cfg.set_value("ranuras", "version", 5)
+	cfg.save(save_path)

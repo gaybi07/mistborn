@@ -1,12 +1,12 @@
 extends Node
-## Uso: Godot --path . res://tools/anim_check/aim_pitch_check.tscn -- <carpeta para las fotos> [nivel de acero]
+## Uso: Godot --path . res://tools/anim_check/aim_pitch_check.tscn -- <carpeta para las fotos> [nivel de la Ráfaga, 1-5]
 ## (es una escena y no un -s porque la sala de poderes lleva el HUD, que necesita los autoloads).
 ## En la sala de poderes, con Vin, en el aire, revisa el humo de cada poder apuntado:
 ## - lanza y ráfaga, en varias inclinaciones: el humo sale del pecho y el rayo del medio termina sobre la línea de la mira;
 ## - embestida: sale de los pies hacia donde mira la cámara, por el piso;
 ## - golpe al piso, tirón y campo: el aro va alrededor de los pies.
-## Los niveles van solo en memoria (no se guarda). Con menos de nivel 20 de acero no se prueba la lanza; el abanico de la
-## ráfaga crece con el nivel.
+## Los niveles van solo en memoria (no se guarda). La sala pone todo al máximo; el nivel de la Ráfaga se puede bajar
+## (su abanico crece con el nivel, desde L2).
 func _ready() -> void:
 	Art.player_model = "vin"
 	var room: TrainingRoom = load("res://scenes/skill_room.tscn").instantiate()
@@ -15,10 +15,10 @@ func _ready() -> void:
 	for i in 30: await tree.physics_frame
 	var player := room.player
 	var args := OS.get_cmdline_user_args()
-	var level := int(args[1]) if args.size() > 1 else 20
-	Progression.metal_levels[&"steel"] = level
+	var level := int(args[1]) if args.size() > 1 else SkillTree.max_level(&"steel_coin_burst")
+	Progression.skill_levels[&"steel_coin_burst"] = level
 	var cases := []
-	for skill in ([&"steel_spear", &"steel_coin_burst"] if level >= 20 else [&"steel_coin_burst"]):
+	for skill in [&"steel_spear", &"steel_coin_burst"]:
 		for pitch_deg in [0.0, -25.0, -50.0, -85.0, 40.0]:
 			cases.append([skill, pitch_deg])
 	for skill in [&"pewter_charge", &"pewter_slam", &"iron_mass_yank", &"steel_magnetic_field"]:
