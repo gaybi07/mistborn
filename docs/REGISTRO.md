@@ -35,6 +35,18 @@ Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arrib
 - **Pendiente o pedidos:** G22 (taller, Gabi): el paso "gastar un punto" hoy se da por hecho solo. En red, los
   poderes de los otros jugadores se siguen calculando por nivel de metal hasta L19. Sigue L6.
 
+### 2026-11-10 · G9 · Spook · Gabi
+- **Rama:** `gabi/g9-spook` (borrada) · **Merge:** `ba9a003` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** el modelo de Meshy ("Blindfolded Wanderer", riggeado con Mixamo, con Walking y Running) en
+  `assets/meshy/Spook.glb`; NPC junto al taller (`Art.CIVILIANS`, `GateForces.PEOPLE`); `Story.NPCS["spook"]` con
+  modelo; su conversación (`Dialogues.LINES["spook"]`) da la misión de la pista de saltos, que antes daba Clubs.
+- **Archivos:** `assets/meshy/Spook.glb` (nuevo), `scripts/core/art.gd`, `scripts/npc/gate_forces.gd`,
+  `scripts/story/story.gd`, `scripts/story/dialogues.gd`, `tools/story/quest_check.gd`.
+- **Cómo se probó:** foto en el taller (con la venda, caminando); se le habla con E; `quest_check.gd` pasa (la pista
+  la da Spook); el juego corre sin errores. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** ronda 2; ya se puede hacer la G15 (kandra), que esperaba a Spook.
+
 ### 2026-11-10 · G22 · Adaptar a la progresión nueva · Gabi
 - **Rama:** `gabi/g22-progresion-nueva` (borrada) · **Merge:** `04527b5` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** con L1-L5 de Lucho, una partida nueva arranca con los 3 puntos puestos y ninguno libre: la misión

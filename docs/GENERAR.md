@@ -16,7 +16,7 @@ Los textos de abajo son una base: cambialos si algo no te cierra.
 
 | # | Quién | Para qué | Texto |
 |---|---|---|---|
-| P6 | **Spook** | G9: maestro del estilo Volador (hoy su misión la da Clubs), aliado, posible kandra (G15) | `Lanky teenage skaa boy, thin, messy hair, worn dark street clothes, full body, T-pose, no weapons` |
+| ~~P6~~ | ~~**Spook**~~ (llegó, G9) | G9: maestro del estilo Volador (hoy su misión la da Clubs), aliado, posible kandra (G15) | `Lanky teenage skaa boy, thin, messy hair, worn dark street clothes, full body, T-pose, no weapons` |
 | P19 | **Yomen** | Acto 3: obligador que gobierna otra ciudad | `Thin bald obligator, intricate tattoos around the eyes, small bead on the forehead, gray robes, composed expression, full body, T-pose, no weapons` |
 
 ## 2. Enemigos

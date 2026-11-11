@@ -84,7 +84,7 @@ Todos los modelos riggeados en Meshy con esqueleto de Mixamo pueden compartir cl
 
 ### Segunda tanda: maestros y banda (Acto 1)
 
-- [ ] **P6. Spook.** `Lanky teenage skaa boy, thin, messy hair, worn dark street clothes, full body, T-pose, no weapons`
+- [x] **P6. Spook.** Hecho en G9 (llegó como "Blindfolded Wanderer"). `Lanky teenage skaa boy, thin, messy hair, worn dark street clothes, full body, T-pose, no weapons`
 - [x] **P7. Ham.** `Very muscular man, square jaw, short brown hair, sleeveless vest with bare arms, simple trousers, full body, T-pose, no weapons`
 - [x] **P8. Breeze.** `Plump well-groomed man in his forties, elegant dark noble suit and vest, confident smug expression, full body, T-pose, no weapons`
 - [x] **P9. Dockson.** `Stocky man in his thirties, short dark beard, tidy practical dark suit, calm expression, full body, T-pose, no weapons`
