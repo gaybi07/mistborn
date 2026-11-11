@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G22. Adaptar a la progresión nueva | `gabi/g22-progresion-nueva` | 2026-11-10 |
 
 ## Cómo trabajamos
 
@@ -185,7 +185,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   (seis tramos de distinta altura y estado, tres torres y un portón con dos torres) y 12 puertas: las tres de la
   historia y nueve con nombre de metal, cada una con camino corto, dos guardias y calle hacia adentro.
   — *en develop 2026-11-10, rama `gabi/g29-muralla` (borrada), merge `3a02a7b`; falta revisar (ronda 2)*
-- [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
+- [ ] 🔄 **G22. Adaptar lo que depende de la progresión de Lucho** — *en curso: Gabi, rama `gabi/g22-progresion-nueva`, desde 2026-11-10 (L1-L5 ya están)*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
   - si no hay puntos libres, hoy el paso se da por hecho solo: con los 3 puntos del inicio eso ya no pasa;

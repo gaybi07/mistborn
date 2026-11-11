@@ -219,6 +219,9 @@ static func advance(id: String) -> void:
 		return
 	active[id] = int(active[id]) + 1
 	if current_step(id).get("spend", false):
+		# Una partida nueva arranca con los 3 puntos del inicio ya puestos: Clubs te entrena hasta tener uno libre.
+		while Progression.points_free() < 1 and Progression.level < Progression.MAX_LEVEL:
+			Progression.add_xp(Progression.xp_for_next(Progression.level) - Progression.xp)
 		outcome[id + "_spent"] = Progression.points_spent()
 	revision += 1
 
