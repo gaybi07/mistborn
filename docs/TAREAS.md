@@ -331,3 +331,6 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Rendición (latón, `brass_yield`) | `burn_focus` | Mano extendida hacia el NPC, firme, pidiéndole que suelte el arma | |
 | Sosegar multitud (latón, `brass_crowd`) | `field` | Los dos brazos bajan despacio en abanico hacia adelante | |
 | Paz absoluta (latón, `brass_peace`) | `clear_mind` | Brazos abiertos, ojos cerrados, onda calma en todas direcciones | |
+| Desvanecerse (cobre, `copper_vanish`) | `burn_focus` | Se encoge y se envuelve en humo, como fundiéndose con la bruma | |
+| Nube compartida (cobre, `copper_shared`) | `field` | Abre los brazos como cubriendo a alguien al lado | |
+| Fantasma (cobre, `copper_ghost`) | `burn_focus` | Cierra los ojos y baja los hombros; quieto, casi transparente | |

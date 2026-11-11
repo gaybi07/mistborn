@@ -273,7 +273,7 @@ func _soothe(p: Dictionary, id: int) -> void:
 func _soothe_hit(v: Node3D, p: Dictionary) -> void:
 	AirFx.cloud(_scene(), _chest(v), 1.2, COLORS["brass"], 1.5, 4, 0.5)
 	if v is Player:
-		v.set(&"stamina", maxf(float(v.get(&"stamina")) - p["drain"], 0.0))
+		v.set(&"stamina", maxf(float(v.get(&"stamina")) - p["drain"] * float(v.call(&"emotion_resist")), 0.0))  # Mente cerrada
 		v.emit_signal(&"notice", "Te aplacan: sin aliento")
 
 

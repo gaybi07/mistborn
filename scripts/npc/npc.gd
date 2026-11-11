@@ -80,6 +80,9 @@ const EMOTION_REACH := 2.2
 const EMOTION_DAMAGE := 12.0
 ## Latón (L8, ver BrassPowers): desalentado pega menos, se mueve más lento y no bloquea.
 var _dishearten_until := -1.0
+## Cobre (L9, ver CopperPowers): te perdió de vista hasta _lost_until; bajo tu nube (inmune) hasta _cloud_until.
+var _lost_until := -1.0
+var _cloud_until := -1.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -189,7 +192,7 @@ func apply_emotion(metal: StringName, strength: float, _source: Node3D) -> bool:
 
 
 func _burns_copper() -> bool:
-	return false
+	return _world_time < _cloud_until  # bajo la Nube compartida del jugador (cobre)
 
 
 # ---------------------------------------------------------------- Cinc (L7)
@@ -321,10 +324,27 @@ func yield_to(who: Player, xp_share: float) -> bool:
 	return true
 
 
+# ---------------------------------------------------------------- Cobre (L9)
+
+## Desvanecerse / Fantasma: deja de seguirte `time` s y se queda buscando.
+func lose_track(time: float) -> void:
+	if not down and not is_tamed():
+		_lost_until = maxf(_lost_until, _world_time + time)
+
+
+## Nube compartida: `time` s bajo la nube del jugador (inmune al cinc y al latón ajenos).
+func cloud_for(time: float) -> void:
+	_cloud_until = maxf(_cloud_until, _world_time + time)
+
+
 ## Lo que manda el cinc en vez de _think. Devuelve false si no hay ninguna emoción en marcha.
 func _emotion_think(delta: float) -> bool:
 	if surrendered:
 		_emotion_move(Vector3.ZERO)  # rendido (latón): se queda quieto, sin pelear
+		face_point = null
+		return true
+	if _world_time < _lost_until and not is_tamed():
+		_emotion_move(Vector3.ZERO)  # te perdió de vista (cobre): se queda buscando
 		face_point = null
 		return true
 	if _panic_until > 0.0 and _world_time >= _panic_until:
@@ -495,6 +515,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		damage *= 0.6  # Desaliento (latón)
 	if attacker != null and attacker.has_method(&"mark_bonus"):
 		damage *= attacker.mark_bonus(self)  # Marca del cazador (estaño)
+	if attacker is Player:
+		damage *= (attacker as Player).strike_bonus(self)  # golpe a traición (cobre), atium
 	_on_hit(attacker)
 	if damage > 0.0:
 		rig.flash()

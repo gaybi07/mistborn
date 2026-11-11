@@ -114,3 +114,13 @@ func _fx(at: Node3D, gesture: String, radius := 2.0) -> void:
 ## Cuánto multiplica la distancia a la que te ven (Player.concealment). 1 = nada.
 func concealment() -> float:
 	return 1.0
+
+
+## Multiplicador del golpe que el jugador le da a `npc` ahora (golpe a traición, crítico); puede gastar el efecto.
+func strike_bonus(_npc: Npc) -> float:
+	return 1.0
+
+
+## Cuánto dura sobre el jugador el cinc o el latón ajenos (Mente cerrada). 1 = entero.
+func emotion_resist() -> float:
+	return 1.0
