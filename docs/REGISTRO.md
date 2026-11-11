@@ -23,6 +23,24 @@ Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arrib
 - **Pendiente o pedidos:** G22 (taller, Gabi): el paso "gastar un punto" hoy se da por hecho solo. En red, los
   poderes de los otros jugadores se siguen calculando por nivel de metal hasta L19. Sigue L6.
 
+### 2026-11-10 · G29 · Muralla rehecha · Gabi
+- **Rama:** `gabi/g29-muralla` (borrada) · **Merge:** `3a02a7b` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:** `tools/blender/make_luthadel_wall.py` genera seis tramos de 12 m (alto, bajo, con almenas rotas,
+  remendado, con contrafuertes, viejo y vencido), torres redonda, cuadrada y rota, y un portón con dos torres,
+  rastrillo, matacán y estandarte, con una textura nueva de sillar grande tiznado. `main.gd` arma la muralla con esas
+  piezas, sin dos tramos iguales seguidos (semilla propia: no mueve las casas). 12 puertas en `CityPlan.GATE_SPECS`:
+  las tres de la historia y nueve con nombre de metal, cada una con camino corto (`Exterior`), dos guardias
+  (`GateForces`) y una calle hacia adentro (`CityPlan.main_streets`).
+- **Archivos:** `assets/luthadel/muralla/` y la textura `muralla` (nuevos), `make_luthadel_wall.py` y
+  `tools/world/wall_check.gd` (nuevos), `make_luthadel_textures.py`, `make_luthadel_kit.py`, `scripts/main.gd`,
+  `scripts/world/city_plan.gd`, `exterior.gd`, `model_kit.gd`, `scripts/npc/gate_forces.gd`.
+- **Cómo se probó:** las diez piezas pasan `qa_check.py`; `wall_check.gd` (12 puertas, fuera del agua, lejos del foso,
+  el campamento y la aldea, cada portón se cruza caminando); el juego corre sin errores; `quest_check.gd` y
+  `tramo_check.gd` pasan. Sin jugar.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** ronda 2. Los árboles de afuera cambiaron de lugar. Los nombres de las nueve puertas
+  nuevas son de metales; si el libro nombra otras, se cambian en `GATE_SPECS`.
+
 ### 2026-11-10 · G28 · Casas modulares · Gabi
 - **Rama:** `gabi/g28-casas-modulares` (borrada) · **Merge:** `fffd775` · **Estado:** 🧪 falta revisar (ronda 2)
 - **Qué se hizo:** `tools/blender/make_luthadel_houses.py` arma 48 casas combinando módulos con las texturas de G27:

@@ -181,15 +181,10 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [x] 🧪 **G28. Casas modulares** (generadas en Blender con las texturas de G27): 24 casas de barrios buenos y 24 skaa,
   combinando módulos, puestas en sus barrios y en el pueblo del Camino Sur.
   — *en develop 2026-11-10, rama `gabi/g28-casas-modulares` (borrada), merge `fffd775`; falta revisar (ronda 2)*
-- [ ] **G29. Muralla de Luthadel, rehecha** (pedido de Gabi, 10/11): hoy es una fila pareja de piezas de Quaternius
-  con 3 puertas. Tiene que verse medieval e imperfecta:
-  - altos y bajos: tramos de distinta altura, lienzos remendados, almenas rotas, contrafuertes, algún tramo más viejo;
-  - textura propia (sillar grande tiznado, distinto del de las casas), generada como las de G27;
-  - **12 puertas**, como en el libro, cada una con sus torres; en algunas zonas, varias puertas cerca;
-  - cada puerta con su camino afuera (`Exterior`), su puesto de guardia (`GateForces`) y su nombre en el mapa;
-  - revisar lo que hoy depende de las 3 puertas: `CityPlan.GATE_SPECS`, los enemigos de cada puerta, la reja del río
-    y los lugares de la historia (Puerta Este, afueras del oeste, Camino Sur).
-  Listo cuando la muralla se ve irregular, tiene las 12 puertas con torres y nada de lo anterior quedó roto.
+- [x] 🧪 **G29. Muralla de Luthadel, rehecha** (pedido de Gabi, 10/11): piezas propias con textura de sillar grande
+  (seis tramos de distinta altura y estado, tres torres y un portón con dos torres) y 12 puertas: las tres de la
+  historia y nueve con nombre de metal, cada una con camino corto, dos guardias y calle hacia adentro.
+  — *en develop 2026-11-10, rama `gabi/g29-muralla` (borrada), merge `3a02a7b`; falta revisar (ronda 2)*
 - [ ] ⏸️ **G22. Adaptar lo que depende de la progresión de Lucho** — *espera a L1-L6*. Hoy, con la progresión vieja:
   - el paso "Gastar un punto en el árbol (K)" de la misión del taller (`QuestLog.STEPS["el_taller"]`, chequeado en
     `QuestTracker` con `Progression.points_spent()` / `points_free()`): pasarlo a puntos por poder y "elegir estilo";
@@ -271,6 +266,15 @@ ahí cada tarea pasa a ✅. Para cerrar la ronda: "revisemos la ronda 1".
   - [ ] nada flotando ni enterrado en las calles en pendiente; puertas que den a la calle;
   - [ ] la persecución de los tejados con los techos nuevos, más empinados (¿se puede correr por ellos?);
   - [ ] los FPS en los barrios densos (2411 casas, unos 900 triángulos cada una).
+
+- [ ] **G29. Muralla** (rodear la ciudad por afuera y entrar por varias puertas):
+  - [ ] que se vea medieval e imperfecta: altos y bajos, almenas rotas, remiendos, contrafuertes, torres variadas;
+  - [ ] las 12 puertas en el mapa con su nombre; cruzar caminando por cada portón y por la del Cinc y la del Latón,
+    que están cerca una de otra;
+  - [ ] los caminos cortos de las puertas nuevas y sus dos guardias (no deberían atacar si no les pegás);
+  - [ ] el paso del río bajo la muralla con sus rejas, y la Puerta Este, que está a 25 m del río;
+  - [ ] los árboles y troncos de afuera cambiaron de lugar (los caminos nuevos usan la misma semilla): que no tapen
+    nada; los FPS mirando la muralla de lejos.
 
 ### Cuando Lucho suba la progresión nueva (L1-L6)
 
