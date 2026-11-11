@@ -7,7 +7,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 | Tema | Decisión |
 |---|---|
 | Techo | Jugador nivel 100; cada poder, nivel 5. El nivel de un metal es la suma de los puntos en sus poderes (ver `docs/PLAN_PROGRESION.md`) |
-| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, cinc, cobre, bronce, latón) se suben directo; atium cuesta 2 por nivel |
+| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, cobre, bronce, latón) se suben directo; atium cuesta 2 por nivel |
 | Elección | Para poner un punto en un poder, todos los poderes de los que nace (en su rama) tienen que tener al menos 1. No alcanza para maxear todo |
 | Reasignar | En cualquier momento, sin costo: "−" por poder (si ninguno que depende de él queda sin requisito) o "Devolver todos los puntos" |
 | XP | Combate y objetivos, más un bonus chico por usar cada metal con tope por minuto |
@@ -83,14 +83,18 @@ A = activa (ocupa ranura). P = pasiva (automática).
 | 20 | A · Sentidos extremos: 12 s viendo a todos hasta 45 m tras paredes, en tiempo real y más marcados. Recarga 35 s |
 
 ### Cinc
+Cada poder enciende una emoción en los NPC (código: `ZincPowers` y los estados de `Npc`). Quien quema cobre lo
+resiste; los jefes (`Champion`) no se dejan domar. Rama: Furia → Contagio emocional; Pánico → Avaricia → Domar; la
+Tormenta pide Contagio y Domar. Cada nivel de un poder alarga su duración un 15 %.
+
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Provocar: un NPC se fija en ti |
-| 4 | A · Enfurecer: ataca sin cuidado |
-| 8 | A · Redirigir: ataca a otro NPC |
-| 12 | A · Frenesí: enfurece en un área |
-| 16 | P · Ira contagiosa: la furia se propaga |
-| 20 | A · Ira masiva: enfurece a todos en rango |
+| 1 | A · Furia (ira): enardece al NPC en la mira 10 s; ataca más seguido, recibe +25 % de daño y no retrocede. Si mata a otro NPC mientras dura, te llevás el 50 % de la experiencia. Recarga 12 s |
+| 4 | A · Pánico (miedo): el NPC en la mira suelta la guardia y huye 8 s (un guardia abandona su puesto); los que están a 8 m y lo ven huir se asustan la mitad. Recarga 20 s |
+| 8 | A · Avaricia (codicia): lanzás una moneda adonde apuntás y los NPC a 12 m van a buscarla 6 s, sin hacerte caso. Cuesta una moneda. Recarga 18 s |
+| 12 | A · Domar (lealtad): un NPC común te sigue y pelea por vos 45 s (los de más de 100 de vida, un 45 % de eso; los jefes no se dejan). Toda la experiencia de lo que mate es tuya. Uno a la vez. Recarga 40 s |
+| 16 | P · Contagio emocional: la Furia y el Pánico se pasan a los que están a 6 m, con la mitad de duración |
+| 20 | A · Tormenta de emociones: en 15 m, 20 s: ira a los que pelean (se atacan entre ellos y te llevás el 50 % de la experiencia de esas muertes), pánico a los ciudadanos y lealtad al más débil de los que pelean. Recarga 60 s |
 
 ### Latón
 | Nivel | Habilidad |

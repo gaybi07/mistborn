@@ -302,4 +302,8 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 
 | Poder | Clip provisorio | Qué tiene que verse | Hecho |
 |---|---|---|---|
-| | | | |
+| Furia (cinc, `zinc_fury`) | `hunter_mark` (señalar) | Señala al NPC con el brazo tenso y el puño cerrado, como azuzándolo; corto (~1 s) | |
+| Pánico (cinc, `zinc_panic`) | `field` | Gesto brusco de espantar hacia adelante, como para asustar | |
+| Avaricia (cinc, `zinc_greed`) | `play_throw` (tirar moneda) | Lanza una moneda en parábola hacia donde apunta, de costado y despreocupado | |
+| Domar (cinc, `zinc_tame`) | `burn_focus` | Mano extendida hacia el NPC, palma abierta, invitándolo a seguirlo | |
+| Tormenta de emociones (cinc, `zinc_storm`) | `fury` (rugido) | Abre los brazos y libera una onda en todas direcciones; más grande que Furia | |

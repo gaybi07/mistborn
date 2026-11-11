@@ -553,7 +553,7 @@ Avivarlo hasta agotarlo te deja 15 s lento y débil (arrastre de peltre).
 
 [color=#fff2c8][b]ATIUM (4)[/b][/color]  esquivás solos los golpes y monedas de quien no lo quema.
 
-[color=#d9604d][b]CINC (Z)[/b][/color] y [color=#8fbf9a][b]LATÓN (B)[/b][/color]  alomancia emocional sobre el que tenés en la mira. Cinc lo enardece (ataca más, recibe más); latón lo aplaca (deja de atacar).
+[color=#d9604d][b]CINC (Z)[/b][/color] y [color=#8fbf9a][b]LATÓN (B)[/b][/color]  alomancia emocional sobre el que tenés en la mira. Cinc lo enardece (ataca más, recibe más); latón lo aplaca (deja de atacar). Los poderes del cinc (Furia, Pánico, Avaricia, Domar, Tormenta) se ponen en el árbol (K).
 [color=#c77a4d][b]COBRE (X)[/b][/color]  te vuelve invisible al bronce e inmune a cinc y latón.
 [color=#d9a65a][b]BRONCE (C)[/b][/color]  sentís a los alománticos que queman metales. [color=#d1dbb3][b]ESTAÑO (V)[/b][/color]  ves más lejos en la bruma y te recuperás antes de los golpes.
 

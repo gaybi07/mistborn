@@ -63,6 +63,13 @@ const SKILLS := [
 	{"id": &"tin_mark", "metal": &"tin", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Marca del cazador"},
 	{"id": &"tin_clear_mind", "metal": &"tin", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Mente despejada"},
 	{"id": &"tin_extreme", "metal": &"tin", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Sentidos extremos"},
+	# Cinc (L7): cada poder enciende una emoción en los NPC (ver ZincPowers y los estados de Npc).
+	{"id": &"zinc_fury", "metal": &"zinc", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Furia"},
+	{"id": &"zinc_panic", "metal": &"zinc", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Pánico"},
+	{"id": &"zinc_greed", "metal": &"zinc", "legacy_level": 8, "kind": Kind.ACTIVE, "name": "Avaricia"},
+	{"id": &"zinc_tame", "metal": &"zinc", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Domar"},
+	{"id": &"zinc_contagion", "metal": &"zinc", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Contagio emocional"},
+	{"id": &"zinc_storm", "metal": &"zinc", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Tormenta de emociones"},
 ]
 
 
@@ -106,6 +113,16 @@ const LAYOUTS := {
 			[&"pewter_charge", Vector2(190, 215), [&"pewter_strike"]],
 			[&"pewter_slam", Vector2(345, 130), [&"pewter_strike"]],
 			[&"pewter_fury", Vector2(355, 255), [&"pewter_charge", &"pewter_slam"]],
+		],
+		# Cinc: arriba la ira (Furia y su contagio); abajo, llevar a la gente (miedo, codicia y lealtad). Las dos
+		# ramas se juntan en la Tormenta.
+		&"zinc": [
+			[&"zinc_fury", Vector2(75, -65), [&"root"]],
+			[&"zinc_contagion", Vector2(190, -190), [&"zinc_fury"]],
+			[&"zinc_panic", Vector2(80, 150), [&"root"]],
+			[&"zinc_greed", Vector2(200, 220), [&"zinc_panic"]],
+			[&"zinc_tame", Vector2(345, 130), [&"zinc_greed"]],
+			[&"zinc_storm", Vector2(355, -60), [&"zinc_contagion", &"zinc_tame"]],
 		],
 	},
 	&"feruchemy": {},
@@ -314,6 +331,26 @@ const CLEAR_TIME := 12.0
 const CLEAR_COOLDOWN := 30.0
 const EXTREME_TIME := 12.0
 const EXTREME_COOLDOWN := 35.0
+## Cinc: duración (s), recarga (s) y radios (m) con el poder en nivel 1; cada nivel más dura un ZINC_PER_LEVEL más
+## (ver ZincPowers.scale). Alcance de la mira para los que apuntan a un NPC.
+const ZINC_RANGE := 25.0
+const ZINC_PER_LEVEL := 0.15
+const ZINC_FURY_TIME := 10.0
+const ZINC_FURY_COOLDOWN := 12.0
+const ZINC_FURY_XP := 0.5
+const ZINC_PANIC_TIME := 8.0
+const ZINC_PANIC_COOLDOWN := 20.0
+const ZINC_PANIC_SEEN := 8.0  # los que están a esta distancia y lo ven huir se asustan con la mitad
+const ZINC_GREED_TIME := 6.0
+const ZINC_GREED_COOLDOWN := 18.0
+const ZINC_GREED_RADIUS := 12.0
+const ZINC_TAME_TIME := 45.0
+const ZINC_TAME_COOLDOWN := 40.0
+const ZINC_TAME_STRONG := 0.45  # los fuertes (más de 100 de vida) duran esta fracción
+const ZINC_CONTAGION_RADIUS := 6.0
+const ZINC_STORM_TIME := 20.0
+const ZINC_STORM_COOLDOWN := 60.0
+const ZINC_STORM_RADIUS := 15.0
 const SLAM_COOLDOWN := 12.0
 const SLAM_RADIUS := 6.0
 const FURY_TIME := 8.0
@@ -358,6 +395,12 @@ const DESCRIPTIONS := {
 	&"tin_ear": "Pasiva: con estaño quemando «oyes» a la gente cercana (hasta 22 m, más si avivas). Si la ves de frente, solo se remarca su silueta con un borde tenue. Si una pared te la tapa, ves una estela de humo sin forma definida que sale de donde estaba hace 0,5 s.",
 	&"tin_mark": "Un toque apuntando a un enemigo: lo marcas 15 s y recibe un 25 % más de daño tuyo. Si lo ves de frente, su silueta se remarca con fuerza. Si hay una pared, ves un humo más denso y concentrado de donde estaba hace solo 0,2 s.\nEl estaño arde mientras dura.\nRecarga: 25 s.",
 	&"tin_clear_mind": "Un toque: durante 12 s casi nada te descontrola. Los relámpagos no te encandilan, no te aplacan ni te enardecen, los golpes apenas te empujan ni te hacen perder el equilibrio y tu guardia no se rompe. Además se te quita al instante lo que tengas encima.\nRecarga: 30 s.",
+	&"zinc_fury": "Un toque apuntando a un NPC: lo enardecés 10 s. Ataca más seguido, no retrocede y recibe un 25 % más de daño. Si mientras dura mata a otro NPC, te llevás el 50 % de la experiencia de esa muerte.\nQuien quema cobre lo resiste.\nRecarga: 12 s.",
+	&"zinc_panic": "Un toque apuntando a un NPC: suelta la guardia y huye de vos 8 s. Si es un guardia, abandona su puesto. Los que están cerca y lo ven huir se asustan con la mitad.\nRecarga: 20 s.",
+	&"zinc_greed": "Un toque: lanzás una moneda adonde apuntás y los NPC a 12 m de ella van a buscarla, sin hacerte caso, durante 6 s. Los guardias dejan su puesto. Sirve de señuelo y combina con el acero.\nCuesta una moneda. Recarga: 18 s.",
+	&"zinc_tame": "Un toque apuntando a un NPC común: te sigue y pelea por vos 45 s. Los fuertes duran menos y los jefes no se dejan. Mientras está domado, toda la experiencia de lo que mate es tuya.\nSolo uno a la vez: domar a otro suelta al anterior.\nRecarga: 40 s.",
+	&"zinc_contagion": "Pasiva: la Furia y el Pánico que pongas en un NPC se pasan a los que están a 6 m, con la mitad de duración. La ira pelea en cadena y el miedo se vuelve una huida en masa.",
+	&"zinc_storm": "Un toque: a cada NPC a 15 m le das la emoción que mejor le encaja durante 20 s. Ira a los guardias, koloss y alománticos, que se atacan entre ellos (y te llevás el 50 % de la experiencia de esas muertes); pánico a los ciudadanos; y lealtad al más débil que pelee, que pasa a pelear por vos.\nRecarga: 60 s.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }
 
