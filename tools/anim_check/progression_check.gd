@@ -16,6 +16,7 @@ func _init() -> void:
 	_check_bad_files()
 	_check_formulas()
 	_check_fill_all()
+	_check_feruchemy()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
 	print("progression_check: %s" % ("OK" if _fails == 0 else "%d fallas" % _fails))
 	quit(1 if _fails > 0 else 0)
@@ -149,3 +150,23 @@ func _check_fill_all() -> void:
 	_expect(Progression.level == Progression.MAX_LEVEL and Progression.points_free() == 0, "todo al máximo: nivel 100 sin puntos libres")
 	_expect(Progression.skill_level(&"steel_spear") == 5 and Progression.skill_level(&"tin_extreme") == 5, "todo al máximo: acero y estaño llenos")
 	_expect(Progression.is_valid(), "todo al máximo: queda válido (se puede guardar y cargar)")
+
+
+## Un poder de feruquimia de prueba en hierro (solo acá): comparte puntos y suma al nivel del hierro.
+func _check_feruchemy() -> void:
+	SkillTree.test_skills = [{"id": &"test_iron_mind", "metal": &"iron", "legacy_level": 1, "kind": SkillTree.Kind.PASSIVE,
+			"name": "Mente de hierro (prueba)", "tree": &"feruchemy"}]
+	Progression.reset()
+	Progression.level = 5
+	var free := Progression.points_free()
+	var iron := Progression.metal_level(&"iron")
+	_expect(Progression.raise_skill(&"test_iron_mind"), "un punto en feruquimia de hierro")
+	_expect(Progression.metal_level(&"iron") == iron + 1, "la feruquimia sube el nivel del hierro")
+	_expect(Progression.points_free() == free - 1, "y gasta de los mismos puntos libres")
+	_expect(SkillTree.skills_of(&"iron", &"allomancy").size() == 6 and SkillTree.skills_of(&"iron", &"feruchemy").size() == 1, "skills_of filtra por árbol")
+	Progression.save()
+	Progression.reset()
+	Progression._loaded = false
+	Progression.load_progress()
+	_expect(Progression.skill_level(&"test_iron_mind") == 1, "la feruquimia se guarda y se carga")
+	SkillTree.test_skills = []

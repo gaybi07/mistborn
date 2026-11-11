@@ -61,7 +61,7 @@ func _build() -> void:
 	var column := 0
 	var locked: Array[StringName] = []
 	for metal: StringName in Allomancy.METALS:
-		var skills := SkillTree.skills_of(metal)
+		var skills := SkillTree.skills_of(metal, &"allomancy")
 		if skills.is_empty():
 			locked.append(metal)
 			continue
