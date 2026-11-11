@@ -12,7 +12,7 @@ rama y merge).
 
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
-| Lucho | — | — | — |
+| Lucho | L8 a L11 (ramas apiladas: latón, cobre, bronce, atium) | `lucho/l8-laton` → `lucho/l9-cobre` → `lucho/l10-bronce` → `lucho/l11-atium` | 2026-11-11 |
 | Gabi | — | — | — |
 
 ## Cómo trabajamos
@@ -61,7 +61,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 ("Otros metales").
 
 - [x] ✅ **L7. Cinc.** (enardecer) — *verificada 2026-11-10, rama `lucho/l7-cinc` (borrada), merge `9ca9394`*
-- [ ] **L8. Latón.** (aplacar)
+- [ ] 🔄 **L8. Latón.** (aplacar) — *en curso: Lucho, rama `lucho/l8-laton`, desde 2026-11-11*
 - [ ] **L9. Cobre.** (ocultarse)
 - [ ] **L10. Bronce.** (detectar)
 - [ ] **L11. Atium.** (ver el futuro)
@@ -326,3 +326,8 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Avaricia (cinc, `zinc_greed`) | `play_throw` (tirar moneda) | Lanza una moneda en parábola hacia donde apunta, de costado y despreocupado | |
 | Domar (cinc, `zinc_tame`) | `burn_focus` | Mano extendida hacia el NPC, palma abierta, invitándolo a seguirlo | |
 | Tormenta de emociones (cinc, `zinc_storm`) | `fury` (rugido) | Abre los brazos y libera una onda en todas direcciones; más grande que Ira | |
+| Calma (latón, `brass_calm`) | `clear_mind` | Palma abierta hacia el NPC, bajándola despacio, como pidiendo calma | |
+| Desaliento (latón, `brass_dishearten`) | `field` | Gesto de desdén con la mano, hacia abajo y afuera | |
+| Rendición (latón, `brass_yield`) | `burn_focus` | Mano extendida hacia el NPC, firme, pidiéndole que suelte el arma | |
+| Sosegar multitud (latón, `brass_crowd`) | `field` | Los dos brazos bajan despacio en abanico hacia adelante | |
+| Paz absoluta (latón, `brass_peace`) | `clear_mind` | Brazos abiertos, ojos cerrados, onda calma en todas direcciones | |

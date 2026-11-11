@@ -1,77 +1,43 @@
 class_name ZincPowers
-extends Node
+extends MetalPowers
 ## Poderes del cinc del jugador (L7, ver docs/arbol-de-habilidades.md): Ira, Pánico, Avaricia, Domar y Tormenta de
 ## emociones, cada uno un toque con recarga, y Contagio emocional (pasiva). Lo que siente cada NPC lo lleva Npc
-## (riot_for, panic_for, greed_for, tame_for, rage_at); acá se elige a quién y se cuentan las recargas.
+## (riot_for, panic_for, greed_for, tame_for, rage_at); acá se elige a quién.
 
-const IDS: Array[StringName] = [&"zinc_fury", &"zinc_panic", &"zinc_greed", &"zinc_tame", &"zinc_storm"]
-const COOLDOWNS := {
-	&"zinc_fury": SkillTree.ZINC_FURY_COOLDOWN, &"zinc_panic": SkillTree.ZINC_PANIC_COOLDOWN,
-	&"zinc_greed": SkillTree.ZINC_GREED_COOLDOWN, &"zinc_tame": SkillTree.ZINC_TAME_COOLDOWN,
-	&"zinc_storm": SkillTree.ZINC_STORM_COOLDOWN,
-}
-const NAMES := {&"zinc_fury": "Ira", &"zinc_panic": "Pánico", &"zinc_greed": "Avaricia", &"zinc_tame": "Domar",
-		&"zinc_storm": "Tormenta de emociones"}
-const COLOR := Color(0.85, 0.35, 0.3, 0.2)
-
-var player: Player
-var _ready_ms := {}
 ## El único NPC domado (domar a otro suelta a este).
 var _tamed: Npc = null
 
 
-func has(id: StringName) -> bool:
-	return id in IDS
-
-
-## Cuánto falta de la recarga (1 = recién usado, 0 = listo), para el HUD.
-func cooldown(id: StringName) -> float:
-	return clampf(float(int(_ready_ms.get(id, 0)) - Time.get_ticks_msec()) / (COOLDOWNS[id] * 1000.0), 0.0, 1.0)
+func _init() -> void:
+	metal = &"zinc"
+	cooldowns = {
+		&"zinc_fury": SkillTree.ZINC_FURY_COOLDOWN, &"zinc_panic": SkillTree.ZINC_PANIC_COOLDOWN,
+		&"zinc_greed": SkillTree.ZINC_GREED_COOLDOWN, &"zinc_tame": SkillTree.ZINC_TAME_COOLDOWN,
+		&"zinc_storm": SkillTree.ZINC_STORM_COOLDOWN,
+	}
 
 
 func active(id: StringName) -> bool:
 	return id == &"zinc_tame" and is_instance_valid(_tamed) and _tamed.is_tamed()
 
 
-## Duración con el nivel del poder: la de nivel 1 y un ZINC_PER_LEVEL más por cada nivel.
-static func scale(id: StringName) -> float:
-	return 1.0 + SkillTree.ZINC_PER_LEVEL * maxi(Progression.skill_level(id) - 1, 0)
-
-
-## Usa el poder. Devuelve si se usó (si no, no hay recarga ni se queda el metal encendido).
-func use(id: StringName) -> bool:
-	if player.dead:
-		return false
-	var now := Time.get_ticks_msec()
-	if now < int(_ready_ms.get(id, 0)):
-		player.notice.emit("%s recargando (%d s)" % [NAMES[id], ceili((int(_ready_ms[id]) - now) / 1000.0)])
-		return false
-	var ok := false
+func _use(id: StringName) -> bool:
 	match id:
 		&"zinc_fury":
-			ok = _fury()
+			return _fury()
 		&"zinc_panic":
-			ok = _panic()
+			return _panic()
 		&"zinc_greed":
-			ok = _greed()
+			return _greed()
 		&"zinc_tame":
-			ok = _tame()
+			return _tame()
 		&"zinc_storm":
-			ok = _storm()
-	if ok:
-		_ready_ms[id] = now + int(COOLDOWNS[id] * 1000.0)
-	return ok
-
-
-func _target() -> Npc:
-	var npc := player._aim_npc(SkillTree.ZINC_RANGE)
-	if npc == null:
-		player.notice.emit("Apuntá a alguien")
-	return npc
+			return _storm()
+	return false
 
 
 func _fury() -> bool:
-	var npc := _target()
+	var npc := _target(SkillTree.ZINC_RANGE)
 	if npc == null:
 		return false
 	var time := SkillTree.ZINC_FURY_TIME * scale(&"zinc_fury")
@@ -85,7 +51,7 @@ func _fury() -> bool:
 
 
 func _panic() -> bool:
-	var npc := _target()
+	var npc := _target(SkillTree.ZINC_RANGE)
 	if npc == null:
 		return false
 	var time := SkillTree.ZINC_PANIC_TIME * scale(&"zinc_panic")
@@ -118,13 +84,13 @@ func _greed() -> bool:
 		if n.greed_for(time, point):
 			count += 1
 	player.rig.play_throw()
-	AirFx.wave(get_tree().current_scene, point + Vector3(0, 0.5, 0), SkillTree.ZINC_GREED_RADIUS * 0.4, COLOR, 0.6, 0.03, null, true)
+	AirFx.wave(get_tree().current_scene, point + Vector3(0, 0.5, 0), SkillTree.ZINC_GREED_RADIUS * 0.4, _color(), 0.6, 0.03, null, true)
 	player.notice.emit("Avaricia: %d van por la moneda" % count if count > 0 else "Avaricia: nadie cerca")
 	return true
 
 
 func _tame() -> bool:
-	var npc := _target()
+	var npc := _target(SkillTree.ZINC_RANGE)
 	if npc == null:
 		return false
 	if not npc.can_be_tamed():
@@ -166,7 +132,7 @@ func _storm() -> bool:
 		if foe:
 			n.rage_at(foe, time)
 	player.rig.play_skill("fury", 1.4)
-	AirFx.wave(get_tree().current_scene, player.chest_position(), SkillTree.ZINC_STORM_RADIUS, COLOR, 0.9, 0.04, null, true)
+	AirFx.wave(get_tree().current_scene, player.chest_position(), SkillTree.ZINC_STORM_RADIUS, _color(), 0.9, 0.04, null, true)
 	player.notice.emit("Tormenta de emociones")
 	return true
 
@@ -178,29 +144,3 @@ func _spread(from: Npc, apply: Callable) -> void:
 	for n in _near(from.global_position, SkillTree.ZINC_CONTAGION_RADIUS * scale(&"zinc_contagion")):
 		if n != from:
 			apply.call(n)
-
-
-func _near(center: Vector3, radius: float) -> Array[Npc]:
-	var out: Array[Npc] = []
-	for n in get_tree().get_nodes_in_group(&"npc"):
-		var npc := n as Npc
-		if npc and not npc.down and npc.global_position.distance_to(center) <= radius:
-			out.append(npc)
-	return out
-
-
-func _closest(npc: Npc, among: Array[Npc]) -> Npc:
-	var best: Npc = null
-	var best_d := INF
-	for other in among:
-		var d := other.global_position.distance_to(npc.global_position)
-		if other != npc and d < best_d:
-			best = other
-			best_d = d
-	return best
-
-
-## Gesto del jugador (clip provisorio, ver Pedidos de animación en docs/TAREAS.md) y la onda sobre el NPC.
-func _fx(npc: Npc, gesture: String) -> void:
-	player.rig.play_skill(gesture, 1.2)
-	AirFx.wave(get_tree().current_scene, npc.global_position + Vector3(0, 1.2, 0), 2.0, COLOR, 0.5, 0.03, null, true)

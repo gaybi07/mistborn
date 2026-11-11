@@ -104,7 +104,7 @@ func _pick_foe() -> void:
 	for n: Node3D in get_tree().get_nodes_in_group(&"combatant"):
 		if n == self or n.get(&"team") == team or n.call(&"is_down"):
 			continue
-		var d := n.global_position.distance_to(global_position)
+		var d := n.global_position.distance_to(global_position) / maxf(Npc.sight(n, 1.0), 0.05)  # escondido, parece más lejos
 		if d < best or (n == was and d < LOSE):
 			best = d
 			_foe = n

@@ -161,7 +161,7 @@ func _pick_foe() -> void:
 		return
 	var best := NOTICE
 	for v in _victims():
-		var d := v.global_position.distance_to(global_position)
+		var d := v.global_position.distance_to(global_position) / maxf(Npc.sight(v, 1.0), 0.05)  # escondido, parece más lejos
 		if d < best:
 			best = d
 			_foe = v
@@ -343,6 +343,8 @@ func _commit(anim: String, duration: float) -> float:
 
 ## Le estás por pegar: a veces se aparta o, con el espadón, se cubre.
 func _react_to_attack(d: float, reach: float) -> bool:
+	if is_disheartened():
+		return false  # desalentado (latón): no esquiva ni bloquea
 	var attacking: bool = _player.get(&"_attack_cd") > 0.0
 	var started := attacking and not _foe_was_attacking
 	_foe_was_attacking = attacking

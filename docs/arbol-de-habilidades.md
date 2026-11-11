@@ -7,7 +7,7 @@ Estado: propuesta para confirmar. Todavía no hay código.
 | Tema | Decisión |
 |---|---|
 | Techo | Jugador nivel 100; cada poder, nivel 5. El nivel de un metal es la suma de los puntos en sus poderes (ver `docs/PLAN_PROGRESION.md`) |
-| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, cobre, bronce, latón) se suben directo; atium cuesta 2 por nivel |
+| Puntos | 3 al inicio y uno por nivel desde el 4 (100 en el nivel 100). Cada nivel de un poder cuesta 1 punto. Los metales sin poderes todavía (atium, cobre, bronce) se suben directo; atium cuesta 2 por nivel |
 | Elección | Para poner un punto en un poder, todos los poderes de los que nace (en su rama) tienen que tener al menos 1. No alcanza para maxear todo |
 | Reasignar | En cualquier momento, sin costo: "−" por poder (si ninguno que depende de él queda sin requisito) o "Devolver todos los puntos" |
 | XP | Combate y objetivos, más un bonus chico por usar cada metal con tope por minuto |
@@ -97,14 +97,18 @@ Tormenta pide Contagio y Domar. Cada nivel de un poder alarga su duración un 15
 | 20 | A · Tormenta de emociones: en 15 m, 20 s: ira a los que pelean (se atacan entre ellos y te llevás el 50 % de la experiencia de esas muertes), pánico a los ciudadanos y lealtad al más débil de los que pelean. Recarga 60 s |
 
 ### Latón
+El espejo frío del cinc: apaga a la gente en vez de moverla (código: `BrassPowers` y los estados de `Npc`). Quien
+quema cobre lo resiste; los jefes no se rinden y en la Paz absoluta solo quedan desalentados. Rama: Calma →
+Desaliento → Rendición; Sosiego → Sosegar multitud; la Paz absoluta pide Rendición y Sosegar.
+
 | Nivel | Habilidad |
 |---|---|
-| 1 | A · Calmar a un NPC |
-| 4 | A · Sosegar en un área |
-| 8 | A · Pacificar: el NPC deja de atacar |
-| 12 | A · Persuadir: mejores ofertas y acceso a lugares |
-| 16 | A · Calma profunda: aturde |
-| 20 | A · Dominio emocional: controlar a un NPC por un rato |
+| 1 | A · Calma: el NPC en la mira deja de atacarte y se olvida de vos 10 s; un golpe tuyo lo despierta. Recarga 12 s |
+| 4 | A · Desaliento: 10 s pegando un 40 % menos, más lento y sin bloquear ni esquivar. Recarga 15 s |
+| 8 | P · Sosiego: con latón encendido te notan desde la mitad de distancia (guardias, soldados de misión, koloss, espectros) |
+| 12 | A · Rendición: un enemigo con menos del 30 % de vida se rinde, suelta el arma y el botín, y te da la mitad de su experiencia. Recarga 20 s |
+| 16 | A · Sosegar multitud: cono de 10 m, todos calmos 6 s. Recarga 30 s |
+| 20 | A · Paz absoluta: en 15 m y 15 s nadie ataca a nadie; los jefes quedan desalentados. Recarga 60 s |
 
 ### Cobre
 | Nivel | Habilidad |
