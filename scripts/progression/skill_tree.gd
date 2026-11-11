@@ -13,7 +13,12 @@ const COMBO_TIERS := [5, 10, 15]
 const BODY_MASS := 70.0
 const POWER_PER_LEVEL := 0.15
 
-## id, metal, nivel de metal, tipo y nombre.
+## Niveles de cada poder si su entrada no dice "max".
+const DEFAULT_MAX := 5
+
+## id, metal, nivel de metal (el desbloqueo viejo: pasa a "legacy_level" con equiv_level, en L2), tipo y nombre.
+## Opcionales: "max" (niveles del poder, DEFAULT_MAX), "tree" (&"allomancy" o &"feruchemy"; falta = alomancia) y
+## "requires" (requisitos extra, ver _requirement_ok).
 const SKILLS := [
 	{"id": &"steel_light_push", "metal": &"steel", "level": 1, "kind": Kind.ACTIVE, "name": "Empuje básico"},
 	{"id": &"steel_combat_coin", "metal": &"steel", "level": 2, "kind": Kind.ACTIVE, "name": "Moneda de combate"},
@@ -40,6 +45,52 @@ const SKILLS := [
 	{"id": &"tin_clear_mind", "metal": &"tin", "level": 16, "kind": Kind.ACTIVE, "name": "Mente despejada"},
 	{"id": &"tin_extreme", "metal": &"tin", "level": 20, "kind": Kind.ACTIVE, "name": "Sentidos extremos"},
 ]
+
+
+## Rama de cada metal, por árbol: [habilidad, posición respecto a la raíz, de quién(es) nace]. Cada rama agrupa lo
+## que va junto (ataque con ataque, defensa con defensa) y cada metal tiene su propia forma. Los padres van antes que
+## los hijos. Es dato del árbol y no de la vista: de acá salen los requisitos (todos los padres con 1 punto o más).
+const LAYOUTS := {
+	&"allomancy": {
+		# Acero: un brazo de ataque a distancia con monedas (arriba) y otro de defensa (abajo).
+		&"steel": [
+			[&"steel_light_push", Vector2(75, -60), [&"root"]],
+			[&"steel_combat_coin", Vector2(140, -175), [&"steel_light_push"]],
+			[&"steel_coin_burst", Vector2(290, -235), [&"steel_combat_coin"]],
+			[&"steel_spear", Vector2(345, -95), [&"steel_coin_burst"]],
+			[&"steel_coin_shield", Vector2(75, 145), [&"root"]],
+			[&"steel_magnetic_field", Vector2(255, 220), [&"steel_coin_shield"]],
+		],
+		# Hierro: tirar de lo que sea. Arriba, sobre los enemigos; en medio, sobre las monedas; abajo, para moverte tú.
+		&"iron": [
+			[&"iron_pull", Vector2(75, -65), [&"root"]],
+			[&"iron_drag", Vector2(170, -185), [&"iron_pull"]],
+			[&"iron_disarm", Vector2(335, -240), [&"iron_drag"]],
+			[&"iron_mass_yank", Vector2(350, -115), [&"iron_drag"]],
+			[&"iron_coin_magnet", Vector2(255, 10), [&"iron_pull"]],
+			[&"iron_hook", Vector2(80, 150), [&"root"]],
+		],
+		# Estaño: el oído (arriba) llega a los sentidos extremos; el foco lleva a marcar; y abajo, mantener la cabeza fría.
+		&"tin": [
+			[&"tin_senses", Vector2(75, -65), [&"root"]],
+			[&"tin_ear", Vector2(185, -190), [&"tin_senses"]],
+			[&"tin_extreme", Vector2(340, -240), [&"tin_ear"]],
+			[&"tin_focus", Vector2(255, -10), [&"tin_senses"]],
+			[&"tin_mark", Vector2(345, 105), [&"tin_focus"]],
+			[&"tin_clear_mind", Vector2(80, 150), [&"root"]],
+		],
+		# Peltre: la defensa arriba (aguantar y sobrevivir) y la ofensa abajo, que acaba en Furia.
+		&"pewter": [
+			[&"pewter_endurance", Vector2(75, -100), [&"root"]],
+			[&"pewter_last_stand", Vector2(250, -195), [&"pewter_endurance"]],
+			[&"pewter_strike", Vector2(110, 95), [&"root"]],
+			[&"pewter_charge", Vector2(190, 215), [&"pewter_strike"]],
+			[&"pewter_slam", Vector2(345, 130), [&"pewter_strike"]],
+			[&"pewter_fury", Vector2(355, 255), [&"pewter_charge", &"pewter_slam"]],
+		],
+	},
+	&"feruchemy": {},
+}
 
 
 ## Habilidades que todavía no hacen nada (se ven en el árbol como "próximamente").
@@ -112,10 +163,68 @@ static func find(id: StringName) -> Dictionary:
 	return {}
 
 
-## Si la habilidad está desbloqueada con los niveles de metal actuales.
+## Si el jugador tiene al menos un punto en la habilidad.
 static func is_unlocked(id: StringName) -> bool:
+	return Progression.skill_level(id) >= 1
+
+
+static func max_level(id: StringName) -> int:
+	return int(find(id).get("max", DEFAULT_MAX))
+
+
+## Puntos por nivel de un poder (D5: todos 1).
+static func skill_cost(_id: StringName) -> int:
+	return 1
+
+
+static func tree_of(id: StringName) -> StringName:
+	return find(id).get("tree", &"allomancy")
+
+
+## Padres del poder en su rama (sin &"root"). Vacío = nace de la raíz.
+static func parents(id: StringName) -> Array[StringName]:
 	var s := find(id)
-	return not s.is_empty() and Progression.metal_level(s["metal"]) >= int(s["level"])
+	var out: Array[StringName] = []
+	if s.is_empty():
+		return out
+	for entry: Array in LAYOUTS.get(tree_of(id), {}).get(s["metal"], []):
+		if entry[0] == id:
+			for p: StringName in entry[2]:
+				if p != &"root":
+					out.append(p)
+	return out
+
+
+## Poderes que nacen de este en su rama.
+static func children(id: StringName) -> Array[StringName]:
+	var out: Array[StringName] = []
+	for s: Dictionary in SKILLS:
+		if id in parents(s["id"]):
+			out.append(s["id"])
+	return out
+
+
+## Se puede tener un punto en el poder: todos sus padres con nivel 1 o más y cada requisito extra cumplido.
+static func requirements_met(id: StringName) -> bool:
+	for p in parents(id):
+		if Progression.skill_level(p) < 1:
+			return false
+	for r: Dictionary in find(id).get("requires", []):
+		if not _requirement_ok(r):
+			return false
+	return true
+
+
+## Un requisito extra de SKILLS[i]["requires"]. Agregar un tipo es una línea.
+static func _requirement_ok(r: Dictionary) -> bool:
+	if r.has("skill"):
+		return Progression.skill_level(r["skill"]) >= int(r.get("level", 1))
+	if r.has("player_level"):
+		return Progression.level >= int(r["player_level"])
+	if r.has("metal"):
+		return Progression.metal_level(r["metal"]) >= int(r.get("level", 1))
+	push_warning("SkillTree: requisito desconocido %s" % r)
+	return false
 
 
 ## Escalón (0 = ninguno, 1-3) de una habilidad combinada de dos metales: se cuenta por el menor nivel.

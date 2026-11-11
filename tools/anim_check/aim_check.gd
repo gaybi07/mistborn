@@ -1,5 +1,5 @@
 extends SceneTree
-## Uso: -- <carpeta para las fotos>. Sube acero, hierro y peltre a nivel 8 solo en memoria (no se guarda).
+## Uso: -- <carpeta para las fotos>. Pone 2 puntos en cada poder de acero, hierro y peltre, solo en memoria (no se guarda).
 ## Vin apunta cada poder con zona (mantener la tecla) y lo suelta: foto de la zona azul y si salió.
 func _init() -> void:
 	var w := Node3D.new(); root.add_child(w); current_scene = w
@@ -13,7 +13,8 @@ func _init() -> void:
 	var player := Player.new()
 	w.add_child(player)
 	for i in 30: await physics_frame
-	for m in [&"steel", &"iron", &"pewter"]: Progression.metal_levels[m] = 8  # solo en memoria: no se guarda
+	for s in SkillTree.SKILLS:  # solo en memoria: no se guarda
+		if s["metal"] in [&"steel", &"iron", &"pewter"]: Progression.skill_levels[s["id"]] = 2
 	var k := 0
 	for skill in Player.AIMED:
 		player._skill_press(skill)

@@ -680,9 +680,12 @@ func metal_level(metal: StringName) -> int:
 	return Progression.metal_level(metal)
 
 
+## Local: con un punto en el poder. Remoto (servidor): todavía por nivel de metal, hasta L19.
 func skill_unlocked(id: StringName) -> bool:
-	var s := SkillTree.find(id)
-	return not s.is_empty() and metal_level(s["metal"]) >= int(s["level"])
+	if net_peer_id != 0 and not is_local_player():
+		var s := SkillTree.find(id)
+		return not s.is_empty() and metal_level(s["metal"]) >= int(s["level"])
+	return SkillTree.is_unlocked(id)
 
 
 ## Cliente: tecla de una ranura. Manda al servidor la habilidad (y el metal que miras si es un tirón o empuje).
