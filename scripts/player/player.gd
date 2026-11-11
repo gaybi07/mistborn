@@ -279,6 +279,8 @@ var copper: CopperPowers
 var bronze: BronzePowers
 var bronze_sense: BronzeSense
 var atium_powers: AtiumPowers
+## Del último golpe que esquivaste con el atium (Desarme del atium).
+var last_dodged: Node3D
 var metal_powers: Array[MetalPowers] = []
 var _roll_time := 0.0
 var _roll_cd := 0.0
@@ -2186,7 +2188,7 @@ func _apply_equipment() -> void:
 func concealment() -> float:
 	var c := gear_stat("conceal_night" if Art.lighting == "noche" else "conceal_day")
 	for mp in metal_powers:
-		c *= mp.concealment()  # Sosiego (latón), Silencio (cobre)
+		c *= mp.concealment()  # Sosiego (latón), Fantasma (cobre)
 	return c
 
 
@@ -2260,6 +2262,7 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 		atium.pulse()
 		Fx.sparks(get_tree().current_scene, chest_position(), Metals.ATIUM_COLOR)
 		mark_combat()
+		last_dodged = attacker
 		dodged.emit()
 		return
 	if _since_damage < IFRAMES:
@@ -2598,7 +2601,7 @@ func _resolve_hit(stats: Dictionary, pewter: float, damage_mult: float, knockbac
 		var crit := randf() < Metals.crit_chance(self, npc) or npc.is_stunned() or behind
 		npc.take_hit(to.normalized() * knockback * (1.5 if crit else 1.0), damage * (Metals.CRIT_MULT if crit else 1.0), self)
 		if crit:
-			npc.stun(atium_powers.crit_stun(npc), global_position)  # lo tira para atrás (Golpe certero del atium: lo deja aturdido)
+			npc.stun(0.0, global_position)  # el crítico lo saca del aturdimiento y lo tira para atrás
 			Fx.popup(get_tree().current_scene, npc.global_position + Vector3(0, npc.head_y() + 0.5, 0), "¡Crítico!", Color(1.0, 0.85, 0.35), 1.5)
 			# Se nota más que un golpe común: todo se congela un poco más y el golpeado brilla.
 			npc.rig.flash(Color(1.0, 0.9, 0.55))
@@ -4115,11 +4118,6 @@ func emotion_resist() -> float:
 	return r
 
 
-## Silencio (cobre): el estaño de un Ojo de estaño enemigo no te encuentra mejor.
+## Fantasma (cobre): el estaño de un Ojo de estaño enemigo tampoco te encuentra.
 func hides_from_tin() -> bool:
-	return copper.passive(&"copper_silence")
-
-
-## Golpe certero (atium): cuánto suma a la probabilidad de crítico (Metals.crit_chance).
-func crit_bonus() -> float:
-	return atium_powers.crit_bonus()
+	return copper.active(&"copper_ghost")

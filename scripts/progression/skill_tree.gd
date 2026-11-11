@@ -78,23 +78,23 @@ const SKILLS := [
 	{"id": &"brass_crowd", "metal": &"brass", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Sosegar multitud"},
 	{"id": &"brass_peace", "metal": &"brass", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Paz absoluta"},
 	# Cobre (L9): sigilo y defensa contra la alomancia (ver CopperPowers).
-	{"id": &"copper_cloud", "metal": &"copper", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Nube de cobre"},
-	{"id": &"copper_silence", "metal": &"copper", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Silencio"},
-	{"id": &"copper_vanish", "metal": &"copper", "legacy_level": 8, "kind": Kind.ACTIVE, "name": "Desvanecerse"},
+	{"id": &"copper_vanish", "metal": &"copper", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Desvanecerse"},
+	{"id": &"copper_decoy", "metal": &"copper", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Señuelo"},
+	{"id": &"copper_ambush", "metal": &"copper", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Golpe a traición"},
 	{"id": &"copper_shared", "metal": &"copper", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Nube compartida"},
 	{"id": &"copper_closed_mind", "metal": &"copper", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Mente cerrada"},
 	{"id": &"copper_ghost", "metal": &"copper", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Fantasma"},
 	# Bronce (L10): leer al enemigo (ver BronzePowers).
-	{"id": &"bronze_pulses", "metal": &"bronze", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Pulsos"},
-	{"id": &"bronze_read", "metal": &"bronze", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Leer metales"},
-	{"id": &"bronze_foresee", "metal": &"bronze", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Anticipar"},
-	{"id": &"bronze_disrupt", "metal": &"bronze", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Pulso perturbador"},
-	{"id": &"bronze_track", "metal": &"bronze", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Rastreo"},
+	{"id": &"bronze_pulse", "metal": &"bronze", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Pulso"},
+	{"id": &"bronze_foresee", "metal": &"bronze", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Anticipar"},
+	{"id": &"bronze_rhythm", "metal": &"bronze", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Ritmo"},
+	{"id": &"bronze_hunt", "metal": &"bronze", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Cazar"},
+	{"id": &"bronze_resonance", "metal": &"bronze", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Resonancia"},
 	{"id": &"bronze_counter", "metal": &"bronze", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Contrapulso"},
 	# Atium (L11): más preciso y más espectacular, no más barato: cada nivel cuesta 2 puntos (ver skill_cost).
-	{"id": &"atium_shadows", "metal": &"atium", "legacy_level": 1, "kind": Kind.PASSIVE, "name": "Sombras del futuro"},
+	{"id": &"atium_shadows", "metal": &"atium", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Sombras del futuro"},
 	{"id": &"atium_perfect", "metal": &"atium", "legacy_level": 4, "kind": Kind.PASSIVE, "name": "Esquiva perfecta"},
-	{"id": &"atium_sure", "metal": &"atium", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Golpe certero"},
+	{"id": &"atium_disarm", "metal": &"atium", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Desarme"},
 	{"id": &"atium_guided", "metal": &"atium", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Monedas guiadas"},
 	{"id": &"atium_read", "metal": &"atium", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Leer la pelea"},
 	{"id": &"atium_eternal", "metal": &"atium", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Momento eterno"},
@@ -161,32 +161,32 @@ const LAYOUTS := {
 			[&"brass_crowd", Vector2(230, 200), [&"brass_quiet"]],
 			[&"brass_peace", Vector2(380, 40), [&"brass_yield", &"brass_crowd"]],
 		],
-		# Cobre: arriba, desaparecer (silencio y desvanecerse); abajo, proteger (a los tuyos y tu mente).
+		# Cobre: arriba, desaparecer (señuelo y golpe a traición); abajo, proteger (a los tuyos y tu mente).
 		&"copper": [
-			[&"copper_cloud", Vector2(75, 0), [&"root"]],
-			[&"copper_silence", Vector2(170, -150), [&"copper_cloud"]],
-			[&"copper_vanish", Vector2(320, -220), [&"copper_silence"]],
-			[&"copper_shared", Vector2(170, 150), [&"copper_cloud"]],
+			[&"copper_vanish", Vector2(75, 0), [&"root"]],
+			[&"copper_decoy", Vector2(170, -150), [&"copper_vanish"]],
+			[&"copper_ambush", Vector2(320, -220), [&"copper_decoy"]],
+			[&"copper_shared", Vector2(170, 150), [&"copper_vanish"]],
 			[&"copper_closed_mind", Vector2(320, 220), [&"copper_shared"]],
-			[&"copper_ghost", Vector2(400, 0), [&"copper_vanish", &"copper_closed_mind"]],
+			[&"copper_ghost", Vector2(400, 0), [&"copper_ambush", &"copper_closed_mind"]],
 		],
-		# Bronce: arriba, leer al que tenés enfrente (qué quema, cuándo ataca); abajo, encontrar a los que se esconden.
+		# Bronce: arriba, leer al que tenés enfrente (cuándo ataca, y contestarle); abajo, encontrar a los que se esconden.
 		&"bronze": [
-			[&"bronze_pulses", Vector2(75, 0), [&"root"]],
-			[&"bronze_read", Vector2(170, -150), [&"bronze_pulses"]],
-			[&"bronze_foresee", Vector2(320, -220), [&"bronze_read"]],
-			[&"bronze_disrupt", Vector2(170, 150), [&"bronze_pulses"]],
-			[&"bronze_track", Vector2(320, 220), [&"bronze_disrupt"]],
-			[&"bronze_counter", Vector2(400, 0), [&"bronze_foresee", &"bronze_track"]],
+			[&"bronze_pulse", Vector2(75, 0), [&"root"]],
+			[&"bronze_foresee", Vector2(170, -150), [&"bronze_pulse"]],
+			[&"bronze_rhythm", Vector2(320, -220), [&"bronze_foresee"]],
+			[&"bronze_hunt", Vector2(170, 150), [&"bronze_pulse"]],
+			[&"bronze_resonance", Vector2(320, 220), [&"bronze_hunt"]],
+			[&"bronze_counter", Vector2(400, 0), [&"bronze_rhythm", &"bronze_resonance"]],
 		],
 		# Atium: arriba, pelear cuerpo a cuerpo viendo el futuro; abajo, verlo de lejos (monedas y jefes).
 		&"atium": [
 			[&"atium_shadows", Vector2(75, 0), [&"root"]],
 			[&"atium_perfect", Vector2(170, -150), [&"atium_shadows"]],
-			[&"atium_sure", Vector2(320, -220), [&"atium_perfect"]],
+			[&"atium_disarm", Vector2(320, -220), [&"atium_perfect"]],
 			[&"atium_guided", Vector2(170, 150), [&"atium_shadows"]],
 			[&"atium_read", Vector2(320, 220), [&"atium_guided"]],
-			[&"atium_eternal", Vector2(400, 0), [&"atium_sure", &"atium_read"]],
+			[&"atium_eternal", Vector2(400, 0), [&"atium_disarm", &"atium_read"]],
 		],
 	},
 	&"feruchemy": {},
@@ -421,6 +421,9 @@ const BRASS_CALM_COOLDOWN := 12.0
 const BRASS_DISHEARTEN_TIME := 10.0
 const BRASS_DISHEARTEN_COOLDOWN := 15.0
 const BRASS_QUIET := 0.5  # Sosiego: te ven desde la mitad de distancia
+const BRASS_QUIET_AURA := 8.0  # y a esta distancia (m) te pegan menos seguido
+const BRASS_QUIET_ATTACK := 0.75  # los golpes, este tanto de seguido
+const BRASS_QUIET_PROVOKED := 0.5  # un guardia que provocaste se olvida en la mitad del tiempo
 const BRASS_YIELD_HEALTH := 0.3
 const BRASS_YIELD_XP := 0.5
 const BRASS_YIELD_COOLDOWN := 20.0
@@ -431,12 +434,15 @@ const BRASS_PEACE_TIME := 15.0
 const BRASS_PEACE_RADIUS := 15.0
 const BRASS_PEACE_COOLDOWN := 60.0
 ## Cobre (L9): multiplicadores, duraciones y recargas (s), radios (m), en nivel 1.
-const COPPER_SILENCE := 0.6  # te ven desde el 60 % de la distancia
 const COPPER_VANISH_TIME := 4.0
 const COPPER_VANISH_RADIUS := 35.0
 const COPPER_VANISH_COOLDOWN := 20.0
 const COPPER_AMBUSH := 1.5  # el golpe a traición
 const COPPER_AMBUSH_GRACE := 2.0  # después de los 4 s, todavía vale
+const COPPER_DECOY_TIME := 6.0
+const COPPER_DECOY_RADIUS := 25.0
+const COPPER_DECOY_STUN := 2.0  # al que llega, la nube lo encandila
+const COPPER_DECOY_COOLDOWN := 18.0
 const COPPER_SHARED_TIME := 15.0
 const COPPER_SHARED_RADIUS := 8.0
 const COPPER_SHARED_COOLDOWN := 30.0
@@ -445,12 +451,15 @@ const COPPER_GHOST_TIME := 10.0
 const COPPER_GHOST_COOLDOWN := 60.0
 const COPPER_GHOST_STRIKE := 2.0  # crítico
 ## Bronce (L10): duraciones y recargas (s), radios (m), en nivel 1.
-const BRONZE_DISRUPT_TIME := 8.0
-const BRONZE_DISRUPT_RADIUS := 15.0
-const BRONZE_DISRUPT_COOLDOWN := 25.0
-const BRONZE_TRACK_TIME := 20.0
-const BRONZE_TRACK_RANGE := 60.0
-const BRONZE_TRACK_COOLDOWN := 40.0
+const BRONZE_PULSE_TIME := 6.0
+const BRONZE_PULSE_RANGE := 40.0
+const BRONZE_PULSE_COOLDOWN := 12.0
+const BRONZE_RHYTHM_WINDOW := 0.4  # después del aviso de Anticipar y del golpe, todavía vale
+const BRONZE_HUNT_TIME := 20.0
+const BRONZE_HUNT_RADIUS := 15.0  # las nubes de cobre que rompe
+const BRONZE_HUNT_RANGE := 60.0  # los que muestra en la brújula y el mapa
+const BRONZE_HUNT_COOLDOWN := 40.0
+const BRONZE_RESONANCE := 1.25
 const BRONZE_COUNTER_TIME := 4.0
 const BRONZE_COUNTER_RADIUS := 12.0
 const BRONZE_COUNTER_COOLDOWN := 60.0
@@ -459,8 +468,11 @@ const ATIUM_COST := 2
 const ATIUM_PERFECT_SLOW := 0.3
 const ATIUM_PERFECT_TIME := 1.0
 const ATIUM_PERFECT_CRIT_WINDOW := 3.0
-const ATIUM_SURE_CRIT := 0.15
-const ATIUM_SURE_STUN := 1.0
+const ATIUM_SHADOWS_TIME := 5.0
+const ATIUM_SHADOWS_COOLDOWN := 20.0
+const ATIUM_DISARM_TIME := 4.0
+const ATIUM_GUIDED_COST := 0.04  # de la reserva máxima de atium, por moneda
+const ATIUM_READ_RANGE := 15.0
 const ATIUM_GUIDED_COUNT := 5
 const ATIUM_GUIDED_RANGE := 25.0
 const ATIUM_GUIDED_SPEED := 45.0
@@ -522,27 +534,27 @@ const DESCRIPTIONS := {
 	&"zinc_storm": "Un toque: a cada NPC a 15 m le das la emoción que mejor le encaja durante 20 s. Ira a los guardias, koloss y alománticos, que se atacan entre ellos (y te llevás el 50 % de la experiencia de esas muertes); pánico a los ciudadanos; y lealtad al más débil que pelee, que pasa a pelear por vos.\nRecarga: 60 s.",
 	&"brass_calm": "Un toque apuntando a un NPC: deja de atacarte y se olvida de vos 10 s. Un golpe tuyo lo despierta.\nQuien quema cobre lo resiste.\nRecarga: 12 s.",
 	&"brass_dishearten": "Un toque apuntando a un NPC: pierde las ganas de pelear 10 s. Pega un 40 % menos, se mueve más lento y no bloquea ni esquiva.\nRecarga: 15 s.",
-	&"brass_quiet": "Pasiva: con latón encendido no llamás la atención. Guardias, soldados, koloss y espectros te notan desde la mitad de distancia (sirve en los tejados y en el contrabando).",
+	&"brass_quiet": "Pasiva: con latón encendido no llamás la atención y apagás las ganas de pelear. Guardias, soldados, koloss y espectros te notan desde la mitad de distancia; a 8 m los enemigos te pegan un 25 % menos seguido, y un guardia que provocaste se olvida de vos en la mitad del tiempo.",
 	&"brass_yield": "Un toque apuntando a un enemigo con menos del 30 % de vida: se rinde. Suelta el arma y su botín, y te da la mitad de su experiencia sin morir. Los jefes no se rinden.\nRecarga: 20 s.",
 	&"brass_crowd": "Un toque: todos los que tenés delante, hasta 10 m, se calman 6 s. Sirve para escapar o cortar una pelea grande.\nRecarga: 30 s.",
 	&"brass_peace": "Un toque: en 15 m y durante 15 s nadie ataca a nadie, ni los koloss. Los jefes solo bajan el ritmo (quedan desalentados). Si golpeás a alguno, despierta solo ese.\nRecarga: 60 s.",
-	&"copper_cloud": "Pasiva: lo que hace el cobre desde el principio. Mientras lo quemás, el bronce no te detecta y el cinc y el latón ajenos no te hacen nada.",
-	&"copper_silence": "Pasiva: con cobre encendido hacés menos ruido. Te notan desde el 60 % de la distancia, y el estaño de un Ojo de estaño enemigo no le sirve para encontrarte.",
-	&"copper_vanish": "Un toque: los que te tenían de objetivo (hasta 35 m) te pierden 4 s y se quedan buscando. Tu próximo golpe es a traición: +50 % de daño.\nRecarga: 20 s.",
+	&"copper_vanish": "Un toque: los que te tenían de objetivo (hasta 35 m) te pierden 4 s y se quedan buscando. Tu próximo golpe es a traición: +50 % de daño.\nQuemando cobre, además, el bronce no te detecta y el cinc y el latón ajenos no te hacen nada.\nRecarga: 20 s.",
+	&"copper_decoy": "Un toque: dejás una nube falsa donde estás parado. Durante 6 s los enemigos a 25 m (guardias, koloss, alománticos que te buscan con bronce) van hacia ahí y no te hacen caso. Al que llega, la nube lo encandila 2 s.\nRecarga: 18 s.",
+	&"copper_ambush": "Pasiva: con cobre encendido, pegarle a alguien que no te ve (que no estaba peleando, o que te perdió de vista) hace +50 % de daño.",
 	&"copper_shared": "Un toque: durante 15 s tu domado y los aliados a 8 m quedan bajo tu nube, inmunes al cinc y al latón ajenos.\nRecarga: 30 s.",
 	&"copper_closed_mind": "Pasiva, aunque no quemes cobre: lo que te hagan Aplacadores y Encendedores te dura la mitad, y el Aplacar del Lord Legislador te saca la mitad de aliento.",
 	&"copper_ghost": "Un toque: 10 s en que ningún NPC te ve; pasás entre guardias y koloss. Atacar lo termina, y ese golpe es un crítico (doble de daño).\nRecarga: 60 s.",
-	&"bronze_pulses": "Pasiva: lo que hace el bronce desde el principio. Mientras lo quemás, sentís a los alománticos que queman metales: ondas del color de su metal, a través de las paredes. A los que están en una nube de cobre no los sentís.",
-	&"bronze_read": "Pasiva: con bronce encendido, arriba de cada alomántico que sentís aparece qué metales quema (sabés si es Lanzamonedas, Aplacador, Humeador…).",
-	&"bronze_foresee": "Pasiva: con bronce encendido, el pulso de un alomántico brilla medio segundo antes de que use un poder. Tiempo justo para esquivar o hacer parry.",
-	&"bronze_disrupt": "Un toque: rompe las nubes de cobre a 15 m durante 8 s. Los Humeadores no pueden quemar cobre y ves a los que tapaban.\nRecarga: 25 s.",
-	&"bronze_track": "Un toque: durante 20 s, todos los alománticos a 60 m aparecen en la brújula y en el mapa.\nRecarga: 40 s.",
+	&"bronze_pulse": "Un toque: una onda de 40 m. Durante 6 s ves a cada alomántico que quema metales a través de las paredes, con lo que quema arriba de la cabeza (aunque no quemes bronce).\nQuemando bronce, además, sentís sus pulsos y lees sus metales de cerca. A los que están en una nube de cobre no los sentís.\nRecarga: 12 s.",
+	&"bronze_foresee": "Pasiva: con bronce encendido, el pulso de un alomántico brilla medio segundo antes de que use un poder; con el Lord Legislador, cuando empieza a preparar uno. Tiempo justo para esquivar o hacer parry.",
+	&"bronze_rhythm": "Pasiva: si le pegás a alguien en el momento que avisa Anticipar (hasta un poco después de su golpe), tu contraataque es un crítico.",
+	&"bronze_hunt": "Un toque: durante 20 s rompe las nubes de cobre a 15 m (los Humeadores no pueden quemar cobre y ves a los que tapaban) y todos los alománticos a 60 m aparecen en la brújula y en el mapa.\nRecarga: 40 s.",
+	&"bronze_resonance": "Pasiva: con bronce encendido, tus golpes a un alomántico que sentís quemar metales hacen +25 % de daño.",
 	&"bronze_counter": "Un toque: una onda que les apaga todos los metales durante 4 s a los alománticos enemigos a 12 m. Se quedan sin poderes y trastabillan.\nRecarga: 60 s.",
-	&"atium_shadows": "Pasiva: lo que hace el atium desde el principio. Ves la sombra de dónde va a estar cada uno, esquivás los golpes de quien no quema atium, tus monedas buscan el blanco y tus golpes no se bloquean (45 % de crítico; 70 % avivando).\nCada nivel cuesta 2 puntos.",
+	&"atium_shadows": "Un toque: 5 s quemando atium. Ves la sombra de dónde va a estar cada uno, esquivás los golpes de quien no quema atium, tus monedas buscan el blanco y tus golpes no se bloquean (45 % de crítico; 70 % avivando). El atium se gasta solo mientras dura.\nRecarga: 20 s. Cada nivel cuesta 2 puntos.",
 	&"atium_perfect": "Pasiva: cuando el atium te hace esquivar un golpe, el mundo se frena 1 s y tu próximo golpe (en 3 s) es crítico.\nLa cámara lenta, solo jugando solo. Cada nivel cuesta 2 puntos.",
-	&"atium_sure": "Pasiva: con atium encendido, +15 % de probabilidad de crítico, y tus críticos dejan aturdido 1 s (a los jefes, menos).\nCada nivel cuesta 2 puntos.",
-	&"atium_guided": "Un toque: lanzás hasta 5 monedas, una a cada enemigo distinto a 25 m, que lo siguen hasta pegarle. Gasta una moneda por cada una.\nRecarga: 15 s. Cada nivel cuesta 2 puntos.",
-	&"atium_read": "Pasiva: con atium encendido, los ataques de los jefes se avisan con el doble de tiempo, y la sombra de cada enemigo te muestra dónde va a estar en 1 s.\nCada nivel cuesta 2 puntos.",
+	&"atium_disarm": "Pasiva: cuando el atium te hace esquivar un golpe, le sacás el arma al que te atacó: 4 s peleando a puños.\nCada nivel cuesta 2 puntos.",
+	&"atium_guided": "Un toque: lanzás hasta 5 monedas, una a cada enemigo distinto a 25 m, que lo siguen hasta pegarle. Gasta una moneda y un 4 % de tu atium por cada una; sin atium no sale.\nRecarga: 15 s. Cada nivel cuesta 2 puntos.",
+	&"atium_read": "Pasiva: con atium encendido, el enemigo que te va a pegar (a 15 m) se marca en rojo antes del golpe, los ataques de los jefes se avisan con el doble de tiempo, y la sombra de cada enemigo te muestra dónde va a estar en 1 s.\nCada nivel cuesta 2 puntos.",
 	&"atium_eternal": "Un toque: 6 s con el mundo al 15 % de velocidad mientras vos te movés normal; cada golpe es crítico. Aviva el atium todo el tiempo: lo gasta muy rápido.\nCon otros jugadores el tiempo no se frena (solo los críticos). Recarga: 90 s. Cada nivel cuesta 2 puntos.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }

@@ -19,6 +19,11 @@ func concealment() -> float:
 	return SkillTree.BRASS_QUIET if passive(&"brass_quiet") else 1.0
 
 
+## Sosiego: con latón encendido, quien está a BRASS_QUIET_AURA m de vos pelea con menos ganas (ver Npc.attack_delay_scale).
+func soothing(pos: Vector3) -> bool:
+	return passive(&"brass_quiet") and pos.distance_to(player.global_position) <= SkillTree.BRASS_QUIET_AURA
+
+
 func _use(id: StringName) -> bool:
 	match id:
 		&"brass_calm":

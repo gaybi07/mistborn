@@ -144,6 +144,9 @@ func cast(p: Dictionary) -> void:
 	lord._power_ready[p["name"]] = lord._world_time + p["cooldown"]
 	lord._next_power = lord._world_time + Champion.KITS[lord.kit]["power_gap"] * GAP_BY_PHASE[phase()]
 	lord._announce(p["name"])
+	# Anticipar (bronce del jugador): avisa cuando empieza a prepararlo.
+	if reader and reader.get(&"bronze"):
+		reader.bronze.foresee_lord(lord, float(p["warn"]))
 	_id += 1
 	var id := _id
 	var color: Color = COLORS[p["metal"]]

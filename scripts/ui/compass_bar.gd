@@ -42,7 +42,7 @@ func _draw() -> void:
 		if x >= 0.0:
 			draw_string(font, Vector2(x - 6, 22), c[0], HORIZONTAL_ALIGNMENT_CENTER, -1, 18, HudKit.GOLD_LIGHT)
 	var here := Vector2(player.global_position.x, player.global_position.z)
-	# Rastreo (bronce): los alománticos cercanos, como puntos del color del bronce.
+	# Cazar (bronce): los alománticos cercanos, como puntos del color del bronce.
 	for a: Node3D in player.bronze.tracked():
 		var ax := _x(bearing(Vector2(a.global_position.x, a.global_position.z) - here), yaw)
 		if ax >= 0.0:

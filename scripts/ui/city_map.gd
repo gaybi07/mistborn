@@ -212,7 +212,7 @@ func _dots(map: TextureRect) -> Control:
 					DOT_RULER_RADIUS if ruler else DOT_RADIUS)
 		for n: Node3D in get_tree().get_nodes_in_group(&"map_npc"):  # los que no son Npc: skaa trabajando, la nena
 			_dot(layer, map, Vector2(n.global_position.x, n.global_position.z), DOT_NPC, DOT_RADIUS)
-		if is_instance_valid(player):  # Rastreo (bronce): los alománticos, más grandes y del color del bronce
+		if is_instance_valid(player):  # Cazar (bronce): los alománticos, más grandes y del color del bronce
 			for a: Node3D in player.bronze.tracked():
 				_dot(layer, map, Vector2(a.global_position.x, a.global_position.z), Color(0.85, 0.65, 0.3), DOT_RULER_RADIUS)
 		for far: Array in GateForces.far_foes():

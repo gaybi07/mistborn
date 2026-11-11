@@ -1,19 +1,24 @@
 class_name CopperPowers
 extends MetalPowers
-## Poderes del cobre del jugador (L9): sigilo y defensa contra la alomancia. Nube de cobre (pasiva base: lo de siempre),
-## Silencio (pasiva: te ven desde menos lejos y el estaño ajeno no ayuda), Desvanecerse (te pierden y el siguiente golpe
-## es a traición), Nube compartida (tu domado queda bajo tu nube), Mente cerrada (pasiva: lo emocional ajeno dura la
-## mitad, aunque no quemes cobre) y Fantasma (nadie te ve; atacar lo termina con un crítico).
+## Poderes del cobre del jugador (L9): sigilo y defensa contra la alomancia. La nube de siempre viene con quemar cobre.
+## Desvanecerse (te pierden y el siguiente golpe es a traición), Señuelo (una nube falsa que los atrae y encandila),
+## Golpe a traición (pasiva: más daño a quien no te ve), Nube compartida (tu domado queda bajo tu nube), Mente cerrada
+## (pasiva: lo emocional ajeno dura la mitad, aunque no quemes cobre) y Fantasma (nadie te ve; atacar lo termina con un crítico).
 
 ## Golpe a traición pendiente (Desvanecerse) y Fantasma en marcha (ms del reloj).
 var _ambush_until := 0
 var _ghost_until := 0
+## Señuelo: dónde está, hasta cuándo y a quiénes ya encandiló.
+var _decoy_at := Vector3.ZERO
+var _decoy_until := 0
+var _decoy_hit := {}
 
 
 func _init() -> void:
 	metal = &"copper"
 	cooldowns = {
-		&"copper_vanish": SkillTree.COPPER_VANISH_COOLDOWN, &"copper_shared": SkillTree.COPPER_SHARED_COOLDOWN,
+		&"copper_vanish": SkillTree.COPPER_VANISH_COOLDOWN, &"copper_decoy": SkillTree.COPPER_DECOY_COOLDOWN,
+		&"copper_shared": SkillTree.COPPER_SHARED_COOLDOWN,
 		&"copper_ghost": SkillTree.COPPER_GHOST_COOLDOWN,
 	}
 
@@ -26,11 +31,9 @@ func _ghosting() -> bool:
 	return Time.get_ticks_msec() < _ghost_until
 
 
-## Silencio (con cobre encendido) y Fantasma (nadie te ve).
+## Fantasma: nadie te ve.
 func concealment() -> float:
-	if _ghosting():
-		return 0.0
-	return SkillTree.COPPER_SILENCE if passive(&"copper_silence") else 1.0
+	return 0.0 if _ghosting() else 1.0
 
 
 ## Mente cerrada: no hace falta quemar cobre, es un hábito de la mente.
@@ -38,8 +41,9 @@ func emotion_resist() -> float:
 	return SkillTree.COPPER_CLOSED_MIND if Progression.skill_level(&"copper_closed_mind") >= 1 else 1.0
 
 
-## Atacar desde Fantasma es un crítico y lo termina; después de Desvanecerse, el primer golpe es a traición.
-func strike_bonus(_npc: Npc) -> float:
+## Atacar desde Fantasma es un crítico y lo termina; después de Desvanecerse, el primer golpe es a traición; con Golpe a
+## traición, también el golpe a quien no te ve (Npc.take_hit lo pregunta antes de marcarlo en combate).
+func strike_bonus(npc: Npc) -> float:
 	var now := Time.get_ticks_msec()
 	if now < _ghost_until:
 		_ghost_until = 0
@@ -48,10 +52,13 @@ func strike_bonus(_npc: Npc) -> float:
 	if now < _ambush_until:
 		_ambush_until = 0
 		return SkillTree.COPPER_AMBUSH
+	if passive(&"copper_ambush") and (not npc.in_combat() or npc.lost_track()):
+		return SkillTree.COPPER_AMBUSH
 	return 1.0
 
 
 func _physics_process(_delta: float) -> void:
+	_decoy_tick()
 	# Fantasma: mientras dura, los que te venían siguiendo te siguen perdiendo.
 	if _ghosting():
 		for n in _near(player.global_position, SkillTree.COPPER_VANISH_RADIUS):
@@ -62,6 +69,8 @@ func _use(id: StringName) -> bool:
 	match id:
 		&"copper_vanish":
 			return _vanish()
+		&"copper_decoy":
+			return _decoy()
 		&"copper_shared":
 			return _shared()
 		&"copper_ghost":
@@ -101,3 +110,29 @@ func _ghost() -> bool:
 	AirFx.shell(player, _color(), 0.9, _ghosting, 1.2, 4)
 	player.notice.emit("Fantasma")
 	return true
+
+
+## Señuelo: una nube falsa donde estás; los enemigos cercanos van hacia ella (Npc.lure_to) y al que llega lo encandila.
+func _decoy() -> bool:
+	var time := SkillTree.COPPER_DECOY_TIME * scale(&"copper_decoy")
+	_decoy_at = player.global_position
+	_decoy_until = Time.get_ticks_msec() + int(time * 1000.0)
+	_decoy_hit.clear()
+	var count := 0
+	for n in _near(_decoy_at, SkillTree.COPPER_DECOY_RADIUS):
+		if n.team != player.team and not n.is_tamed() and not n is Citizen and n.lure_to(_decoy_at, time):
+			count += 1
+	player.rig.play_skill("burn_focus", 1.0)
+	AirFx.cloud(get_tree().current_scene, _decoy_at + Vector3(0, 1.0, 0), 2.2, _color(), time, 8, 0.15)
+	player.notice.emit("Señuelo" + (": %d lo siguen" % count if count > 0 else ""))
+	return true
+
+
+func _decoy_tick() -> void:
+	if Time.get_ticks_msec() >= _decoy_until:
+		return
+	for n in _near(_decoy_at, 1.8):
+		if n.team != player.team and not _decoy_hit.has(n):
+			_decoy_hit[n] = true
+			n.stun(SkillTree.COPPER_DECOY_STUN, _decoy_at)
+			AirFx.cloud(get_tree().current_scene, n.global_position + Vector3(0, 1.4, 0), 1.2, _color(), 0.8, 4, 0.8)

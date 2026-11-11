@@ -128,7 +128,7 @@ func _pick_foe() -> Node3D:
 
 ## La lanza llega en el impacto de la animación, si no le cortaron el golpe y el otro sigue a tiro.
 func _strike(foe: Node3D) -> void:
-	_next_strike = _world_time + STRIKE_EVERY
+	_next_strike = _world_time + STRIKE_EVERY * attack_delay_scale()
 	rig.play_attack(1, 0.6)
 	get_tree().create_timer(rig.impact_delay(), false).timeout.connect(func() -> void:
 		if down or is_stunned() or rig._attack <= 0.0 or not is_instance_valid(foe) or foe.call(&"is_down"):
@@ -142,4 +142,4 @@ func _strike(foe: Node3D) -> void:
 
 func _on_hit(attacker: Node3D) -> void:
 	if attacker is Player:
-		_provoked_until = _world_time + PROVOKED_TIME
+		_provoked_until = _world_time + PROVOKED_TIME * (SkillTree.BRASS_QUIET_PROVOKED if attack_delay_scale() > 1.0 else 1.0)  # Sosiego (latón)
