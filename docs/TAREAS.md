@@ -45,8 +45,8 @@ rama y merge).
   — *en curso: Lucho, rama `lucho/l3-ventana-lista` (sale de la de L2), desde 2026-11-10*
 - [ ] 🔄 **L4. Ventana K, árbol.** Pips, clic para subir y bajar, líneas por requisito.
   — *en curso: Lucho, rama `lucho/l4-ventana-arbol` (sale de la de L3), desde 2026-11-10*
-- [ ] **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
-  `aim_check` y `aim_pitch_check`.
+- [ ] 🔄 **L5. Trucos y sala.** Menú Esc (todo al máximo, inicio recomendado), sala de poderes (Ctrl+F8), pruebas
+  `aim_check` y `aim_pitch_check`. — *en curso: Lucho, rama `lucho/l5-trucos-sala` (sale de la de L4), desde 2026-11-10*
 - [ ] **L6. Lugar para la feruquimia.** Campo `tree` en `SKILLS`, pestaña Alomancia | Feruquimia en K, puntos
   compartidos.
 - ⚠️ **Al cerrar L1-L6, avisar a Gabi:** la misión del taller (G5) usa la progresión vieja para "gastar el primer
