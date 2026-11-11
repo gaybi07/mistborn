@@ -326,3 +326,8 @@ Lucho agrega una fila por poder nuevo; Gabi la tacha al poner el clip.
 | Avaricia (cinc, `zinc_greed`) | `play_throw` (tirar moneda) | Lanza una moneda en parábola hacia donde apunta, de costado y despreocupado | |
 | Domar (cinc, `zinc_tame`) | `burn_focus` | Mano extendida hacia el NPC, palma abierta, invitándolo a seguirlo | |
 | Tormenta de emociones (cinc, `zinc_storm`) | `fury` (rugido) | Abre los brazos y libera una onda en todas direcciones; más grande que Ira | |
+| Calma (latón, `brass_calm`) | `clear_mind` | Palma abierta hacia el NPC, bajándola despacio, como pidiendo calma | |
+| Desaliento (latón, `brass_dishearten`) | `field` | Gesto de desdén con la mano, hacia abajo y afuera | |
+| Rendición (latón, `brass_yield`) | `burn_focus` | Mano extendida hacia el NPC, firme, pidiéndole que suelte el arma | |
+| Sosegar multitud (latón, `brass_crowd`) | `field` | Los dos brazos bajan despacio en abanico hacia adelante | |
+| Paz absoluta (latón, `brass_peace`) | `clear_mind` | Brazos abiertos, ojos cerrados, onda calma en todas direcciones | |

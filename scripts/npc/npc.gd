@@ -78,6 +78,8 @@ var _xp_share := 0.0
 var _xp_until := -1.0
 const EMOTION_REACH := 2.2
 const EMOTION_DAMAGE := 12.0
+## Latón (L8, ver BrassPowers): desalentado pega menos, se mueve más lento y no bloquea.
+var _dishearten_until := -1.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -278,8 +280,53 @@ func _share_xp(who: Node3D, share: float, time: float) -> void:
 	_xp_until = maxf(_xp_until, _world_time + time)
 
 
+# ---------------------------------------------------------------- Latón (L8)
+
+## Calma: deja de atacar `time` s (un golpe lo despierta, ver take_hit).
+func soothe_for(time: float) -> bool:
+	if not feels_emotions():
+		return false
+	_soothed_until = maxf(_soothed_until, _world_time + time)
+	_rioted_until = -1.0
+	_frenzy_until = -1.0
+	_rage_until = -1.0
+	return true
+
+
+## Desaliento: `time` s pegando un 40 % menos, más lento y sin bloquear.
+func dishearten_for(time: float) -> bool:
+	if not feels_emotions():
+		return false
+	_dishearten_until = maxf(_dishearten_until, _world_time + time)
+	return true
+
+
+func is_disheartened() -> bool:
+	return _world_time < _dishearten_until
+
+
+## Cuánto de su velocidad usa (desalentado, menos).
+func _speed_scale() -> float:
+	return 0.6 if is_disheartened() else 1.0
+
+
+## Rendición: con poca vida se rinde ante `who`; suelta el arma y el botín, y `who` se lleva `xp_share` de su experiencia.
+func yield_to(who: Player, xp_share: float) -> bool:
+	if not feels_emotions() or not can_be_tamed() or health > max_health * SkillTree.BRASS_YIELD_HEALTH:
+		return false
+	_surrender()
+	disarm(1e6)
+	untame()
+	_drop_loot_common(who, xp_share)
+	return true
+
+
 ## Lo que manda el cinc en vez de _think. Devuelve false si no hay ninguna emoción en marcha.
 func _emotion_think(delta: float) -> bool:
+	if surrendered:
+		_emotion_move(Vector3.ZERO)  # rendido (latón): se queda quieto, sin pelear
+		face_point = null
+		return true
 	if _panic_until > 0.0 and _world_time >= _panic_until:
 		_panic_until = -1.0
 		rig.panic = 0.0  # se le pasó el susto (el ciudadano maneja el suyo aparte)
@@ -444,6 +491,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null) -> void:
 		_soothed_until = -1.0  # un golpe rompe la calma
 	if is_rioted():
 		damage *= 1.25
+	if attacker is Npc and (attacker as Npc).is_disheartened():
+		damage *= 0.6  # Desaliento (latón)
 	if attacker != null and attacker.has_method(&"mark_bonus"):
 		damage *= attacker.mark_bonus(self)  # Marca del cazador (estaño)
 	_on_hit(attacker)
@@ -504,8 +553,8 @@ func _physics_process(delta: float) -> void:
 			velocity.x = h.x
 			velocity.z = h.y
 	else:
-		velocity.x = move_toward(velocity.x, _desired.x, accel * delta)
-		velocity.z = move_toward(velocity.z, _desired.z, accel * delta)
+		velocity.x = move_toward(velocity.x, _desired.x * _speed_scale(), accel * delta)
+		velocity.z = move_toward(velocity.z, _desired.z * _speed_scale(), accel * delta)
 	velocity.y -= _gravity * delta
 	move_and_slide()
 	_footsteps(delta)
@@ -540,11 +589,11 @@ func predict_position(t: float) -> Vector3:
 
 
 ## Al derrotarlo el jugador suelta monedas y, a veces, un frasco o un objeto nuevo. Solo la primera vez.
-func _drop_loot_common(player: Player) -> void:
+func _drop_loot_common(player: Player, xp_scale := 1.0) -> void:
 	if _looted:
 		return
 	_looted = true
-	player.grant_xp(xp_reward)
+	player.grant_xp(roundi(xp_reward * xp_scale))
 	var scene := get_tree().current_scene
 	var origin := global_position + Vector3(0, 0.8, 0)
 	for i in randi_range(loot_coins.x, loot_coins.y):
@@ -575,3 +624,8 @@ func _emotion_move(v: Vector3) -> void:
 	if _world_time >= _emotion_replan:
 		_emotion_replan = _world_time + decision_lead + 0.2
 		plan_velocity(v)
+
+
+## Distancia a la que este NPC nota a `n`: `base` por lo que se esconda (Player.concealment: ropa, Sosiego, Silencio).
+static func sight(n: Node3D, base: float) -> float:
+	return base * (n.call(&"concealment") as float if n != null and n.has_method(&"concealment") else 1.0)

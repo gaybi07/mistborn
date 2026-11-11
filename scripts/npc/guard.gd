@@ -71,7 +71,7 @@ func _think(delta: float) -> void:
 	var chased: Node3D = foe if foe else _player
 	var d := global_position.distance_to(chased.global_position)
 	# Enardecido (cinc) te ve desde más lejos; aplacado (latón) deja de perseguirte.
-	var notice := 24.0 if is_rioted() else 14.0
+	var notice := Npc.sight(_player, 24.0 if is_rioted() else 14.0)
 	if mode != Mode.CHASE and d < notice and _knockback <= 0.0 and not is_soothed():
 		mode = Mode.CHASE
 		_replan_at = 0.0

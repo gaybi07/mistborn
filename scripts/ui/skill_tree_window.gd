@@ -26,6 +26,7 @@ const METAL_TAGLINE := {
 	&"iron": "Atrae objetos metálicos",
 	&"pewter": "Refuerza el cuerpo",
 	&"zinc": "Enciende emociones",
+	&"brass": "Apaga emociones",
 }
 
 var player: Player

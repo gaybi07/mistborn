@@ -70,6 +70,13 @@ const SKILLS := [
 	{"id": &"zinc_tame", "metal": &"zinc", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Domar"},
 	{"id": &"zinc_contagion", "metal": &"zinc", "legacy_level": 16, "kind": Kind.PASSIVE, "name": "Contagio emocional"},
 	{"id": &"zinc_storm", "metal": &"zinc", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Tormenta de emociones"},
+	# Latón (L8): apaga a la gente (ver BrassPowers y los estados de Npc).
+	{"id": &"brass_calm", "metal": &"brass", "legacy_level": 1, "kind": Kind.ACTIVE, "name": "Calma"},
+	{"id": &"brass_dishearten", "metal": &"brass", "legacy_level": 4, "kind": Kind.ACTIVE, "name": "Desaliento"},
+	{"id": &"brass_quiet", "metal": &"brass", "legacy_level": 8, "kind": Kind.PASSIVE, "name": "Sosiego"},
+	{"id": &"brass_yield", "metal": &"brass", "legacy_level": 12, "kind": Kind.ACTIVE, "name": "Rendición"},
+	{"id": &"brass_crowd", "metal": &"brass", "legacy_level": 16, "kind": Kind.ACTIVE, "name": "Sosegar multitud"},
+	{"id": &"brass_peace", "metal": &"brass", "legacy_level": 20, "kind": Kind.ACTIVE, "name": "Paz absoluta"},
 ]
 
 
@@ -123,6 +130,15 @@ const LAYOUTS := {
 			[&"zinc_greed", Vector2(200, 220), [&"zinc_panic"]],
 			[&"zinc_tame", Vector2(345, 130), [&"zinc_greed"]],
 			[&"zinc_storm", Vector2(355, -60), [&"zinc_contagion", &"zinc_tame"]],
+		],
+		# Latón: arriba, apagar a uno (calmar, desalentar, rendir); abajo, pasar desapercibido y calmar a muchos.
+		&"brass": [
+			[&"brass_calm", Vector2(75, -65), [&"root"]],
+			[&"brass_dishearten", Vector2(190, -190), [&"brass_calm"]],
+			[&"brass_yield", Vector2(345, -130), [&"brass_dishearten"]],
+			[&"brass_quiet", Vector2(80, 150), [&"root"]],
+			[&"brass_crowd", Vector2(230, 200), [&"brass_quiet"]],
+			[&"brass_peace", Vector2(380, 40), [&"brass_yield", &"brass_crowd"]],
 		],
 	},
 	&"feruchemy": {},
@@ -351,6 +367,21 @@ const ZINC_CONTAGION_RADIUS := 6.0
 const ZINC_STORM_TIME := 20.0
 const ZINC_STORM_COOLDOWN := 60.0
 const ZINC_STORM_RADIUS := 15.0
+## Latón (L8): duraciones y recargas (s), radios (m) y fracciones, en nivel 1.
+const BRASS_CALM_TIME := 10.0
+const BRASS_CALM_COOLDOWN := 12.0
+const BRASS_DISHEARTEN_TIME := 10.0
+const BRASS_DISHEARTEN_COOLDOWN := 15.0
+const BRASS_QUIET := 0.5  # Sosiego: te ven desde la mitad de distancia
+const BRASS_YIELD_HEALTH := 0.3
+const BRASS_YIELD_XP := 0.5
+const BRASS_YIELD_COOLDOWN := 20.0
+const BRASS_CROWD_TIME := 6.0
+const BRASS_CROWD_RANGE := 10.0
+const BRASS_CROWD_COOLDOWN := 30.0
+const BRASS_PEACE_TIME := 15.0
+const BRASS_PEACE_RADIUS := 15.0
+const BRASS_PEACE_COOLDOWN := 60.0
 const SLAM_COOLDOWN := 12.0
 const SLAM_RADIUS := 6.0
 const FURY_TIME := 8.0
@@ -401,6 +432,12 @@ const DESCRIPTIONS := {
 	&"zinc_tame": "Un toque apuntando a un NPC común: te sigue y pelea por vos 45 s. Los fuertes duran menos y los jefes no se dejan. Mientras está domado, toda la experiencia de lo que mate es tuya.\nSolo uno a la vez: domar a otro suelta al anterior.\nRecarga: 40 s.",
 	&"zinc_contagion": "Pasiva: la Ira y el Pánico que pongas en un NPC se pasan a los que están a 6 m, con la mitad de duración. La ira pelea en cadena y el miedo se vuelve una huida en masa.",
 	&"zinc_storm": "Un toque: a cada NPC a 15 m le das la emoción que mejor le encaja durante 20 s. Ira a los guardias, koloss y alománticos, que se atacan entre ellos (y te llevás el 50 % de la experiencia de esas muertes); pánico a los ciudadanos; y lealtad al más débil que pelee, que pasa a pelear por vos.\nRecarga: 60 s.",
+	&"brass_calm": "Un toque apuntando a un NPC: deja de atacarte y se olvida de vos 10 s. Un golpe tuyo lo despierta.\nQuien quema cobre lo resiste.\nRecarga: 12 s.",
+	&"brass_dishearten": "Un toque apuntando a un NPC: pierde las ganas de pelear 10 s. Pega un 40 % menos, se mueve más lento y no bloquea ni esquiva.\nRecarga: 15 s.",
+	&"brass_quiet": "Pasiva: con latón encendido no llamás la atención. Guardias, soldados, koloss y espectros te notan desde la mitad de distancia (sirve en los tejados y en el contrabando).",
+	&"brass_yield": "Un toque apuntando a un enemigo con menos del 30 % de vida: se rinde. Suelta el arma y su botín, y te da la mitad de su experiencia sin morir. Los jefes no se rinden.\nRecarga: 20 s.",
+	&"brass_crowd": "Un toque: todos los que tenés delante, hasta 10 m, se calman 6 s. Sirve para escapar o cortar una pelea grande.\nRecarga: 30 s.",
+	&"brass_peace": "Un toque: en 15 m y durante 15 s nadie ataca a nadie, ni los koloss. Los jefes solo bajan el ritmo (quedan desalentados). Si golpeás a alguno, despierta solo ese.\nRecarga: 60 s.",
 	&"tin_extreme": "Un toque: durante 12 s ves a todos los que estén hasta 45 m. De frente, se remarca su silueta; detrás de paredes, un humo más marcado que con Oído agudo, en tiempo real.\nEl estaño arde mientras dura.\nRecarga: 35 s.",
 }
 

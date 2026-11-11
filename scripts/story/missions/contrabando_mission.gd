@@ -67,5 +67,5 @@ func _physics_process(_delta: float) -> void:
 	if _done:
 		return
 	for f in _foes:
-		if is_instance_valid(f) and f.global_position.distance_to(player.global_position) < SEEN:
+		if is_instance_valid(f) and f.global_position.distance_to(player.global_position) < Npc.sight(player, SEEN):
 			provoke(f as Champion)

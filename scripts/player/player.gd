@@ -272,7 +272,10 @@ var _was_flaring_pewter := false
 var _soothed_ms := 0
 var _rioted_ms := 0
 var emotions: Emotions
+## Poderes de cinc, latón, cobre, bronce y atium (ver MetalPowers): Player solo los despacha.
 var zinc: ZincPowers
+var brass: BrassPowers
+var metal_powers: Array[MetalPowers] = []
 var _roll_time := 0.0
 var _roll_cd := 0.0
 var _roll_dir := Vector3.ZERO
@@ -367,8 +370,11 @@ func _ready() -> void:
 	emotions.player = self
 	add_child(emotions)
 	zinc = ZincPowers.new()
-	zinc.player = self
-	add_child(zinc)
+	brass = BrassPowers.new()
+	for mp: MetalPowers in [zinc, brass]:
+		mp.player = self
+		metal_powers.append(mp)
+		add_child(mp)
 	_guide = JumpGuide.new()
 	add_child(_guide)
 
@@ -1315,8 +1321,10 @@ func _skill_press(skill: StringName) -> void:
 			_timed_skill(&"tin", start_clear_mind, int(SkillTree.CLEAR_TIME * 1000.0))
 		&"tin_extreme":
 			_timed_skill(&"tin", start_extreme, int(SkillTree.EXTREME_TIME * 1000.0))
-		&"zinc_fury", &"zinc_panic", &"zinc_greed", &"zinc_tame", &"zinc_storm":
-			_timed_skill(&"zinc", zinc.use.bind(skill), SKILL_TAP_BURN_MS)
+		_:
+			var mp := metal_power(skill)
+			if mp:
+				_timed_skill(mp.metal, mp.use.bind(skill), SKILL_TAP_BURN_MS)
 
 
 func _skill_release(skill: StringName) -> void:
@@ -2169,7 +2177,10 @@ func _apply_equipment() -> void:
 
 ## Cuánto se reduce la distancia a la que te ven (ropa oscura y capa de bruma, sobre todo de noche).
 func concealment() -> float:
-	return gear_stat("conceal_night" if Art.lighting == "noche" else "conceal_day")
+	var c := gear_stat("conceal_night" if Art.lighting == "noche" else "conceal_day")
+	for mp in metal_powers:
+		c *= mp.concealment()  # Sosiego (latón), Silencio (cobre)
+	return c
 
 
 ## shortcut: tecla de prueba (F7) para ver las animaciones de Mixamo sin asignar; borrarla cuando
@@ -2270,6 +2281,8 @@ func take_hit(impulse: Vector3, damage: float, attacker: Node3D = null, ranged :
 		return
 	if is_rioted():
 		damage *= 1.25
+	if attacker is Npc and (attacker as Npc).is_disheartened():
+		damage *= 0.6  # Desaliento (latón)
 	if not unblockable:
 		damage *= 1.0 - clampf(gear_stat("armor", true), 0.0, 0.8)
 	if _hanging or _climb_t >= 0.0:
@@ -2917,7 +2930,8 @@ func skill_cooldown(skill: StringName) -> float:
 			return clampf(float(_clear_ready_ms - now) / (SkillTree.CLEAR_COOLDOWN * 1000.0), 0.0, 1.0)
 		&"tin_extreme":
 			return clampf(float(_extreme_ready_ms - now) / (SkillTree.EXTREME_COOLDOWN * 1000.0), 0.0, 1.0)
-	return zinc.cooldown(skill) if zinc.has(skill) else 0.0
+	var mp := metal_power(skill)
+	return mp.cooldown(skill) if mp else 0.0
 
 
 ## Si la habilidad está haciendo algo ahora (agarre sostenido, escudo o campo en marcha), para el HUD.
@@ -2945,7 +2959,8 @@ func skill_active(skill: StringName) -> bool:
 			return marked_npc() != null
 		&"pewter_charge":
 			return _charge_t > 0.0
-	return zinc.active(skill)
+	var mp := metal_power(skill)
+	return mp != null and mp.active(skill)
 
 
 ## Aro sutil en la mira: en el aire, cuando lo que apuntas es algo fijo (suelo, pared, farola) que está al alcance para
@@ -4067,3 +4082,11 @@ func _collect_coins() -> void:
 			coin.queue_free()
 		if coins_held >= COIN_MAX:
 			return
+
+
+## Los poderes de metal que tienen esa habilidad activa (o null).
+func metal_power(skill: StringName) -> MetalPowers:
+	for mp in metal_powers:
+		if mp.has(skill):
+			return mp
+	return null
