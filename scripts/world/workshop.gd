@@ -43,6 +43,7 @@ var _wardrobe: Node3D
 var _trapdoor: Node3D
 var _secret := 0  ## 0 armario en su sitio, 1 armario apartado, 2 trampilla abierta
 var _secret_zone: Interactable
+var _below_zone: Interactable  ## "Abrir la trampilla" desde el sótano
 var _stove_light: OmniLight3D
 var _hearth_light: OmniLight3D
 var _t := 0.0
@@ -480,6 +481,22 @@ func _build_trapdoor() -> void:
 	_cyl(0.07, 0.015, Vector3(-w / 2.0 + 0.25, 0.04, 0), _m["iron"], Basis(), leaf)
 	_secret_zone = Interactable.make(Vector3(2.6, 2.2, 3.4), Vector3(ix - 1.35, 1.1, WARDROBE_Z + 0.3), "Empujar el armario", _use_secret)
 	add_child(_secret_zone)
+	# Desde el sótano, al pie de la escalera: si alguien cerró la trampilla, no quedás encerrado abajo.
+	_below_zone = Interactable.make(Vector3(2.2, 2.4, 5.0), Vector3((STAIR_X.x + STAIR_X.y) / 2.0 - 0.2, -DEPTH + 1.2, STAIR_TOP + STAIR_RUN * 0.6 + 0.4),
+			"Abrir la trampilla", _open_from_below)
+	add_child(_below_zone)
+
+
+## Desde abajo se empuja la trampilla (y, si hace falta, el armario que la tapa): abre todo de una.
+func _open_from_below() -> void:
+	if _secret == 2:
+		return
+	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if _secret == 0:
+		tw.tween_property(_wardrobe, "position:z", WARDROBE_Z + WARDROBE_SLIDE, 1.2)
+	tw.tween_property(_trapdoor, "rotation:z", -deg_to_rad(88.0), 0.8)
+	_secret = 2
+	_secret_zone.set_prompt("Cerrar la trampilla")
 
 
 func _use_secret() -> void:
