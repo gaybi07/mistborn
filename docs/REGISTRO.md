@@ -2,6 +2,18 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-12 · Arreglo · Salir del sótano del taller · Gabi
+- **Rama:** `gabi/arreglo-trampilla` (borrada) · **Merge:** `544129a`
+- **Qué se hizo:** con la trampilla cerrada arriba no había forma de salir del sótano de la banda (el "[E] Abrir la
+  trampilla" solo estaba en la planta baja). Ahora aparece también al pie de la escalera y, si el armario la tapa, lo
+  corre.
+- **Archivos:** `scripts/world/workshop.gd`, `tools/world/workshop_check.gd` (nuevo).
+- **Cómo se probó:** `workshop_check.gd` (con la trampilla cerrada, el cartel aparece abajo y la abre); el juego corre
+  sin errores con lo último de Lucho (L8-L12). Gabi quedó encerrado jugando: lo encontró él.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:** si después de bajar cambios el juego queda gris, abrir el proyecto una vez en el editor
+  (Godot tiene que registrar las clases nuevas).
+
 ### 2026-11-11 · Ajustes de poderes · Latón, cobre, bronce y atium después de probarlos · Lucho
 - **Rama:** `lucho/ajustes-poderes` (borrada) · **Merge:** `2313b72` · **Estado:** ✅ verificada (jugada por Lucho)
 - **Qué se hizo:** lo que salió de probar L8-L11 con Gabi (ver `docs/arbol-de-habilidades.md`). Sosiego suma un aura:
