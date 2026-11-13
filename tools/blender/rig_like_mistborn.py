@@ -12,11 +12,18 @@ import os
 import sys
 
 import bpy
-from mathutils import Vector
+import math
+
+from mathutils import Matrix, Vector
 
 TEXTURE_SIZE = 1024
 MISTBORN = "assets/mixamo/Mistborn.glb"
 WRIST_Z = 1.293  # altura de hand_l en el esqueleto del Mistborn
+MISTBORN_HEIGHT = 1.711
+SHOULDER = Vector((0.18, 1.348))  # (x, z) del hombro (cabeza de upperarm_l)
+T_ANGLE = 7.0  # cuánto bajan los brazos del Mistborn en su pose T (grados)
+A_POSE = 20.0  # de acá para arriba, el personaje no está en T y hay que enderezarlo
+MAX_TRIS = 30000
 
 out_path, char_path = sys.argv[sys.argv.index("--") + 1:]
 
@@ -46,6 +53,71 @@ bpy.context.view_layer.objects.active = body
 body.select_set(True)
 bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+# Personajes pesados (algunos de Meshy pasan el millón de triángulos): a unos 30 000.
+tris = sum(len(p.vertices) - 2 for p in body.data.polygons)
+if tris > MAX_TRIS:
+    dec = body.modifiers.new("menos", "DECIMATE")
+    dec.ratio = MAX_TRIS / tris
+    bpy.ops.object.modifier_apply(modifier=dec.name)
+    print("TRIANGULOS", tris, "->", sum(len(p.vertices) - 2 for p in body.data.polygons))
+
+
+def arm_angle(verts):
+    """Cuánto bajan los brazos desde el hombro (grados): ~7 en la pose T del Mistborn, 40-50 en una pose A."""
+    span = max(abs(v.x) for v in verts)
+    hands = [v for v in verts if abs(v.x) > span * 0.8]
+    hx = sum(abs(v.x) for v in hands) / len(hands)
+    hz = sum(v.z for v in hands) / len(hands)
+    return math.degrees(math.atan2(SHOULDER.y - hz, hx - SHOULDER.x))
+
+
+# Brazos en A (o caídos): los pesos se copian con los brazos del Mistborn bajados al mismo ángulo, y después el
+# personaje se endereza a la T levantando esos mismos huesos. Así sirven las animaciones de siempre.
+zs = [v.co.z for v in body.data.vertices]
+height = max(zs) - min(zs)
+for v in body.data.vertices:
+    v.co.z -= min(zs)
+    v.co *= MISTBORN_HEIGHT / height
+body.data.update()
+angle = arm_angle([v.co for v in body.data.vertices])
+print("BRAZOS", round(angle, 1), "grados")
+if angle > A_POSE:
+    delta = math.radians(angle - T_ANGLE)
+
+    def tilt(sign):
+        for name, s in (("upperarm_l", 1.0), ("upperarm_r", -1.0)):
+            pb = arm.pose.bones[name]
+            head = pb.bone.head_local
+            pb.matrix = Matrix.Translation(head) @ Matrix.Rotation(sign * s * delta, 4, "Y") @ Matrix.Translation(-head) @ pb.bone.matrix_local
+        bpy.context.view_layer.update()
+
+    tilt(1.0)  # el Mistborn con los brazos como el personaje
+    for g in donor.vertex_groups:
+        body.vertex_groups.new(name=g.name)
+    dt = body.modifiers.new("pesos", "DATA_TRANSFER")
+    dt.object = donor
+    dt.use_vert_data = True
+    dt.data_types_verts = {"VGROUP_WEIGHTS"}
+    dt.vert_mapping = "POLYINTERP_NEAREST"
+    dt.layers_vgroup_select_src = "ALL"
+    dt.layers_vgroup_select_dst = "NAME"
+    bpy.ops.object.modifier_apply(modifier=dt.name)
+    for pb in arm.pose.bones:
+        pb.matrix_basis.identity()
+    tilt(-1.0)  # levantar sus brazos lo mismo: el personaje queda en T
+    for pb in arm.pose.bones:  # solo los brazos se mueven: el resto en reposo
+        if pb.name not in ("upperarm_l", "upperarm_r"):
+            pb.matrix_basis.identity()
+    straighten = body.modifiers.new("enderezar", "ARMATURE")
+    straighten.object = arm
+    bpy.context.view_layer.update()
+    bpy.ops.object.modifier_apply(modifier=straighten.name)
+    body.vertex_groups.clear()
+    for pb in arm.pose.bones:
+        pb.matrix_basis.identity()
+    bpy.context.view_layer.update()
+    print("ENDEREZADO: brazos a", round(arm_angle([v.co for v in body.data.vertices]), 1), "grados")
 
 # Altura de las muñecas del personaje: la de los vértices de las manos (los más alejados en X).
 verts = [v.co for v in body.data.vertices]

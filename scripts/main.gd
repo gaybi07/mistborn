@@ -1059,3 +1059,4 @@ func _vial(pos: Vector3, kind: StringName) -> void:
 ## La gente aparece cuando te acercás (ver GateForces): lejos del jugador el terreno no tiene colisión y se caerían.
 func _spawn_people() -> void:
 	add_child(GateForces.new())
+	add_child(SkaaCrews.new())  # G25: vuelven las cuadrillas y los que pasean (desde 7f2ad4b no estaban), ya todos de Meshy

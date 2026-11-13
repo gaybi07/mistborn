@@ -1,7 +1,7 @@
 """Junta un personaje de Meshy (FBX "All animation", esqueleto de Mixamo) en un solo .glb para el juego.
 
 Uso (desde la carpeta del proyecto):
-  blender -b -P tools/blender/meshy_to_glb.py -- <salida.glb> <textura.png> <modelo.fbx> [más_clips.fbx ...] [viejo=nuevo ...]
+  blender -b -P tools/blender/meshy_to_glb.py -- <salida.glb> <textura.png o -> <modelo.fbx> [más_clips.fbx ...] [viejo=nuevo ...]
 
 - <modelo.fbx> da la malla, el esqueleto y sus clips; los demás FBX (otras tandas del mismo personaje,
   con el mismo esqueleto) solo suman clips. Si un clip se repite queda el primero.
@@ -104,8 +104,10 @@ for name, action in clips.items():
         strip.action_slot = action.slots[0]
     track.mute = True
 
-# La textura viene aparte: mate, sin metal.
-img = bpy.data.images.load(texture)
+# La textura viene aparte (o, con "-", ya viene adentro del FBX): mate, sin metal.
+img = bpy.data.images.load(texture) if texture != "-" else next((i for i in bpy.data.images if i.size[0] > 0), None)
+if img is None:
+    raise SystemExit("sin textura: ni aparte ni adentro del FBX")
 if img.size[0] > TEXTURE_SIZE:
     img.scale(TEXTURE_SIZE, TEXTURE_SIZE)
 for slot in body.material_slots:
