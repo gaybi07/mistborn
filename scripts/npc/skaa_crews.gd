@@ -7,7 +7,7 @@ const ACTIVE_RADIUS := 80.0
 const FREE_RADIUS := 100.0
 const SITE_STEP := 45.0  # uno cada tantos metros de calle
 const SITE_GAP := 30.0
-const MAX_SITES := 6  # activos a la vez
+const MAX_SITES := 4  # activos a la vez (G25: con 6 y la gente nueva, la plaza bajaba a 30 FPS)
 const SPAWN_EVERY := 0.1  # de a uno, para que aparecer no trabe el juego
 const MEGAKIT := "res://assets/quaternius/megakit/%s.gltf"
 const KIT_SCALE := 3.2  # los de ModelKit vienen chicos (ver Main)
@@ -55,6 +55,8 @@ func _ready() -> void:
 	var rig := Art.skaa_rig()
 	var paths: Array = Art.SKAA_MODELS + [SkaaGirl.MODEL, rig.retarget_from, rig.extra_donors[0][0], ModelKit.path("props/Cart")]
 	rig.free()
+	for who: String in Art.NOBLES + Art.SKAA_PEOPLE:
+		paths.append(who if who.begins_with("res://") else Art.MESHY % who)
 	for spec: Dictionary in CREWS.values():
 		for prop: String in spec["props"]:
 			if not prop.begins_with("props/"):
@@ -175,7 +177,13 @@ func _start(site: Dictionary) -> void:
 		_add_girl(crew, site["pos"] - n * 3.2, d, _yaw_towards(n))
 	for i in spec.get("walkers", 1):
 		var walker := Citizen.new()
-		walker.skaa = true
+		# G25: en los barrios ricos pasean nobles (y algún sirviente skaa); en los obreros, skaa de todo tipo.
+		if site["kind"] == "paseo" and randf() < 0.75:
+			walker.meshy_model = Art.NOBLES.pick_random()
+		else:
+			walker.skaa = true
+			if randf() < 0.5:
+				walker.meshy_model = Art.SKAA_PEOPLE.pick_random()
 		walker.stay_in_plaza = false
 		walker.home = _on_ground(site["pos"] + d * randf_range(-12.0, 12.0))
 		walker.roam_radius = 14.0

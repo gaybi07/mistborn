@@ -16,8 +16,12 @@ const HAZEKILLERS := "Bosque Muerto"
 const HAZEKILLER_POST := Vector2(-620, 620)
 ## [modelo, XZ, radio por el que pasea]. Los lugares salen de Story.PLACES. "Soldado" y "Obligador" son de la guardia imperial.
 const PEOPLE := [
-	["GordoNoble", Vector2(-18, 10), 18.0], ["GordoNoble", Vector2(-29, 30), 18.0], ["GordoNoble", Vector2(25, 14), 18.0],
-	["GordoNoble", Vector2(16, 2), 18.0], ["GordoNoble", Vector2(-29, 14), 18.0], ["GordoNoble", Vector2(-5, 14), 18.0],
+	["GordoNoble", Vector2(-18, 10), 18.0], ["gente/Dama1", Vector2(-29, 30), 18.0], ["gente/Noble1", Vector2(25, 14), 18.0],
+	["gente/Dama2", Vector2(16, 2), 18.0], ["gente/Noble2", Vector2(-29, 14), 18.0], ["res://assets/skaa/NobleH3.glb", Vector2(-5, 14), 18.0],
+	["gente/Alomantico1", Vector2(10, -20), 18.0], ["gente/SkaaViejo", Vector2(-20, -16), 12.0], ["gente/SkaaNino2", Vector2(-12, 22), 16.0],
+	# Guardia de la ciudad (G25): de a dos en las entradas de la plaza y en el mercado.
+	["Guardia", Vector2(36, -3), 0.0], ["Guardia", Vector2(36, 3), 0.0], ["Guardia", Vector2(-36, -3), 0.0], ["Guardia", Vector2(-36, 3), 0.0],
+	["Guardia", Vector2(52, -165), 4.0], ["Guardia", Vector2(88, -165), 4.0],
 	["Obligador", Vector2(14, 0), 0.0], ["Obligador", Vector2(4.3, 13.3), 0.0], ["Obligador", Vector2(-11.3, 8.2), 0.0],
 	["Obligador", Vector2(-11.3, -8.2), 0.0], ["Obligador", Vector2(4.3, -13.3), 0.0],
 	["Terrisano", Vector2(-57, 176), 5.0], ["Clubs", Vector2(-63, 177), 3.0], ["Ham", Vector2(-53, 173), 5.0],
@@ -81,8 +85,11 @@ func _ready() -> void:
 	_posts.append({"gate": [HAZEKILLERS, HAZEKILLER_POST, Vector2.UP, Vector2.RIGHT], "node": null, "at": HAZEKILLER_POST})
 	for i in PEOPLE.size():
 		_posts.append({"gate": ["persona %d" % i, PEOPLE[i][1], Vector2.DOWN, Vector2.RIGHT], "node": null, "at": PEOPLE[i][1]})
+	for v: Array in vendors():
+		_posts.append({"gate": ["vendedor", v[1], v[3], Vector2.RIGHT], "node": null, "at": v[1], "spec": v})
 	for model in ["KolossJoven", "KolossAdulto", "LordRuler", "MistbornHood", "Mataneblino", "Soldado", "GordoNoble", "Obligador", "Espectro"]:
 		_keep.append(load(Art.MESHY % model))
+	_keep.append(load(Art.GUARD_MODEL))
 
 
 func _process(delta: float) -> void:
@@ -111,7 +118,11 @@ func _process(delta: float) -> void:
 
 func _start(post: Dictionary) -> void:
 	var gate: Array = post["gate"]
-	var foes := _foes_of(gate[0])
+	var foes: Array[Npc] = []
+	if post.has("spec"):
+		foes.append(_person(post["spec"]))
+	else:
+		foes = _foes_of(gate[0])
 	var node := Node3D.new()  # en el origen del mundo: lo de adentro se ubica en coordenadas globales
 	add_child(node)
 	post["node"] = node
@@ -122,6 +133,8 @@ func _start(post: Dictionary) -> void:
 		foe.position = foe.home + Vector3.UP * 0.1
 		foe.rotation.y = atan2(gate[2].x, gate[2].y)  # mirando a la ciudad
 		foe.stay_in_plaza = false
+		if post.has("spec"):  # el vendedor mira a la plaza (Npc gira hacia face_point cuando está quieto)
+			foe.face_point = foe.home - Vector3(gate[2].x, 0, gate[2].y) * 5.0
 		foe.set_meta(&"post", node)
 		_queue.append(foe)
 
@@ -155,6 +168,21 @@ static func _foes_of(gate_name: String) -> Array[Npc]:
 	return foes
 
 
+## Uno detrás de cada puesto de la Plaza Central (10, a 27 m) y del mercado (8, a 12,5 m; ver Main), mirando a la
+## plaza: [modelo, XZ, 0, hacia afuera] (_start los pone de espaldas a esa dirección, como a los de las puertas). El puesto de lona tiene el mostrador adelante; la carpa, la mesa al medio.
+static func vendors() -> Array:
+	var out := []
+	for i in 10:
+		var a := TAU * (i + 0.5) / 10.0
+		var out_dir := Vector2(cos(a), sin(a))
+		out.append([Art.VENDORS[i], out_dir * (27.0 + (0.3 if i % 3 != 2 else 1.1)), 0.0, out_dir])
+	for i in 8:
+		var a := TAU * i / 8.0 + 0.2
+		var out_dir := Vector2(cos(a), sin(a))
+		out.append([Art.VENDORS[(i + 3) % Art.VENDORS.size()], CityPlan.MARKET + out_dir * (12.5 + (0.3 if i % 2 == 0 else 1.1)), 0.0, out_dir])
+	return out
+
+
 static func _person(spec: Array) -> Npc:
 	if spec[0] == "Espectro":
 		var wraith := MistWraith.new()
@@ -165,7 +193,8 @@ static func _person(spec: Array) -> Npc:
 		guard.kit = spec[0]
 		return guard
 	var c := Citizen.new()
-	c.meshy_model = spec[0]
+	c.meshy_model = Art.GUARD_MODEL if spec[0] == "Guardia" else spec[0]
+	c.brave = spec[0] == "Guardia"
 	c.roam_radius = spec[2]
 	if spec[0] == "Cett":
 		c.add_child((load("res://assets/quaternius/props/Bench_1.glb") as PackedScene).instantiate())

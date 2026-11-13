@@ -55,7 +55,7 @@ static func footprint(model_path: String, scale: float) -> float:
 
 
 ## Modelos que se atraviesan por un hueco (portones de la muralla, glorieta) o con aleros y galerías (casas de Meshy): colisión exacta.
-const OPEN_MODELS := ["Entrance", "Gazebo", "CasaSkaa", "Porton"]
+const OPEN_MODELS := ["Entrance", "Gazebo", "CasaSkaa", "Porton", "Puesto"]  # Puesto: el vendedor se para detrás del mostrador
 
 
 ## Colisión de un modelo: una envolvente convexa por pieza (maciza: no se puede entrar al hueco de

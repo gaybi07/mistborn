@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | — | — | — |
+| Gabi | G25. Más gente en la ciudad | `gabi/g25-gente` | 2026-11-12 |
 
 ## Cómo trabajamos
 
@@ -177,7 +177,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [x] 🧪 **G24. Modelos propios del campamento koloss** (los pasó Gabi, 13 de Meshy): torre, refugio, trono, jaula,
   tambor, efigies, tótem, barricada, cajón, barril y tres espadones, ya en el campamento.
   — *en develop 2026-11-10, rama `gabi/g24-campamento-koloss` (borrada), merge `cd31c50`; falta revisar (ronda 2)*
-- [ ] **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
+- [ ] 🔄 **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
   skaa caminando y trabajando, nobles paseando con su séquito (mayordomo, doncella, guardia), mercaderes en los
   puestos, y lo mismo en las Aldeas del Camino Sur (300 casas: tiene que verse lleno). Medir los FPS con la gente
   nueva (hoy los NPC tienen esqueleto y animación cada uno). Hoy hay pocos modelos: skaa adultos 2 (`Skaa`,
@@ -194,6 +194,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   - Mercader: `Portly merchant, long coat over vest, coin purse at belt, cap, shrewd smile, full body, T-pose, no weapons`
   - Cochero: `Coachman in long dark coat and wide hat, scarf, gloves, full body, T-pose, no weapons`
   Listo cuando la ciudad y la aldea se ven llenas de gente variada y los FPS aguantan.
+  — *en curso: Gabi, rama `gabi/g25-gente`, desde 2026-11-12 (llegaron 30 modelos)*
 - [ ] **G26. Carretas y caballos** (después de que Gabi pase los modelos): carretas de carga y carruajes de nobles que
   andan por las calles y los caminos (Puerta Sur ↔ aldea, Puerta Este ↔ campamento koloss), tirados por caballos, con
   cochero (G25). También caballos en los establos y corrales de la aldea. **Modelos que faltan:**

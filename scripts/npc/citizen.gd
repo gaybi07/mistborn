@@ -26,7 +26,8 @@ var _threat: Node3D
 ## Modelo de skaa: un SkaaWorker que dejó de trabajar (ver SkaaWorker._flee).
 var skaa := false
 var skaa_model := ""  # el del SkaaWorker que huye, para que no cambie de cara
-var meshy_model := ""  # personaje de Art.meshy_rig en vez de skaa o noble (los obligadores)
+var meshy_model := ""  # personaje de Art.meshy_rig en vez de skaa o noble (los obligadores); "res://", Art.upright_rig
+var brave := false  # no huye (los guardias)
 const KOLOSS_FEAR := 14.0
 
 
@@ -55,6 +56,8 @@ func _make_look() -> Dictionary:
 
 
 func _role() -> String:
+	if meshy_model.begins_with("res://"):
+		return "upright:" + meshy_model
 	if meshy_model != "":
 		return "meshy:" + meshy_model
 	if skaa:
@@ -69,7 +72,7 @@ func _setup() -> void:
 	walk_speed = 0.72 if skaa else randf_range(1.1, 1.6)  # la de sad_walk
 	run_speed = randf_range(4.0, 5.5)
 	if meshy_model != "":
-		var pace: float = Art.CIVILIANS[meshy_model]["pace"]
+		var pace: float = Art.CIVILIANS.get(meshy_model, {}).get("pace", 1.0)
 		walk_speed *= pace
 		run_speed *= pace
 	_until = randf_range(0.0, 3.0)
@@ -81,7 +84,7 @@ func _think(delta: float) -> void:
 	if is_rioted():
 		_brawl()
 		return
-	if _player and not is_soothed() and _is_threatened():
+	if _player and not brave and not is_soothed() and _is_threatened():
 		if mode != Mode.FLEE:
 			_replan_at = 0.0
 		mode = Mode.FLEE

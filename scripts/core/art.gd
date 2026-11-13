@@ -223,7 +223,21 @@ const NPC_MAX_HEIGHT := 3.0
 static var npc_use_koloss := true
 
 
-const SKAA_MODELS := ["res://assets/skaa/Skaa.glb", "res://assets/skaa/SkaaObrero.glb"]
+const SKAA_MODELS := ["res://assets/skaa/Skaa.glb", "res://assets/skaa/SkaaObrero.glb",
+	# G25: los que llegaron sin rig (tools/blender/rig_like_mistborn.py los pasa al esqueleto del Mistborn).
+	"res://assets/skaa/SkaaH1.glb", "res://assets/skaa/SkaaH1b.glb", "res://assets/skaa/SkaaH2.glb",
+	"res://assets/skaa/SkaaH3.glb", "res://assets/skaa/SkaaH4.glb", "res://assets/skaa/SkaaH5.glb",
+	"res://assets/skaa/SkaaH7.glb", "res://assets/skaa/SkaaM4.glb", "res://assets/skaa/SkaaM5.glb",
+	"res://assets/skaa/NobleH4.glb"]
+## Gente de la calle (G25). Los "res://" son de rig_like_mistborn (Art.upright_rig); el resto, claves de CIVILIANS.
+const NOBLES := ["GordoNoble", "gente/Noble1", "gente/Noble2", "gente/Dama1", "gente/Dama2", "gente/Alomantico1",
+	"gente/Alomantico3", "res://assets/skaa/NobleH3.glb", "res://assets/skaa/NobleH5.glb"]
+const SKAA_PEOPLE := ["gente/SkaaMujer1", "gente/SkaaMujer2", "gente/SkaaMujer3", "gente/SkaaHombre6",
+	"gente/SkaaNina2", "gente/SkaaNino2", "gente/SkaaVieja", "gente/SkaaViejo", "gente/Alomantico2"]
+const VENDORS := ["res://assets/skaa/SkaaH4.glb", "gente/SkaaMujer1", "gente/SkaaMujer2", "gente/SkaaVieja",
+	"gente/Alomantico3", "gente/SkaaHombre6", "res://assets/skaa/SkaaH3.glb", "gente/SkaaMujer3",
+	"res://assets/skaa/NobleH4.glb", "res://assets/skaa/SkaaM5.glb"]
+const GUARD_MODEL := "res://assets/skaa/GuardiaImp.glb"
 
 
 ## Skaa de Meshy con el esqueleto y las animaciones del Mistborn; lo que le falte, de KayKit y Mixamo.
@@ -237,6 +251,13 @@ static func skaa_rig(model := "") -> ModelRig:
 	rig.extra_donors = [["res://assets/mixamo/MixamoSpells.glb", BoneTools.MIXAMO_TO_UE]]
 	# Tranquilo camina encorvado; huyendo corre como el Mistborn (no con el clip chibi de KayKit).
 	rig.anim_overrides = {"idle": ["sad_idle", "idle"], "walk": ["sad_walk", "walk"], "flee": ["sprint"]}
+	return rig
+
+
+## Alguien con el esqueleto del Mistborn que camina derecho (nobles, vendedores, guardias): como skaa_rig, sin encorvarse.
+static func upright_rig(model: String) -> ModelRig:
+	var rig := skaa_rig(model)
+	rig.anim_overrides = {"flee": ["sprint"]}
 	return rig
 
 
@@ -280,6 +301,22 @@ const CIVILIANS := {
 	"Cett": {"height": 1.7, "pace": 0.0, "idle": "Chair_Sit_Idle_F"},  # en el libro no camina: está sentado
 	"NinoSkaa": {"height": 1.3, "pace": 1.3, "idle": "Idle_02"},
 	"NinaSkaa": {"height": 1.2, "pace": 1.35, "idle": "Idle_02"},
+	# G25: gente de la calle, ya riggeada en Meshy (assets/meshy/gente, tools/blender/meshy_to_glb.py).
+	"gente/Noble1": {"height": 1.8, "pace": 0.85, "idle": "Idle_12"},
+	"gente/Noble2": {"height": 1.75, "pace": 0.85, "idle": "Idle_11"},
+	"gente/Dama1": {"height": 1.68, "pace": 0.8, "idle": "Idle_12"},
+	"gente/Dama2": {"height": 1.65, "pace": 0.8, "idle": "Idle_11"},
+	"gente/Alomantico1": {"height": 1.78, "pace": 1.0, "idle": "Alert"},
+	"gente/Alomantico2": {"height": 1.74, "pace": 1.0, "idle": "Alert"},
+	"gente/Alomantico3": {"height": 1.76, "pace": 0.8, "idle": "Idle_11"},
+	"gente/SkaaMujer1": {"height": 1.62, "pace": 0.9, "idle": "Idle_02"},
+	"gente/SkaaMujer2": {"height": 1.6, "pace": 0.9, "idle": "Idle_02"},
+	"gente/SkaaMujer3": {"height": 1.64, "pace": 0.95, "idle": "Idle_02"},
+	"gente/SkaaHombre6": {"height": 1.76, "pace": 0.95, "idle": "Idle_11"},
+	"gente/SkaaNina2": {"height": 1.25, "pace": 1.3, "idle": "Idle_02"},
+	"gente/SkaaNino2": {"height": 1.3, "pace": 1.3, "idle": "Idle_02"},
+	"gente/SkaaVieja": {"height": 1.55, "pace": 0.6, "idle": "Idle_02"},
+	"gente/SkaaViejo": {"height": 1.75, "pace": 0.6, "idle": "Idle_11"},
 }
 
 
@@ -342,6 +379,8 @@ static func npc_rig(role: String, look: Dictionary) -> HumanoidRig:
 		var wraith := WraithRig.new()
 		wraith.height = look.get("height", 2.2)
 		return wraith
+	if role.begins_with("upright:"):
+		return upright_rig(role.trim_prefix("upright:"))
 	if role.begins_with("meshy:"):
 		return meshy_rig(role.trim_prefix("meshy:"))
 	if role == "noble":
