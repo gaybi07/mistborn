@@ -2,6 +2,34 @@
 
 Lo agrega la skill `tarea` al mergear cada tarea a develop. Lo más nuevo, arriba.
 
+### 2026-11-12 · G25 · Más gente en la ciudad · Gabi
+- **Rama:** `gabi/g25-gente` (borrada) · **Merge:** `619eef6` · **Estado:** 🧪 falta revisar (ronda 2)
+- **Qué se hizo:**
+  - **Modelos de MESHY 3D:** 15 ya riggeados pasaron a `assets/meshy/gente` (nobles, damas, alománticos, skaa
+    mujeres, chicos y viejos). 13 sin rig pasaron a `assets/skaa` con el esqueleto del Mistborn.
+  - **`rig_like_mistborn.py`:** ahora achica los de más de 30 000 triángulos y endereza a la pose T los que vienen con
+    los brazos en A. El guardia imperial y el noble 5 venían con el rig propio de Meshy: se les sacó la malla y se
+    riggearon igual.
+  - **Cuadrillas skaa:** `SkaaCrews` no se creaba desde `7f2ad4b` (4/11); vuelve. En los barrios ricos los que pasean
+    son nobles (y algún sirviente). En los obreros hay skaa de todo tipo.
+  - **Plaza Central y Mercado:** un vendedor detrás de cada puesto y guardias imperiales en las entradas.
+  - **Puestos:** colisión cóncava, para poder pararse detrás del mostrador.
+- **Archivos:** `scripts/core/art.gd` (`NOBLES`, `SKAA_PEOPLE`, `VENDORS`, `upright_rig`), `scripts/npc/citizen.gd`
+  (`brave`, modelos `res://`), `scripts/npc/gate_forces.gd` (`vendors()`), `scripts/npc/skaa_crews.gd`,
+  `scripts/main.gd`, `scripts/world/model_kit.gd`, `tools/blender/rig_like_mistborn.py`,
+  `tools/blender/meshy_to_glb.py` (textura adentro del FBX).
+- **Cómo se probó:**
+  - Fotos en el juego: vendedores detrás del mostrador, nobles en Viviendas de mercaderes, cuadrilla en el Distrito
+    Skaa y guardias.
+  - FPS en esta máquina: plaza de 41 a 30 y mercado de 51 a 38 (de 11 a 33 personas), barrio noble 46.
+  - `quest_check`, `tramo_check`, `taller_check` y `workshop_check` pasan; corre sin errores de script; la
+    progresión real sigue en nivel 9.
+- **Conflictos:** ninguno.
+- **Pendiente o pedidos:**
+  - Falta: mayordomo, doncella y cochero (séquitos, G26), `GUARDIA_COMUN_1.skip` (salteado por el nombre) y medir la
+    aldea con gente.
+  - Los guardias no pelean: son gente que no huye. Si tienen que pelear, hace falta un kit de campeón con sus clips.
+
 ### 2026-11-12 · Arreglo · Salir del sótano del taller · Gabi
 - **Rama:** `gabi/arreglo-trampilla` (borrada) · **Merge:** `544129a`
 - **Qué se hizo:** con la trampilla cerrada arriba no había forma de salir del sótano de la banda (el "[E] Abrir la

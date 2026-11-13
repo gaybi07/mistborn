@@ -29,19 +29,20 @@ Los textos de abajo son una base: cambialos si algo no te cierra.
 
 ## 3. Gente para la ciudad y los pueblos (G25)
 
-Hoy hay 2 skaa adultos, 2 chicos y 1 noble: por eso se ve todo repetido. Con estos se llenan la ciudad y las aldeas.
+Llegaron 28 (G25, 12/11): skaa de todas las edades, nobles, damas, alománticos, un mercader y un guardia imperial. Faltan
+mayordomo, doncella y cochero (para los séquitos y las carretas).
 
 | Quién | Texto |
 |---|---|
-| Skaa mujer adulta | `Gaunt skaa woman in her thirties, ragged brown dress and shawl, ash-stained, tired face, full body, T-pose, no weapons` |
-| Skaa viejo | `Old skaa man, bent back, ragged gray clothes, bald with white stubble, ash-stained, full body, T-pose, no weapons` |
-| Skaa vieja | `Old skaa woman, hunched, patched dark dress and headscarf, ash-stained, full body, T-pose, no weapons` |
-| Skaa joven trabajador | `Skinny young skaa laborer, torn shirt and rolled trousers, soot on face, full body, T-pose, no weapons` |
-| Noble dama | `Elegant noblewoman, layered ball gown with corset, styled hair, gloves, haughty expression, full body, T-pose` |
-| Noble joven | `Young nobleman, tailored dark suit with cravat and vest, slicked hair, full body, T-pose, no weapons` |
+| ~~Skaa mujer adulta~~ ✅ llegó (G25) | `Gaunt skaa woman in her thirties, ragged brown dress and shawl, ash-stained, tired face, full body, T-pose, no weapons` |
+| ~~Skaa viejo~~ ✅ llegó (G25) | `Old skaa man, bent back, ragged gray clothes, bald with white stubble, ash-stained, full body, T-pose, no weapons` |
+| ~~Skaa vieja~~ ✅ llegó (G25) | `Old skaa woman, hunched, patched dark dress and headscarf, ash-stained, full body, T-pose, no weapons` |
+| ~~Skaa joven trabajador~~ ✅ llegó (G25) | `Skinny young skaa laborer, torn shirt and rolled trousers, soot on face, full body, T-pose, no weapons` |
+| ~~Noble dama~~ ✅ llegó (G25) | `Elegant noblewoman, layered ball gown with corset, styled hair, gloves, haughty expression, full body, T-pose` |
+| ~~Noble joven~~ ✅ llegó (G25) | `Young nobleman, tailored dark suit with cravat and vest, slicked hair, full body, T-pose, no weapons` |
 | Mayordomo | `Stern middle-aged butler, black tailcoat, white gloves, gray side-parted hair, upright posture, full body, T-pose` |
 | Doncella | `Young house maid, dark dress with white apron and cap, modest, full body, T-pose` |
-| Mercader | `Portly merchant, long coat over vest, coin purse at belt, cap, shrewd smile, full body, T-pose, no weapons` |
+| ~~Mercader~~ ✅ llegó (G25) | `Portly merchant, long coat over vest, coin purse at belt, cap, shrewd smile, full body, T-pose, no weapons` |
 | Cochero | `Coachman in long dark coat and wide hat, scarf, gloves, full body, T-pose, no weapons` |
 
 ## 4. Para volver a exportar

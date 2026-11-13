@@ -13,7 +13,7 @@ rama y merge).
 | Quién | Tarea | Rama | Desde |
 |---|---|---|---|
 | Lucho | — | — | — |
-| Gabi | G25. Más gente en la ciudad | `gabi/g25-gente` | 2026-11-12 |
+| Gabi | — | — | — |
 
 ## Cómo trabajamos
 
@@ -177,7 +177,7 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [x] 🧪 **G24. Modelos propios del campamento koloss** (los pasó Gabi, 13 de Meshy): torre, refugio, trono, jaula,
   tambor, efigies, tótem, barricada, cajón, barril y tres espadones, ya en el campamento.
   — *en develop 2026-11-10, rama `gabi/g24-campamento-koloss` (borrada), merge `cd31c50`; falta revisar (ronda 2)*
-- [ ] 🔄 **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
+- [ ] 🧪 **G25. Mucha más gente en la ciudad y los pueblos** (después de que Gabi pase los modelos de abajo): muchos más
   skaa caminando y trabajando, nobles paseando con su séquito (mayordomo, doncella, guardia), mercaderes en los
   puestos, y lo mismo en las Aldeas del Camino Sur (300 casas: tiene que verse lleno). Medir los FPS con la gente
   nueva (hoy los NPC tienen esqueleto y animación cada uno). Hoy hay pocos modelos: skaa adultos 2 (`Skaa`,
@@ -194,7 +194,8 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
   - Mercader: `Portly merchant, long coat over vest, coin purse at belt, cap, shrewd smile, full body, T-pose, no weapons`
   - Cochero: `Coachman in long dark coat and wide hat, scarf, gloves, full body, T-pose, no weapons`
   Listo cuando la ciudad y la aldea se ven llenas de gente variada y los FPS aguantan.
-  — *en curso: Gabi, rama `gabi/g25-gente`, desde 2026-11-12 (llegaron 30 modelos)*
+  — *en develop 2026-11-12, rama `gabi/g25-gente` (borrada), merge `619eef6`; falta revisar (ronda 2). Faltan los
+  séquitos (mayordomo, doncella) y el cochero, y medir la aldea con gente*
 - [ ] **G26. Carretas y caballos** (después de que Gabi pase los modelos): carretas de carga y carruajes de nobles que
   andan por las calles y los caminos (Puerta Sur ↔ aldea, Puerta Este ↔ campamento koloss), tirados por caballos, con
   cochero (G25). También caballos en los establos y corrales de la aldea. **Modelos que faltan:**
@@ -248,6 +249,17 @@ en `SKILLS` y `LAYOUTS`, y pedido de animación para cada activa. Al terminar, e
 - [ ] **Misiones en general (G1/G2):** el cartel de la plaza con E, el objetivo bajo la brújula y el marcador en pantalla.
 
 ### Ronda 2 (abierta desde 2026-11-10)
+
+- [ ] **G25. Gente en la ciudad** (28 modelos nuevos):
+  - [ ] la Plaza Central: un vendedor detrás de cada puesto, mirando a la plaza; nobles y damas paseando; dos guardias
+    imperiales en las entradas este y oeste;
+  - [ ] el Mercado (noreste): vendedores en los ocho puestos, guardias a los costados;
+  - [ ] los barrios ricos (Noble, Mercantil, mercaderes, Laderas): grupos de 4 que pasean, casi todos nobles;
+  - [ ] los barrios obreros y la aldea: vuelven las cuadrillas skaa trabajando (estaban apagadas desde el 4/11);
+  - [ ] los 13 que llegaron sin rig (skaa, nobles y el guardia) usan el esqueleto del Mistborn: ¿caminan bien? ¿los
+    brazos, que venían en A, se ven bien al moverse?
+  - [ ] los FPS: en esta máquina la plaza bajó de 41 a 30 y el mercado de 51 a 38 (de 11 a 33 personas). ¿Se
+    juega bien? Si no, bajar gente o animar más lento a los que están lejos.
 
 - [ ] **G6. Aldeas del Camino Sur** (saliendo por la Puerta Sur, unos 300 m por el camino). Pueblo grande: 300 casas
   (pedido del 10/11: chico 50, mediano 100, grande 300), amurallado, con mansión noble y granjas:
